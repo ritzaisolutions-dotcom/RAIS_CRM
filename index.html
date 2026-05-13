@@ -432,7 +432,7 @@ function render() {
     tbody.innerHTML = sl.map(function(c) {
       const ovr = (c.followup && c.followup < t) ? ' ov' : '';
       const note = (c.t1_status || c.besonderheit || c.notiz || '').slice(0, 55);
-      return '<tr class="' + ovr + '" onclick="openP('' + c.id + '')">' +
+      return '<tr class="' + ovr + '" onclick="openP(\'' + c.id + '\')">' +
         '<td class="fc">'  + esc(c.firma) + '</td>' +
         '<td>'             + esc(c.kontakt || '—') + '</td>' +
         '<td><a href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()" style="color:#2C5F8A;text-decoration:none;font-family:monospace;font-size:12.5px">' + esc(c.telefon || '—') + '</a></td>' +
@@ -442,8 +442,8 @@ function render() {
         '<td class="nc" title="' + esc((c.t1_status||'') + ' ' + (c.besonderheit||'')) + '">' + esc(note) + (note.length === 55 ? '…' : '') + '</td>' +
         '<td style="font-family:sans-serif;font-size:12px;color:#7B746B">' + (c.reviews || '—') + '</td>' +
         '<td onclick="event.stopPropagation()"><div class="ra">' +
-          '<button class="btn bg bsm" onclick="openE('' + c.id + '')" title="Bearbeiten">&#9998;</button>' +
-          '<button class="btn bg bsm" onclick="del('' + c.id + '')" title="Loeschen">&#128465;</button>' +
+          '<button class="btn bg bsm" onclick="openE(\'' + c.id + '\')" title="Bearbeiten">&#9998;</button>' +
+          '<button class="btn bg bsm" onclick="del(\'' + c.id + '\')" title="Loeschen">&#128465;</button>' +
         '</div></td>' +
       '</tr>';
     }).join('');
@@ -496,11 +496,11 @@ function openP(id) {
     '</div></div></div>';
 
   document.getElementById('pFoot').innerHTML =
-    '<button class="btn bp bsm" onclick="openE('' + id + '');closeP()">Bearbeiten</button>' +
-    '<button class="btn bs bsm" onclick="qs('' + id + '','nicht_erreicht')">Nicht erreicht</button>' +
-    '<button class="btn bs bsm" onclick="qs('' + id + '','interessiert')">Interessiert</button>' +
-    '<button class="btn bs bsm" onclick="qs('' + id + '','termin')">Termin</button>' +
-    '<button class="btn bs bsm" onclick="qs('' + id + '','kein_interesse')">Kein Interesse</button>';
+    '<button class="btn bp bsm" onclick="openE(\'' + id + '\');closeP()">Bearbeiten</button>' +
+    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'nicht_erreicht\')">Nicht erreicht</button>' +
+    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'interessiert\')">Interessiert</button>' +
+    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'termin\')">Termin</button>' +
+    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'kein_interesse\')">Kein Interesse</button>';
 
   document.getElementById('po').classList.add('on');
 }
