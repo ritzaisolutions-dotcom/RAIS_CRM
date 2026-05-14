@@ -506,7 +506,8 @@ const SB_HDR  = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Conten
 async function sbFetch(path, opts) {
   const r = await fetch(SB_URL + path, Object.assign({ headers: SB_HDR }, opts));
   if (!r.ok) throw new Error(await r.text());
-  return r.json();
+  const txt = await r.text();
+  return txt ? JSON.parse(txt) : [];
 }
 
 async function syncCloud() {
