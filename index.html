@@ -76,12 +76,20 @@ td { padding: 9px 12px; vertical-align: middle; }
 
 /* Badges */
 .badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 700; letter-spacing: .3px; font-family: sans-serif; text-transform: uppercase; }
-.b-neu   { background: #EDF4FA; color: #2C5F8A; }
+.b-neu   { background: #F5F5F5;  color: #555; border: 1px solid #DDD; }
+.b-ka    { background: #FFFBE6;  color: #856400; }
+.b-gk    { background: #FFF0E0;  color: #C05000; }
+.b-cb    { background: #E8F0FF;  color: #2048A8; }
+.b-en    { background: #F3E8FF;  color: #6B2FA8; }
+.b-dt    { background: #E8F8EE;  color: #1A7A40; border: 1px solid #A8D8B8; }
+.b-ns    { background: #FFF0F0;  color: #C03030; }
+.b-dq    { background: #FFE8E8;  color: #A00000; font-style: italic; }
+.b-gw    { background: #D4F0DC;  color: #0A5C24; border: 1px solid #7DC896; font-weight: 800; }
+/* legacy compat */
 .b-ni    { background: #FDF0EF; color: var(--rd); }
 .b-fu    { background: #FEF3EE; color: var(--or); }
 .b-in    { background: #EEF3EA; color: var(--pn); }
 .b-te    { background: #EEF3EA; color: var(--pn); border: 1px solid var(--sg); }
-.b-gk    { background: #FEF8EC; color: var(--yw); }
 .b-ib    { background: #F0EBF8; color: #6B46A8; }
 .b-ki    { background: #F0EDE8; color: var(--st); }
 
@@ -239,17 +247,22 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
 
 /* Inline dropdowns */
 .idd { border: none; border-radius: 3px; font-size: 11px; font-weight: 700; font-family: sans-serif; cursor: pointer; padding: 2px 4px; outline: none; letter-spacing: .3px; text-transform: uppercase; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23888'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 4px center; padding-right: 14px; }
-.roi-dd { background-color: #EDF4FA; color: #2C5F8A; }
-.roi-dd:focus { box-shadow: 0 0 0 2px #2C5F8A44; }
+.roi-dd       { background-color: #F0EDE8; color: #B0A898; border: 1px solid #D9D1C7; }
+.roi-0        { background-color: #F0EDE8; color: #B0A898; }
+.roi-1        { background-color: #EDF4FA; color: #2C5F8A; }
+.roi-2        { background-color: #FEF8EC; color: #A06800; }
+.roi-3        { background-color: #EEF3EA; color: #3C5A2A; }
+.roi-dd:focus { box-shadow: 0 0 0 2px rgba(0,0,0,.1); }
 .st-dd { }
-.st-neu            { background: #EDF4FA; color: #2C5F8A; }
-.st-nicht_erreicht { background: #FDF0EF; color: #C0392B; }
-.st-gatekeeper     { background: #FEF8EC; color: #A06800; }
-.st-followup       { background: #FEF3EE; color: #EC6A37; }
-.st-interessiert   { background: #EEF3EA; color: #3C5A2A; }
-.st-termin         { background: #EEF3EA; color: #3C5A2A; border: 1px solid #789464; }
-.st-in_bearbeitung { background: #F0EBF8; color: #6B46A8; }
-.st-kein_interesse { background: #F0EDE8; color: #7B746B; }
+.st-neu            { background: #F5F5F5;  color: #555;    border: 1px solid #DDD; }
+.st-kein_anschluss { background: #FFFBE6;  color: #856400; }
+.st-gatekeeper     { background: #FFF0E0;  color: #C05000; }
+.st-callback       { background: #E8F0FF;  color: #2048A8; }
+.st-email_nurture  { background: #F3E8FF;  color: #6B2FA8; }
+.st-demo_termin    { background: #E8F8EE;  color: #1A7A40; border: 1px solid #A8D8B8; }
+.st-no_show        { background: #FFF0F0;  color: #C03030; }
+.st-disqualified   { background: #FFE8E8;  color: #A00000; }
+.st-gewonnen       { background: #D4F0DC;  color: #0A5C24; font-weight: 800; }
 
 /* Sync button */
 #syncBtn { border-color: #6B9FD4; color: #2C5F8A; }
@@ -319,15 +332,17 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
   </div>
 
   <div class="stats">
-    <div class="stat on" id="s-all" onclick="setF('all')"><span class="sn" id="c-all">0</span><span class="sl">Gesamt</span></div>
-    <div class="stat" id="s-neu" onclick="setF('neu')"><span class="sn" id="c-neu">0</span><span class="sl">Neu</span></div>
-    <div class="stat" id="s-ni"  onclick="setF('nicht_erreicht')"><span class="sn" id="c-ni">0</span><span class="sl">Nicht erreicht</span></div>
-    <div class="stat" id="s-fu"  onclick="setF('followup')"><span class="sn" id="c-fu">0</span><span class="sl">Follow-up</span></div>
-    <div class="stat" id="s-in"  onclick="setF('interessiert')"><span class="sn" id="c-in">0</span><span class="sl">Interessiert</span></div>
-    <div class="stat" id="s-te"  onclick="setF('termin')"><span class="sn" id="c-te">0</span><span class="sl">Termin</span></div>
-    <div class="stat" id="s-gk"  onclick="setF('gatekeeper')"><span class="sn" id="c-gk">0</span><span class="sl">Gatekeeper</span></div>
-    <div class="stat" id="s-ki"  onclick="setF('kein_interesse')"><span class="sn" id="c-ki">0</span><span class="sl">Kein Interesse</span></div>
-    <div class="stat" id="s-heute" onclick="setF('heute')"><span class="sn" id="c-heute">0</span><span class="sl">&#128197; Heute</span></div>
+    <div class="stat on" id="s-all"   onclick="setF('all')">          <span class="sn" id="c-all">0</span>  <span class="sl">Gesamt</span></div>
+    <div class="stat" id="s-neu"      onclick="setF('neu')">          <span class="sn" id="c-neu">0</span>  <span class="sl">Neu</span></div>
+    <div class="stat" id="s-ka"       onclick="setF('kein_anschluss')"><span class="sn" id="c-ka">0</span>  <span class="sl">Kein Anschluss</span></div>
+    <div class="stat" id="s-gk"       onclick="setF('gatekeeper')">   <span class="sn" id="c-gk">0</span>  <span class="sl">Gatekeeper</span></div>
+    <div class="stat" id="s-cb"       onclick="setF('callback')">     <span class="sn" id="c-cb">0</span>  <span class="sl">Callback</span></div>
+    <div class="stat" id="s-en"       onclick="setF('email_nurture')"><span class="sn" id="c-en">0</span>  <span class="sl">Email Nurture</span></div>
+    <div class="stat" id="s-dt"       onclick="setF('demo_termin')">  <span class="sn" id="c-dt">0</span>  <span class="sl">Demo Termin</span></div>
+    <div class="stat" id="s-ns"       onclick="setF('no_show')">      <span class="sn" id="c-ns">0</span>  <span class="sl">No Show</span></div>
+    <div class="stat" id="s-dq"       onclick="setF('disqualified')"> <span class="sn" id="c-dq">0</span>  <span class="sl">Disqualified</span></div>
+    <div class="stat" id="s-gw"       onclick="setF('gewonnen')">     <span class="sn" id="c-gw">0</span>  <span class="sl">Gewonnen</span></div>
+    <div class="stat" id="s-heute"    onclick="setF('heute')">        <span class="sn" id="c-heute">0</span><span class="sl">&#128197; Heute</span></div>
   </div>
 
   <div class="tb">
@@ -412,13 +427,14 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
       <div class="fr2">
         <div><label>Status</label><select class="fs2" id="es">
           <option value="neu">Neu</option>
-          <option value="nicht_erreicht">Nicht erreicht</option>
+          <option value="kein_anschluss">Kein Anschluss</option>
           <option value="gatekeeper">Gatekeeper</option>
-          <option value="followup">Follow-up</option>
-          <option value="interessiert">Interessiert</option>
-          <option value="termin">Termin vereinbart</option>
-          <option value="in_bearbeitung">In Bearbeitung</option>
-          <option value="kein_interesse">Kein Interesse</option>
+          <option value="callback">Callback</option>
+          <option value="email_nurture">Email Nurture</option>
+          <option value="demo_termin">Demo Termin</option>
+          <option value="no_show">No Show</option>
+          <option value="disqualified">Disqualified</option>
+          <option value="gewonnen">Gewonnen</option>
         </select></div>
         <div><label>Follow-up Datum</label><input type="date" id="efu"><div class="fu-shortcuts"><button type="button" onclick="shiftFU(1)">+1d</button><button type="button" onclick="shiftFU(3)">+3d</button><button type="button" onclick="shiftFU(7)">+7d</button><button type="button" onclick="shiftFU(14)">+14d</button></div></div>
       </div>
@@ -572,13 +588,15 @@ function td() { return new Date().toISOString().slice(0,10); }
 
 const SM = {
   neu:           ['b-neu', 'Neu'],
-  nicht_erreicht:['b-ni',  'Nicht erreicht'],
-  followup:      ['b-fu',  'Follow-up'],
-  interessiert:  ['b-in',  'Interessiert'],
-  termin:        ['b-te',  'Termin'],
+  kein_anschluss:['b-ni',  'Kein Anschluss'],
   gatekeeper:    ['b-gk',  'Gatekeeper'],
-  in_bearbeitung:['b-ib',  'In Bearb.'],
-  kein_interesse:['b-ki',  'Kein Interesse'],
+  callback:      ['b-fu',  'Callback'],
+  email_nurture: ['b-ib',  'Email Nurture'],
+  interessiert:  ['b-in',  'Interessiert'],
+  demo_termin:   ['b-te',  'Demo Termin'],
+  no_show:       ['b-ns',  'No Show'],
+  disqualified:  ['b-ki',  'Disqualified'],
+  gewonnen:      ['b-gw',  'Gewonnen'],
 };
 
 function sbadge(s) {
@@ -644,8 +662,9 @@ function getList() {
 function setF(f) {
   flt = f; pg = 1; dueMode = false;
   document.querySelectorAll('.stat').forEach(function(el) { el.classList.remove('on'); });
-  const map = {all:'s-all', neu:'s-neu', nicht_erreicht:'s-ni', followup:'s-fu',
-               interessiert:'s-in', termin:'s-te', gatekeeper:'s-gk', kein_interesse:'s-ki', heute:'s-heute'};
+  const map = {all:'s-all', neu:'s-neu', kein_anschluss:'s-ka', gatekeeper:'s-gk',
+               callback:'s-cb', email_nurture:'s-en', demo_termin:'s-dt',
+               no_show:'s-ns', disqualified:'s-dq', gewonnen:'s-gw', heute:'s-heute'};
   if (map[f]) document.getElementById(map[f]).classList.add('on');
   render();
 }
@@ -656,13 +675,15 @@ function render() {
   const cnt = {all: contacts.length};
   Object.keys(SM).forEach(function(k) { cnt[k] = contacts.filter(function(c) { return c.status === k; }).length; });
   document.getElementById('c-all').textContent = cnt.all;
-  document.getElementById('c-neu').textContent = cnt.neu || 0;
-  document.getElementById('c-ni').textContent  = cnt.nicht_erreicht || 0;
-  document.getElementById('c-fu').textContent  = cnt.followup || 0;
-  document.getElementById('c-in').textContent  = cnt.interessiert || 0;
-  document.getElementById('c-te').textContent  = cnt.termin || 0;
-  document.getElementById('c-gk').textContent  = cnt.gatekeeper || 0;
-  document.getElementById('c-ki').textContent  = cnt.kein_interesse || 0;
+  document.getElementById('c-neu').textContent = cnt.neu          || 0;
+  document.getElementById('c-ka').textContent  = cnt.kein_anschluss || 0;
+  document.getElementById('c-gk').textContent  = cnt.gatekeeper   || 0;
+  document.getElementById('c-cb').textContent  = cnt.callback     || 0;
+  document.getElementById('c-en').textContent  = cnt.email_nurture|| 0;
+  document.getElementById('c-dt').textContent  = cnt.demo_termin  || 0;
+  document.getElementById('c-ns').textContent  = cnt.no_show      || 0;
+  document.getElementById('c-dq').textContent  = cnt.disqualified || 0;
+  document.getElementById('c-gw').textContent  = cnt.gewonnen     || 0;
 
   const due = contacts.filter(function(c) { return c.followup && c.followup <= t; }).length;
   document.getElementById('c-heute').textContent = due;
@@ -719,14 +740,15 @@ function render() {
           '<option value="3"' + (c.roi==3?' selected':'') + '>③ Hoch</option>' +
         '</select></td>' +
         '<td onclick="event.stopPropagation()"><select class="idd st-dd st-' + (c.status||'neu') + '" data-id="' + c.id + '" onchange="inlineST(this)">' +
-          '<option value="neu"'            + (c.status==='neu'?            ' selected':'') + '>Neu</option>' +
-          '<option value="nicht_erreicht"' + (c.status==='nicht_erreicht'? ' selected':'') + '>Nicht erreicht</option>' +
-          '<option value="gatekeeper"'     + (c.status==='gatekeeper'?     ' selected':'') + '>Gatekeeper</option>' +
-          '<option value="followup"'       + (c.status==='followup'?       ' selected':'') + '>Follow-up</option>' +
-          '<option value="interessiert"'   + (c.status==='interessiert'?   ' selected':'') + '>Interessiert</option>' +
-          '<option value="termin"'         + (c.status==='termin'?         ' selected':'') + '>Termin</option>' +
-          '<option value="in_bearbeitung"' + (c.status==='in_bearbeitung'? ' selected':'') + '>In Bearbeitung</option>' +
-          '<option value="kein_interesse"' + (c.status==='kein_interesse'? ' selected':'') + '>Kein Interesse</option>' +
+          '<option value="neu"'           + (c.status==='neu'?           ' selected':'') + '>Neu</option>' +
+          '<option value="kein_anschluss"'+ (c.status==='kein_anschluss'? ' selected':'') + '>Kein Anschluss</option>' +
+          '<option value="gatekeeper"'    + (c.status==='gatekeeper'?    ' selected':'') + '>Gatekeeper</option>' +
+          '<option value="callback"'      + (c.status==='callback'?      ' selected':'') + '>Callback</option>' +
+          '<option value="email_nurture"' + (c.status==='email_nurture'? ' selected':'') + '>Email Nurture</option>' +
+          '<option value="demo_termin"'   + (c.status==='demo_termin'?   ' selected':'') + '>Demo Termin</option>' +
+          '<option value="no_show"'       + (c.status==='no_show'?       ' selected':'') + '>No Show</option>' +
+          '<option value="disqualified"'  + (c.status==='disqualified'?  ' selected':'') + '>Disqualified</option>' +
+          '<option value="gewonnen"'      + (c.status==='gewonnen'?      ' selected':'') + '>Gewonnen</option>' +
         '</select></td>' +
         '<td onclick="event.stopPropagation()" class="fu-cell"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onchange="inlineFU(this)" title="Follow-up Datum"></td>' +
         '<td class="notiz-cell" onclick="event.stopPropagation()">' +
@@ -826,10 +848,10 @@ function openP(id) {
 
   document.getElementById('pFoot').innerHTML =
     '<button class="btn bp bsm" onclick="openE(\'' + id + '\');closeP()">&#9998; Stammdaten</button>' +
-    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'nicht_erreicht\')">Nicht erreicht</button>' +
-    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'interessiert\')">Interessiert</button>' +
-    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'termin\')">Termin</button>' +
-    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'kein_interesse\')">Kein Interesse</button>';
+    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'kein_anschluss\')">Kein Anschluss</button>' +
+    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'callback\')">Callback</button>' +
+    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'demo_termin\')" style="color:#1A7A40;border-color:#A8D8B8">Demo Termin</button>' +
+    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'disqualified\')" style="color:#A00000">Disqualified</button>';
 
   document.getElementById('po').classList.add('on');
 }
