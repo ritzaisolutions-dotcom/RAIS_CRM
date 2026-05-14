@@ -182,6 +182,70 @@ textarea { resize: vertical; min-height: 68px; }
 .ih { font-size: 12px; color: var(--st); margin-top: 10px; font-family: sans-serif; line-height: 1.6; background: var(--bg); padding: 9px 13px; border-radius: 4px; border: 1px solid var(--bd); }
 .ih code { background: var(--bd); padding: 1px 4px; border-radius: 2px; font-size: 11px; }
 
+/* Anruf-Counter */
+.call-bar { display: flex; align-items: center; gap: 6px; font-family: sans-serif; font-size: 12px; color: var(--st); margin-bottom: 10px; background: var(--sf); border: 1px solid var(--bd); border-radius: 5px; padding: 6px 12px; }
+.call-lbl strong { color: var(--or); font-size: 14px; }
+.call-sep { color: var(--bd); }
+
+/* Heute-Tab */
+#s-heute { border-color: var(--or); }
+#s-heute .sn { color: var(--or); }
+#s-heute.on { background: #FEF3EE; }
+
+/* Follow-up inline date */
+.fu-cell { padding: 4px 8px !important; }
+.idd-date { border: 1px solid var(--bd); border-radius: 3px; font-size: 11px; font-family: sans-serif; padding: 2px 4px; background: var(--sf); color: var(--ch); cursor: pointer; outline: none; width: 116px; }
+.idd-date:focus { border-color: var(--or); }
+
+/* Datum-Shortcuts */
+.fu-shortcuts { display: flex; gap: 4px; margin-top: 4px; }
+.fu-shortcuts button { padding: 2px 8px; font-size: 11px; font-family: sans-serif; font-weight: 600; border: 1px solid var(--bd); border-radius: 3px; background: var(--sf); color: var(--st); cursor: pointer; }
+.fu-shortcuts button:hover { border-color: var(--or); color: var(--or); }
+
+/* Relatives Alter in Notiz-Spalte */
+.age-lbl { display: inline-block; margin-left: 5px; font-size: 10px; color: #B0A898; font-style: italic; white-space: nowrap; }
+
+/* Gewerk-Badge */
+.gw-badge { display: inline-block; margin-left: 5px; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; font-family: sans-serif; letter-spacing: .4px; text-transform: uppercase; vertical-align: middle; }
+.gw-fl  { background: #E8F4FF; color: #1E6FA8; }
+.gw-el  { background: #FFF8E0; color: #8A6200; }
+.gw-san { background: #E8F5EE; color: #2E7D52; }
+.gw-hzg { background: #FFF0E8; color: #C04A00; }
+.gw-mal { background: #F3E8FF; color: #6B3FA0; }
+.gw-zim { background: #E8F0E8; color: #3A5A2A; }
+.gw-dach{ background: #F5EEE8; color: #7A4A2A; }
+.gw-schr{ background: #E8EEF5; color: #2A4A7A; }
+.gw-sls { background: #F5E8E8; color: #8A2A2A; }
+.gw-grst{ background: #E8F5F5; color: #2A6A6A; }
+.gw-gar { background: #EEF5E8; color: #3A6A2A; }
+.gw-rei { background: #EEE8F5; color: #4A2A8A; }
+.gw-son { background: #F0EDE8; color: #7B746B; }
+
+/* Schnellnotiz Popup */
+.qn-pop { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); }
+.qn-inner { background: var(--sf); border-radius: 8px; width: 360px; box-shadow: 0 8px 32px rgba(0,0,0,.2); }
+.qn-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px 8px; border-bottom: 1px solid var(--bd); }
+.qn-title { font-weight: 700; font-size: 13px; font-family: sans-serif; color: var(--ch); }
+.qn-ta { width: 100%; padding: 10px 16px; border: none; border-bottom: 1px solid var(--bd); font-size: 13px; font-family: sans-serif; color: var(--ch); background: transparent; resize: vertical; min-height: 80px; outline: none; }
+.qn-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 8px 12px; }
+
+/* Keyboard focus row */
+tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
+
+/* Inline dropdowns */
+.idd { border: none; border-radius: 3px; font-size: 11px; font-weight: 700; font-family: sans-serif; cursor: pointer; padding: 2px 4px; outline: none; letter-spacing: .3px; text-transform: uppercase; appearance: none; -webkit-appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23888'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 4px center; padding-right: 14px; }
+.roi-dd { background-color: #EDF4FA; color: #2C5F8A; }
+.roi-dd:focus { box-shadow: 0 0 0 2px #2C5F8A44; }
+.st-dd { }
+.st-neu            { background: #EDF4FA; color: #2C5F8A; }
+.st-nicht_erreicht { background: #FDF0EF; color: #C0392B; }
+.st-gatekeeper     { background: #FEF8EC; color: #A06800; }
+.st-followup       { background: #FEF3EE; color: #EC6A37; }
+.st-interessiert   { background: #EEF3EA; color: #3C5A2A; }
+.st-termin         { background: #EEF3EA; color: #3C5A2A; border: 1px solid #789464; }
+.st-in_bearbeitung { background: #F0EBF8; color: #6B46A8; }
+.st-kein_interesse { background: #F0EDE8; color: #7B746B; }
+
 /* Sync button */
 #syncBtn { border-color: #6B9FD4; color: #2C5F8A; }
 #syncBtn:hover { border-color: var(--or); color: var(--or); }
@@ -241,6 +305,14 @@ textarea { resize: vertical; min-height: 68px; }
     <button class="btn bs bsm" onclick="filterDue()">Nur diese</button>
   </div>
 
+  <!-- Anruf-Counter -->
+  <div class="call-bar">
+    <span class="call-lbl">&#128222; Anrufe heute: <strong id="callToday">0</strong></span>
+    <span class="call-sep">·</span>
+    <span class="call-lbl">Diese Woche: <strong id="callWeek">0</strong></span>
+    <button class="btn bg bsm" onclick="resetCallCount()" title="Zähler zurücksetzen" style="margin-left:4px;font-size:11px">&#8635;</button>
+  </div>
+
   <div class="stats">
     <div class="stat on" id="s-all" onclick="setF('all')"><span class="sn" id="c-all">0</span><span class="sl">Gesamt</span></div>
     <div class="stat" id="s-neu" onclick="setF('neu')"><span class="sn" id="c-neu">0</span><span class="sl">Neu</span></div>
@@ -250,6 +322,7 @@ textarea { resize: vertical; min-height: 68px; }
     <div class="stat" id="s-te"  onclick="setF('termin')"><span class="sn" id="c-te">0</span><span class="sl">Termin</span></div>
     <div class="stat" id="s-gk"  onclick="setF('gatekeeper')"><span class="sn" id="c-gk">0</span><span class="sl">Gatekeeper</span></div>
     <div class="stat" id="s-ki"  onclick="setF('kein_interesse')"><span class="sn" id="c-ki">0</span><span class="sl">Kein Interesse</span></div>
+    <div class="stat" id="s-heute" onclick="setF('heute')"><span class="sn" id="c-heute">0</span><span class="sl">&#128197; Heute</span></div>
   </div>
 
   <div class="tb">
@@ -277,10 +350,10 @@ textarea { resize: vertical; min-height: 68px; }
       <option value="Sonstiges">Sonstiges</option>
     </select>
     <select class="fs" id="sortS" onchange="render()">
+      <option value="rev">Reviews &#8595;</option>
       <option value="fu">Follow-up &#8593;</option>
       <option value="roi">ROI &#8595;</option>
       <option value="name">Firma A–Z</option>
-      <option value="rev">Reviews &#8595;</option>
       <option value="new">Zuletzt hinzugefügt</option>
     </select>
     <div class="coltog">
@@ -341,7 +414,7 @@ textarea { resize: vertical; min-height: 68px; }
           <option value="in_bearbeitung">In Bearbeitung</option>
           <option value="kein_interesse">Kein Interesse</option>
         </select></div>
-        <div><label>Follow-up Datum</label><input type="date" id="efu"></div>
+        <div><label>Follow-up Datum</label><input type="date" id="efu"><div class="fu-shortcuts"><button type="button" onclick="shiftFU(1)">+1d</button><button type="button" onclick="shiftFU(3)">+3d</button><button type="button" onclick="shiftFU(7)">+7d</button><button type="button" onclick="shiftFU(14)">+14d</button></div></div>
       </div>
       <div class="fr2">
         <div><label>ROI</label><select class="fs2" id="er"><option value="1">1 — Niedrig</option><option value="2">2 — Mittel</option><option value="3">3 — Hoch</option></select></div>
@@ -388,6 +461,18 @@ textarea { resize: vertical; min-height: 68px; }
 </div>
 
 <div id="toast" class="toast"></div>
+
+<!-- Schnellnotiz Mini-Popup -->
+<div id="qnPop" class="qn-pop" style="display:none">
+  <div class="qn-inner">
+    <div class="qn-top"><span id="qnTitle" class="qn-title"></span><button class="btn bg" onclick="closeQN()">&#10005;</button></div>
+    <textarea id="qnText" class="qn-ta" placeholder="Notiz…"></textarea>
+    <div class="qn-foot">
+      <button class="btn bs bsm" onclick="closeQN()">Abbrechen</button>
+      <button class="btn bp bsm" onclick="saveQN()">Speichern</button>
+    </div>
+  </div>
+</div>
 
 <script>
 
@@ -515,6 +600,7 @@ function getList() {
   const gewF   = document.getElementById('gewerkF').value;
   const srt    = document.getElementById('sortS').value;
   let list = contacts.filter(function(c) {
+    if (flt === 'heute') { const t = td(); return c.followup && c.followup <= t; }
     if (flt !== 'all' && c.status !== flt) return false;
     if (roi && String(c.roi || 1) !== roi) return false;
     if (gewF && (c.gewerk || '') !== gewF) return false;
@@ -551,7 +637,7 @@ function setF(f) {
   flt = f; pg = 1; dueMode = false;
   document.querySelectorAll('.stat').forEach(function(el) { el.classList.remove('on'); });
   const map = {all:'s-all', neu:'s-neu', nicht_erreicht:'s-ni', followup:'s-fu',
-               interessiert:'s-in', termin:'s-te', gatekeeper:'s-gk', kein_interesse:'s-ki'};
+               interessiert:'s-in', termin:'s-te', gatekeeper:'s-gk', kein_interesse:'s-ki', heute:'s-heute'};
   if (map[f]) document.getElementById(map[f]).classList.add('on');
   render();
 }
@@ -571,8 +657,10 @@ function render() {
   document.getElementById('c-ki').textContent  = cnt.kein_interesse || 0;
 
   const due = contacts.filter(function(c) { return c.followup && c.followup <= t; }).length;
+  document.getElementById('c-heute').textContent = due;
   document.getElementById('banner').classList.toggle('on', due > 0);
   document.getElementById('bannerC').textContent = due;
+  renderCalls();
 
   // Dynamic thead
   function thS(col, lbl) {
@@ -582,6 +670,7 @@ function render() {
   }
   function thF(lbl, sty) { return '<th' + (sty ? ' style="' + sty + '"' : '') + '>' + lbl + '</th>'; }
   document.getElementById('thead').innerHTML = '<tr>' +
+    thF('#','width:36px;text-align:right;color:#B0A898;font-size:10px') +
     thS('firma','Firma') + thF('Ansprechpartner') + thF('Telefon') +
     thS('roi','ROI') + thS('status','Status') + thS('followup','Follow-up') +
     thF('T1 / Notiz') + thS('reviews','Reviews') +
@@ -605,24 +694,40 @@ function render() {
     empty.style.display = 'block';
   } else {
     empty.style.display = 'none';
-    tbody.innerHTML = sl.map(function(c) {
+    const pageOffset = (pg - 1) * PG;
+    tbody.innerHTML = sl.map(function(c, i) {
       const ovr = (c.followup && c.followup < t) ? ' ov' : '';
       const t1  = (c.touches && c.touches[0]) || {};
       const note = (t1.status || t1.notiz || c.besonderheit || c.notiz || '').slice(0, 55);
       return '<tr class="' + ovr + '" onclick="openP(\'' + c.id + '\')">' +
-        '<td class="fc">' + esc(c.firma) + '</td>' +
+        '<td style="text-align:right;font-family:sans-serif;font-size:11px;color:#B0A898;padding-right:10px;user-select:none">' + (pageOffset + i + 1) + '</td>' +
+        '<td class="fc">' + esc(c.firma) + (c.gewerk ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>' : '') + '</td>' +
         '<td>' + esc(c.kontakt || '—') + '</td>' +
         '<td><a href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()" style="color:#2C5F8A;text-decoration:none;font-family:monospace;font-size:12.5px">' + esc(c.telefon || '—') + '</a></td>' +
-        '<td>' + roib(c.roi) + '</td>' +
-        '<td>' + sbadge(c.status) + '</td>' +
-        '<td>' + fdc(c.followup) + '</td>' +
-        '<td class="nc" title="' + esc((t1.status||'') + ' ' + (c.besonderheit||'')) + '">' + esc(note) + (note.length === 55 ? '…' : '') + '</td>' +
+        '<td onclick="event.stopPropagation()"><select class="idd roi-dd" data-id="' + c.id + '" onchange="inlineROI(this)">' +
+          '<option value="1"' + (c.roi==1?' selected':'') + '>① Niedrig</option>' +
+          '<option value="2"' + (c.roi==2?' selected':'') + '>② Mittel</option>' +
+          '<option value="3"' + (c.roi==3?' selected':'') + '>③ Hoch</option>' +
+        '</select></td>' +
+        '<td onclick="event.stopPropagation()"><select class="idd st-dd st-' + (c.status||'neu') + '" data-id="' + c.id + '" onchange="inlineST(this)">' +
+          '<option value="neu"'            + (c.status==='neu'?            ' selected':'') + '>Neu</option>' +
+          '<option value="nicht_erreicht"' + (c.status==='nicht_erreicht'? ' selected':'') + '>Nicht erreicht</option>' +
+          '<option value="gatekeeper"'     + (c.status==='gatekeeper'?     ' selected':'') + '>Gatekeeper</option>' +
+          '<option value="followup"'       + (c.status==='followup'?       ' selected':'') + '>Follow-up</option>' +
+          '<option value="interessiert"'   + (c.status==='interessiert'?   ' selected':'') + '>Interessiert</option>' +
+          '<option value="termin"'         + (c.status==='termin'?         ' selected':'') + '>Termin</option>' +
+          '<option value="in_bearbeitung"' + (c.status==='in_bearbeitung'? ' selected':'') + '>In Bearbeitung</option>' +
+          '<option value="kein_interesse"' + (c.status==='kein_interesse'? ' selected':'') + '>Kein Interesse</option>' +
+        '</select></td>' +
+        '<td onclick="event.stopPropagation()" class="fu-cell"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onchange="inlineFU(this)" title="Follow-up Datum"></td>' +
+        '<td class="nc" onclick="openP(\'' + c.id + '\')" title="' + esc((t1.status||'') + ' ' + (c.besonderheit||'')) + '">' + esc(note) + (note.length === 55 ? '…' : '') + (t1.datum ? '<span class="age-lbl">' + relAge(t1.datum) + '</span>' : (c.created ? '<span class="age-lbl">' + relAge(new Date(c.created).toISOString().slice(0,10)) + '</span>' : '')) + '</td>' +
         '<td style="font-family:sans-serif;font-size:12px;color:#7B746B">' + esc(c.reviews || '—') + '</td>' +
         (colVis.website ? '<td style="text-align:center" onclick="event.stopPropagation()">' + (c.website ? '<a class="wlink" href="' + esc(c.website) + '" target="_blank" rel="noopener" title="' + esc(c.website) + '">&#127760;</a>' : '<span class="wlink-none">&#127760;</span>') + '</td>' : '') +
         (colVis.stadt   ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.stadt  || '—') + '</td>' : '') +
         (colVis.region  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.region || '—') + '</td>' : '') +
         (colVis.gewerk  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.gewerk || '—') + '</td>' : '') +
         '<td onclick="event.stopPropagation()"><div class="ra">' +
+          '<button class="btn bg bsm" onclick="openQN(\'' + c.id + '\')" title="Schnellnotiz">&#128221;</button>' +
           '<button class="btn bg bsm" onclick="openE(\'' + c.id + '\')" title="Bearbeiten">&#9998;</button>' +
           '<button class="btn bg bsm" onclick="del(\'' + c.id + '\')" title="Löschen">&#128465;</button>' +
         '</div></td>' +
@@ -721,8 +826,140 @@ function closeP() { document.getElementById('po').classList.remove('on'); }
 function qs(id, s) {
   const c = contacts.find(function(x) { return x.id === id; });
   if (!c) return;
+  if (c.status !== s) bumpCall();
   c.status = s; persist(); render(); closeP();
   toast('Status: ' + (SM[s] ? SM[s][1] : s));
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function relAge(dateStr) {
+  if (!dateStr) return '';
+  const diff = Math.floor((new Date(td()) - new Date(dateStr)) / 86400000);
+  if (diff === 0) return 'heute';
+  if (diff === 1) return 'gestern';
+  if (diff < 7)  return 'vor ' + diff + 'd';
+  if (diff < 30) return 'vor ' + Math.floor(diff/7) + 'w';
+  if (diff < 365)return 'vor ' + Math.floor(diff/30) + 'mo';
+  return 'vor ' + Math.floor(diff/365) + 'j';
+}
+
+const GKUERZEL = {
+  'Fliesenleger':'FL','Elektriker':'EL','Sanitär':'SAN','Heizung':'HZG',
+  'Maler':'MAL','Zimmerer':'ZIM','Dachdecker':'DACH','Schreiner':'SCHR',
+  'Schlosser':'SLS','Gerüstbauer':'GRST','Gartenbau':'GAR','Reinigung':'REI','Sonstiges':'SON'
+};
+const GSLUG = {
+  'Fliesenleger':'fl','Elektriker':'el','Sanitär':'san','Heizung':'hzg',
+  'Maler':'mal','Zimmerer':'zim','Dachdecker':'dach','Schreiner':'schr',
+  'Schlosser':'sls','Gerüstbauer':'grst','Gartenbau':'gar','Reinigung':'rei','Sonstiges':'son'
+};
+function gewerkKuerzel(g) { return GKUERZEL[g] || g.slice(0,3).toUpperCase(); }
+function gewerkSlug(g)    { return GSLUG[g]    || 'son'; }
+
+// ── Inline Follow-up ──────────────────────────────────────────────────────────
+function inlineFU(inp) {
+  const c = contacts.find(function(x) { return x.id === inp.dataset.id; });
+  if (!c) return;
+  c.followup = inp.value;
+  persist(); render();
+}
+
+// ── Datum-Shortcuts ───────────────────────────────────────────────────────────
+function shiftFU(days) {
+  const el = document.getElementById('efu');
+  const base = el.value ? new Date(el.value) : new Date();
+  base.setDate(base.getDate() + days);
+  el.value = base.toISOString().slice(0,10);
+}
+
+// ── Schnellnotiz ──────────────────────────────────────────────────────────────
+let qnId = null;
+function openQN(id) {
+  const c = contacts.find(function(x) { return x.id === id; });
+  if (!c) return;
+  qnId = id;
+  document.getElementById('qnTitle').textContent = c.firma;
+  document.getElementById('qnText').value = c.notiz || c.besonderheit || '';
+  document.getElementById('qnPop').style.display = 'flex';
+  setTimeout(function() { document.getElementById('qnText').focus(); }, 50);
+}
+function closeQN() { document.getElementById('qnPop').style.display = 'none'; qnId = null; }
+function saveQN() {
+  const c = contacts.find(function(x) { return x.id === qnId; });
+  if (!c) return;
+  c.notiz = document.getElementById('qnText').value.trim();
+  c.besonderheit = c.notiz;
+  persist(); render(); closeQN();
+  toast('Notiz gespeichert.');
+}
+
+// ── Anruf-Counter ─────────────────────────────────────────────────────────────
+const CC_KEY = 'rais_crm_calls';
+function loadCalls() {
+  try { return JSON.parse(localStorage.getItem(CC_KEY)) || {}; } catch(e) { return {}; }
+}
+function isoWeek(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  return t.getUTCFullYear() + '-W' + Math.ceil((((t - new Date(Date.UTC(t.getUTCFullYear(),0,1))) / 86400000) + 1) / 7);
+}
+function bumpCall() {
+  const calls = loadCalls();
+  const today = td(); const week = isoWeek(new Date());
+  calls[today] = (calls[today] || 0) + 1;
+  calls['w:' + week] = (calls['w:' + week] || 0) + 1;
+  localStorage.setItem(CC_KEY, JSON.stringify(calls));
+  renderCalls();
+}
+function resetCallCount() {
+  if (!confirm('Anruf-Zähler zurücksetzen?')) return;
+  localStorage.removeItem(CC_KEY); renderCalls();
+}
+function renderCalls() {
+  const calls = loadCalls();
+  const today = td(); const week = isoWeek(new Date());
+  const ct = document.getElementById('callToday'); if (ct) ct.textContent = calls[today] || 0;
+  const cw = document.getElementById('callWeek');  if (cw) cw.textContent = calls['w:' + week] || 0;
+}
+
+// ── Heute-Tab ─────────────────────────────────────────────────────────────────
+// (integriert in setF / getList — 'heute' filtert fällige Follow-ups)
+
+// ── Keyboard Navigation ───────────────────────────────────────────────────────
+let kbIdx = -1;
+function kbRows() { return Array.from(document.querySelectorAll('#tbody tr')); }
+function kbMove(delta) {
+  const rows = kbRows(); if (!rows.length) return;
+  rows.forEach(function(r) { r.classList.remove('kb-focus'); });
+  kbIdx = Math.max(0, Math.min(rows.length - 1, kbIdx + delta));
+  rows[kbIdx].classList.add('kb-focus');
+  rows[kbIdx].scrollIntoView({ block: 'nearest' });
+}
+function kbOpen() {
+  const rows = kbRows();
+  if (kbIdx >= 0 && rows[kbIdx]) rows[kbIdx].click();
+}
+function kbEdit() {
+  const rows = kbRows();
+  if (kbIdx < 0 || !rows[kbIdx]) return;
+  const btn = rows[kbIdx].querySelector('button[title="Bearbeiten"]');
+  if (btn) btn.click();
+}
+
+function inlineROI(sel) {
+  const c = contacts.find(function(x) { return x.id === sel.dataset.id; });
+  if (!c) return;
+  c.roi = parseInt(sel.value) || 1;
+  sel.className = 'idd roi-dd';
+  persist(); render();
+}
+function inlineST(sel) {
+  const c = contacts.find(function(x) { return x.id === sel.dataset.id; });
+  if (!c) return;
+  const prev = c.status;
+  c.status = sel.value;
+  if (prev !== c.status) bumpCall();
+  persist(); render();
 }
 
 // ── Edit ──────────────────────────────────────────────────────────────────────
@@ -965,12 +1202,20 @@ document.addEventListener('click', function(e) {
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeP(); closeE(); closeI(); }
-  if (e.key === 'n' && !e.ctrlKey && !e.metaKey && document.activeElement.tagName === 'BODY') openAdd();
+  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); }
+  const tag = document.activeElement.tagName;
+  const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if (inInput) return;
+  if (e.key === 'n' && !e.ctrlKey && !e.metaKey) openAdd();
+  if (e.key === 'j') { e.preventDefault(); kbMove(1); }
+  if (e.key === 'k') { e.preventDefault(); kbMove(-1); }
+  if (e.key === 'Enter') { e.preventDefault(); kbOpen(); }
+  if (e.key === 'e') { e.preventDefault(); kbEdit(); }
 });
 
 load();
 render();
+renderCalls();
 
 </script>
 </body>
