@@ -533,8 +533,36 @@ async function syncCloud() {
     });
 
     // 3. Push: alle lokalen Einträge in die Cloud (upsert)
+    const now = new Date().toISOString();
     const rows = contacts.map(function(c) {
-      return Object.assign({}, c, { synced_at: new Date().toISOString() });
+      return {
+        id:           c.id,
+        created:      c.created,
+        firma:        c.firma        || '',
+        kontakt:      c.kontakt      || null,
+        title:        c.title        || null,
+        telefon:      c.telefon      || null,
+        email:        c.email        || null,
+        website:      c.website      || null,
+        status:       c.status       || 'neu',
+        followup:     c.followup     || null,
+        roi:          c.roi          || null,
+        reviews:      c.reviews      || null,
+        stadt:        c.stadt        || null,
+        region:       c.region       || null,
+        gewerk:       c.gewerk       || null,
+        besonderheit: c.besonderheit || null,
+        notiz:        c.notiz        || null,
+        touches:      c.touches      || [],
+        extra:        {
+          hauptleistung:    c.hauptleistung    || null,
+          webseite_alter:   c.webseite_alter   || null,
+          webseite_vorhanden: c.webseite_vorhanden || null,
+          hat_kalkulator:   c.hat_kalkulator   || null,
+          facebook:         c.facebook         || null,
+        },
+        synced_at: now,
+      };
     });
     // Supabase upsert in Batches von 50
     for (let i = 0; i < rows.length; i += 50) {
