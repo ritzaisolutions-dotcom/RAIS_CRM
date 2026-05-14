@@ -376,6 +376,7 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
       <option value="roi">ROI &#8595;</option>
       <option value="name">Firma A–Z</option>
       <option value="new">Zuletzt hinzugefügt</option>
+      <option value="changed">Zuletzt geändert</option>
     </select>
     <div class="coltog">
       <button class="btn bs" onclick="toggleColMenu(event)">&#9881; Spalten</button>
@@ -559,7 +560,8 @@ async function syncCloud() {
         gewerk:       c.gewerk       || null,
         besonderheit: c.besonderheit || null,
         notiz:        c.notiz        || null,
-        touches:      c.touches      || [],
+        touches:          c.touches           || [],
+        status_changed_at: c.status_changed_at || null,
         extra:        {
           hauptleistung:    c.hauptleistung    || null,
           webseite_alter:   c.webseite_alter   || null,
@@ -682,7 +684,8 @@ function getList() {
       if (srt === 'name') return (a.firma || '').localeCompare(b.firma || '');
       if (srt === 'roi')  return (b.roi || 0) - (a.roi || 0);
       if (srt === 'rev')  return (parseInt(b.reviews) || 0) - (parseInt(a.reviews) || 0);
-      if (srt === 'new')  return (b.created || 0) - (a.created || 0);
+      if (srt === 'new')     return (b.created || 0) - (a.created || 0);
+      if (srt === 'changed') return (b.status_changed_at || '').localeCompare(a.status_changed_at || '');
       const da = a.followup || '9999', db = b.followup || '9999';
       return da.localeCompare(db);
     });
@@ -861,7 +864,7 @@ function openP(id) {
     ir('Website', c.website ? '<a href="' + esc(c.website) + '" target="_blank" rel="noopener">' + esc(c.website.replace(/^https?:\/\//,'')) + '</a>' : '—') +
     (c.facebook ? ir('Facebook', '<a href="' + esc(c.facebook) + '" target="_blank" rel="noopener">Profil öffnen</a>') : '') +
     '<div class="sh">Status</div>' +
-    ir('Status',    sbadge(c.status)) +
+    ir('Status',    sbadge(c.status) + (c.status_changed_at ? '<span style="font-size:11px;color:#B0A898;margin-left:7px;font-family:sans-serif">seit ' + relAge(c.status_changed_at) + ' (' + c.status_changed_at + ')</span>' : '')) +
     ir('ROI',       roib(c.roi)) +
     ir('Follow-up', fdc(c.followup)) +
     ((c.stadt||c.region) ? ir('Ort', esc([c.stadt,c.region].filter(Boolean).join(', '))) : '') +
@@ -891,7 +894,7 @@ function closeP() { document.getElementById('po').classList.remove('on'); }
 function qs(id, s) {
   const c = contacts.find(function(x) { return x.id === id; });
   if (!c) return;
-  if (c.status !== s) bumpCall();
+  if (c.status !== s) { bumpCall(); c.status_changed_at = td(); }
   c.status = s; persist(); render(); closeP();
   toast('Status: ' + (SM[s] ? SM[s][1] : s));
 }
@@ -1036,7 +1039,7 @@ function inlineST(sel) {
   if (!c) return;
   const prev = c.status;
   c.status = sel.value;
-  if (prev !== c.status) bumpCall();
+  if (prev !== c.status) { bumpCall(); c.status_changed_at = td(); }
   persist(); render();
 }
 
@@ -1101,7 +1104,10 @@ function save() {
   };
   if (eid) {
     const i = contacts.findIndex(function(c) { return c.id === eid; });
-    if (i >= 0) contacts[i] = Object.assign({}, contacts[i], d);
+    if (i >= 0) {
+      if (contacts[i].status !== d.status) d.status_changed_at = td();
+      contacts[i] = Object.assign({}, contacts[i], d);
+    }
   } else {
     contacts.push(Object.assign({id: gid(), created: Date.now(), touches:[{status:'',datum:'',notiz:''}]}, d));
   }
