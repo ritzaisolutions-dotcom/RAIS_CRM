@@ -83,6 +83,7 @@ td { padding: 9px 12px; vertical-align: middle; }
 
 /* ROI */
 .roi { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; font-size: 11px; font-weight: 700; align-items: center; justify-content: center; font-family: sans-serif; }
+.r0 { background: #F0EDE8; color: #C0B8B0; }
 .r1 { background: #EDF4FA; color: #2C5F8A; }
 .r2 { background: #FEF8EC; color: var(--yw); }
 .r3 { background: #EEF3EA; color: var(--pn); }
@@ -329,6 +330,7 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
     <input class="srch" id="srch" type="text" placeholder="Firma, Name, Notiz …" oninput="render()">
     <select class="fs" id="roiF" onchange="render()">
       <option value="">ROI: Alle</option>
+      <option value="0">ROI: Offen</option>
       <option value="3">ROI 3 — Hoch</option>
       <option value="2">ROI 2 — Mittel</option>
       <option value="1">ROI 1 — Niedrig</option>
@@ -417,7 +419,7 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
         <div><label>Follow-up Datum</label><input type="date" id="efu"><div class="fu-shortcuts"><button type="button" onclick="shiftFU(1)">+1d</button><button type="button" onclick="shiftFU(3)">+3d</button><button type="button" onclick="shiftFU(7)">+7d</button><button type="button" onclick="shiftFU(14)">+14d</button></div></div>
       </div>
       <div class="fr2">
-        <div><label>ROI</label><select class="fs2" id="er"><option value="1">1 — Niedrig</option><option value="2">2 — Mittel</option><option value="3">3 — Hoch</option></select></div>
+        <div><label>ROI</label><select class="fs2" id="er"><option value="">— offen</option><option value="1">1 — Niedrig</option><option value="2">2 — Mittel</option><option value="3">3 — Hoch</option></select></div>
         <div><label>Reviews</label><input type="text" id="erev"></div>
       </div>
       <div class="fr2"><div><label>Stadt</label><input type="text" id="estad"></div><div><label>Region</label><input type="text" id="ereg"></div></div>
@@ -580,8 +582,9 @@ function sbadge(s) {
   return '<span class="badge ' + c + '">' + l + '</span>';
 }
 function roib(n) {
+  if (!n) return '<span class="roi r0">—</span>';
   const c = n >= 3 ? 'r3' : n >= 2 ? 'r2' : 'r1';
-  return '<span class="roi ' + c + '">' + (n || 1) + '</span>';
+  return '<span class="roi ' + c + '">' + n + '</span>';
 }
 function fdc(d) {
   if (!d) return '<span style="color:#ccc;font-family:sans-serif;font-size:12px">—</span>';
@@ -602,7 +605,8 @@ function getList() {
   let list = contacts.filter(function(c) {
     if (flt === 'heute') { const t = td(); return c.followup && c.followup <= t; }
     if (flt !== 'all' && c.status !== flt) return false;
-    if (roi && String(c.roi || 1) !== roi) return false;
+    if (roi === '0' && c.roi) return false;
+    if (roi && roi !== '0' && String(c.roi||'') !== roi) return false;
     if (gewF && (c.gewerk || '') !== gewF) return false;
     if (dueMode) { const t = td(); return c.followup && c.followup <= t; }
     if (q) {
@@ -704,7 +708,8 @@ function render() {
         '<td class="fc">' + esc(c.firma) + (c.gewerk ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>' : '') + '</td>' +
         '<td>' + esc(c.kontakt || '—') + '</td>' +
         '<td><a href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()" style="color:#2C5F8A;text-decoration:none;font-family:monospace;font-size:12.5px">' + esc(c.telefon || '—') + '</a></td>' +
-        '<td onclick="event.stopPropagation()"><select class="idd roi-dd" data-id="' + c.id + '" onchange="inlineROI(this)">' +
+        '<td onclick="event.stopPropagation()"><select class="idd roi-dd roi-' + (c.roi||0) + '" data-id="' + c.id + '" onchange="inlineROI(this)">' +
+          '<option value=""'  + (!c.roi?          ' selected':'') + '>— offen</option>' +
           '<option value="1"' + (c.roi==1?' selected':'') + '>① Niedrig</option>' +
           '<option value="2"' + (c.roi==2?' selected':'') + '>② Mittel</option>' +
           '<option value="3"' + (c.roi==3?' selected':'') + '>③ Hoch</option>' +
@@ -949,8 +954,7 @@ function kbEdit() {
 function inlineROI(sel) {
   const c = contacts.find(function(x) { return x.id === sel.dataset.id; });
   if (!c) return;
-  c.roi = parseInt(sel.value) || 1;
-  sel.className = 'idd roi-dd';
+  c.roi = parseInt(sel.value) || null;
   persist(); render();
 }
 function inlineST(sel) {
@@ -984,7 +988,7 @@ function openE(id) {
   document.getElementById('ew').value          = c.website      || '';
   document.getElementById('es').value          = c.status       || 'neu';
   document.getElementById('efu').value         = c.followup     || '';
-  document.getElementById('er').value          = String(c.roi   || 1);
+  document.getElementById('er').value          = c.roi ? String(c.roi) : '';
   document.getElementById('erev').value        = c.reviews      || '';
   document.getElementById('estad').value       = c.stadt        || '';
   document.getElementById('ereg').value        = c.region       || '';
@@ -998,7 +1002,7 @@ function clrF() {
     const el = document.getElementById(i); if (el) el.value = '';
   });
   document.getElementById('es').value = 'neu';
-  document.getElementById('er').value = '1';
+  document.getElementById('er').value = '';
   document.getElementById('egew').value = '';
 }
 function save() {
@@ -1013,7 +1017,7 @@ function save() {
     website:     document.getElementById('ew').value.trim(),
     status:      document.getElementById('es').value,
     followup:    document.getElementById('efu').value,
-    roi:         parseInt(document.getElementById('er').value) || 1,
+    roi:         parseInt(document.getElementById('er').value) || null,
     reviews:     document.getElementById('erev').value.trim(),
     stadt:       document.getElementById('estad').value.trim(),
     region:      document.getElementById('ereg').value.trim(),
@@ -1101,9 +1105,19 @@ function spl(l) {
 }
 function doImport() {
   if (!ibuf.length) return;
-  contacts = contacts.concat(ibuf);
+  let added = 0, skipped = 0;
+  ibuf.forEach(function(c) {
+    const dup = contacts.find(function(x) {
+      const samePhone = c.telefon && x.telefon && c.telefon.replace(/\s/g,'') === x.telefon.replace(/\s/g,'');
+      const sameFirma = c.firma.toLowerCase().trim() === (x.firma||'').toLowerCase().trim();
+      return samePhone || sameFirma;
+    });
+    if (dup) { skipped++; return; }
+    contacts.push(c);
+    added++;
+  });
   persist(); closeI(); render();
-  toast(ibuf.length + ' Kontakte importiert.');
+  toast(added + ' importiert' + (skipped ? ', ' + skipped + ' Duplikate übersprungen.' : '.'));
   ibuf = [];
 }
 
