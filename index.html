@@ -281,6 +281,79 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
 
 @media (max-width: 1100px) { .stats { grid-template-columns: repeat(4, 1fr); } }
 @media (max-width: 700px) { main { padding: 12px 14px; } header { padding: 0 14px; } }
+
+/* ── Tab Navigation ───────────────────────────────────────────────────────── */
+.tab-nav { display: flex; gap: 0; border-bottom: 2px solid var(--bd); background: var(--ch); padding: 0 28px; }
+.tab-nav-btn { padding: 12px 20px; font-size: 13px; font-family: sans-serif; font-weight: 600; color: #A0988F; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; margin-bottom: -2px; transition: color .15s, border-color .15s; white-space: nowrap; }
+.tab-nav-btn:hover { color: #fff; }
+.tab-nav-btn.active { color: var(--or); border-bottom-color: var(--or); }
+.tab-section { display: none; }
+.tab-section.active { display: block; }
+
+/* ── Lead Gen Tab ─────────────────────────────────────────────────────────── */
+.lg-layout { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+.lg-card { background: var(--sf); border: 1px solid var(--bd); border-radius: 8px; padding: 20px; }
+.lg-title { font-size: 15px; font-weight: bold; margin-bottom: 16px; color: var(--ch); }
+.lg-field { margin-bottom: 12px; }
+.lg-field label { display: block; font-size: 11px; font-weight: 600; color: var(--st); margin-bottom: 4px; font-family: sans-serif; text-transform: uppercase; letter-spacing: .4px; }
+.lg-field input, .lg-field select { width: 100%; padding: 8px 11px; border: 1px solid var(--bd); border-radius: 5px; background: #fff; font-size: 13px; color: var(--ch); font-family: sans-serif; outline: none; }
+.lg-field input:focus, .lg-field select:focus { border-color: var(--or); }
+.wf-steps { margin: 16px 0; display: flex; flex-direction: column; gap: 8px; }
+.wf-step { display: flex; align-items: center; gap: 10px; }
+.wf-step-btn { flex: 1; padding: 9px 14px; border-radius: 5px; font-size: 13px; font-family: sans-serif; font-weight: 600; cursor: pointer; border: 1px solid var(--bd); background: var(--sf); color: var(--ch); transition: all .15s; text-align: left; }
+.wf-step-btn:hover:not(:disabled) { border-color: var(--or); color: var(--or); }
+.wf-step-btn:disabled { opacity: .4; cursor: default; }
+.wf-step-btn.running { border-color: var(--yw); color: var(--yw); background: #FEF8EC; }
+.wf-step-btn.done { border-color: var(--sg); color: var(--pn); background: #EEF3EA; }
+.wf-step-btn.error { border-color: var(--rd); color: var(--rd); background: #FDF0EF; }
+.wf-status { font-size: 11px; font-family: sans-serif; color: var(--st); min-width: 80px; text-align: right; }
+.wf-status.running { color: var(--yw); }
+.wf-status.done { color: var(--pn); }
+.wf-status.error { color: var(--rd); }
+.lg-preview { background: var(--sf); border: 1px solid var(--bd); border-radius: 8px; overflow: hidden; }
+.lg-preview-head { padding: 12px 16px; background: var(--ch); color: #fff; font-size: 13px; font-weight: 600; font-family: sans-serif; display: flex; align-items: center; justify-content: space-between; }
+.lg-preview table { width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 12px; }
+.lg-preview thead th { background: #F0EDE8; color: var(--st); padding: 7px 10px; text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+.lg-preview tbody td { padding: 8px 10px; border-bottom: 1px solid var(--bd); color: var(--ch); }
+.lg-preview tbody tr:last-child td { border-bottom: none; }
+.lg-preview tbody tr:hover { background: #F5F2EC; }
+.lg-empty { text-align: center; padding: 30px; color: var(--st); font-family: sans-serif; font-size: 13px; }
+
+/* ── Email badges in table ────────────────────────────────────────────────── */
+.em-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: 700; font-family: sans-serif; letter-spacing: .3px; cursor: pointer; }
+.em-none  { background: #F0EDE8; color: #B0A898; }
+.em-e1    { background: #E8F0FF; color: #2048A8; }
+.em-e2    { background: #F0E8FF; color: #6B2FA8; }
+.em-e3    { background: #EDE0FF; color: #4A1A8A; }
+.em-reply { background: #D4F0DC; color: #0A5C24; }
+.em-unsub { background: #FFE8E8; color: #A00000; }
+
+/* ── Email send popup ─────────────────────────────────────────────────────── */
+.es-pop { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); }
+.es-inner { background: var(--sf); border-radius: 8px; width: 400px; box-shadow: 0 8px 32px rgba(0,0,0,.2); }
+.es-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 10px; border-bottom: 1px solid var(--bd); }
+.es-title { font-weight: 700; font-size: 14px; font-family: sans-serif; color: var(--ch); }
+.es-body { padding: 14px 18px; }
+.es-notiz { background: var(--bg); border: 1px solid var(--bd); border-radius: 4px; padding: 8px 10px; font-size: 12px; font-family: sans-serif; color: var(--st); margin-bottom: 12px; line-height: 1.5; min-height: 36px; font-style: italic; }
+.es-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--bd); }
+
+/* Email section in side panel */
+.email-sec { margin-top: 4px; }
+.email-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--bd); font-family: sans-serif; font-size: 12px; }
+.email-row:last-child { border-bottom: none; }
+.email-lbl { font-weight: 600; color: var(--st); min-width: 56px; }
+.email-val { color: var(--ch); flex: 1; padding: 0 8px; }
+.email-val.sent { color: var(--pn); }
+.email-val.pending { color: #B0A898; font-style: italic; }
+
+/* ── Client CRM ───────────────────────────────────────────────────────────── */
+.client-status-aktiv      { background: #EEF3EA; color: var(--pn); }
+.client-status-pausiert   { background: #FEF8EC; color: var(--yw); }
+.client-status-abgeschlossen { background: #F0EDE8; color: var(--st); }
+.medium-icon { font-size: 14px; }
+.cl-scope { font-family: sans-serif; font-size: 12px; color: var(--st); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Client Edit Modal */
+#clientModal { max-width: 580px; }
 </style>
 </head>
 <body>
@@ -322,6 +395,76 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
   </div>
 </header>
 
+<nav class="tab-nav">
+  <button class="tab-nav-btn" id="tab-lg"   onclick="switchTab('leadgen')">⚡ Lead Gen</button>
+  <button class="tab-nav-btn active" id="tab-pr" onclick="switchTab('prospecting')">👥 Prospecting</button>
+  <button class="tab-nav-btn" id="tab-cl"   onclick="switchTab('clients')">🏢 Clients</button>
+</nav>
+
+<!-- ── Tab 1: Lead Gen ───────────────────────────────────────────────────── -->
+<section class="tab-section" id="sec-leadgen">
+<main>
+  <div style="margin-bottom:16px">
+    <div class="lg-layout">
+      <div class="lg-card">
+        <div class="lg-title">🔍 Lead-Suche</div>
+        <div class="lg-field">
+          <label>Gewerk / Query</label>
+          <select id="lgGewerk">
+            <option value="Fliesenleger">Fliesenleger</option>
+            <option value="Elektriker">Elektriker</option>
+            <option value="Sanitär">Sanitär</option>
+            <option value="Heizung">Heizung</option>
+            <option value="Maler">Maler</option>
+            <option value="Zimmerer">Zimmerer</option>
+            <option value="Dachdecker">Dachdecker</option>
+            <option value="Schreiner">Schreiner</option>
+            <option value="Schlosser">Schlosser</option>
+            <option value="Gerüstbauer">Gerüstbauer</option>
+            <option value="Gartenbau">Gartenbau</option>
+            <option value="Reinigung">Reinigung</option>
+          </select>
+        </div>
+        <div class="lg-field">
+          <label>Stadt</label>
+          <input type="text" id="lgStadt" placeholder="z.B. München">
+        </div>
+        <div class="lg-field">
+          <label>Radius: <span id="lgRadiusLbl">10 km</span></label>
+          <input type="range" id="lgRadius" min="5" max="50" step="5" value="10" oninput="document.getElementById('lgRadiusLbl').textContent=this.value+' km'" style="width:100%;accent-color:var(--or)">
+        </div>
+        <div class="wf-steps">
+          <div class="wf-step">
+            <button class="wf-step-btn" id="wfBtn1" onclick="runWF(1)">1. Discover ▶ <small style="opacity:.6">Google Maps</small></button>
+            <span class="wf-status" id="wfSt1">—</span>
+          </div>
+          <div class="wf-step">
+            <button class="wf-step-btn" id="wfBtn2" onclick="runWF(2)" disabled>2. Qualify ▶ <small style="opacity:.6">Score + Filter</small></button>
+            <span class="wf-status" id="wfSt2">—</span>
+          </div>
+          <div class="wf-step">
+            <button class="wf-step-btn" id="wfBtn3" onclick="runWF(3)" disabled>3. Enrich ▶ <small style="opacity:.6">Gemini Research</small></button>
+            <span class="wf-status" id="wfSt3">—</span>
+          </div>
+        </div>
+        <button class="btn bp" id="lgImportBtn" onclick="lgImportToCRM()" disabled style="width:100%;justify-content:center;margin-top:8px">→ Ins Prospecting CRM übernehmen</button>
+      </div>
+      <div class="lg-preview">
+        <div class="lg-preview-head">
+          <span>Ergebnisse <span id="lgPreviewCount" style="color:#A0988F;font-weight:400"></span></span>
+          <button class="btn bg bsm" onclick="loadLgPreview()" style="color:#A0988F">⟳ Aktualisieren</button>
+        </div>
+        <div id="lgPreviewBody">
+          <div class="lg-empty">Noch keine Ergebnisse.<br>Stadt eingeben und WF1 starten.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+</section>
+
+<!-- ── Tab 2: Prospecting CRM ────────────────────────────────────────────── -->
+<section class="tab-section active" id="sec-prospecting">
 <main>
   <div id="banner" class="banner">
     <span>&#128222;</span>
@@ -384,6 +527,9 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
       <option value="new">Zuletzt hinzugefügt</option>
       <option value="changed">Zuletzt geändert</option>
     </select>
+    <button class="btn bs bsm" id="bulkE1Btn" onclick="bulkEmail(1)" title="Email 1 an alle eligible Kontakte">📧 E1 <span id="bulkCnt1">0</span></button>
+    <button class="btn bs bsm" id="bulkE2Btn" onclick="bulkEmail(2)" title="Email 2 Followup">📧 E2 <span id="bulkCnt2">0</span></button>
+    <button class="btn bs bsm" id="bulkE3Btn" onclick="bulkEmail(3)" title="Email 3 Letztes Followup">📧 E3 <span id="bulkCnt3">0</span></button>
     <div class="coltog">
       <button class="btn bs" onclick="toggleColMenu(event)">&#9881; Spalten</button>
       <div class="ctdrop" id="ctdrop">
@@ -408,6 +554,91 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
     <div class="tf"><span id="rc"></span><div class="pb" id="pb"></div></div>
   </div>
 </main>
+
+</main>
+</section>
+
+<!-- ── Tab 3: Clients CRM ────────────────────────────────────────────────── -->
+<section class="tab-section" id="sec-clients">
+<main>
+  <div class="tb">
+    <input class="srch" id="clSrch" type="text" placeholder="Firma, Kontakt …" oninput="renderClients()">
+    <select class="fs" id="clStatusF" onchange="renderClients()">
+      <option value="">Status: Alle</option>
+      <option value="aktiv">Aktiv</option>
+      <option value="pausiert">Pausiert</option>
+      <option value="abgeschlossen">Abgeschlossen</option>
+    </select>
+    <button class="btn bp" onclick="openClientAdd()">+ Client</button>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr style="background:var(--ch)">
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;width:36px">#</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Firma</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Kontakt</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Medium</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Status</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Nächste Action</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Datum</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;width:64px"></th>
+      </tr></thead>
+      <tbody id="clTbody"></tbody>
+    </table>
+    <div id="clEmpty" class="empty" style="display:none">
+      <div style="font-size:32px;margin-bottom:10px">🏢</div>
+      <h3>Keine Clients</h3>
+      <p>+ Client klicken um einen Bestandskunden anzulegen.</p>
+    </div>
+  </div>
+</main>
+</section>
+
+<!-- Client Edit Modal -->
+<div class="ovl" id="clientModal">
+  <div class="modal" style="max-width:580px">
+    <div class="mh"><h2 id="clModalTitle">Client hinzufügen</h2><button class="btn bg" onclick="closeClientModal()">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="clEid">
+      <div class="fr2"><div><label>Firma *</label><input type="text" id="clFirma"></div><div><label>Ansprechpartner</label><input type="text" id="clKontakt"></div></div>
+      <div class="fr2"><div><label>Telefon</label><input type="tel" id="clTelefon"></div><div><label>E-Mail</label><input type="email" id="clEmail"></div></div>
+      <div class="fr2"><div><label>Website</label><input type="text" id="clWebsite"></div>
+        <div><label>Kontakt-Medium</label><select class="fs2" id="clMedium">
+          <option value="whatsapp">📱 WhatsApp</option>
+          <option value="telegram">✈️ Telegram</option>
+          <option value="email">✉️ Email</option>
+          <option value="telefon">📞 Telefon</option>
+          <option value="sonstiges">💬 Sonstiges</option>
+        </select></div>
+      </div>
+      <div class="fr2">
+        <div><label>Status</label><select class="fs2" id="clStatus">
+          <option value="aktiv">Aktiv</option>
+          <option value="pausiert">Pausiert</option>
+          <option value="abgeschlossen">Abgeschlossen</option>
+        </select></div>
+        <div><label>Nächste Action Datum</label><input type="date" id="clDatum"></div>
+      </div>
+      <div class="fr"><label>Nächste Action</label><input type="text" id="clAction" placeholder="z.B. Demo vorbereiten, Rechnung senden"></div>
+      <div class="fr"><label>Projekt-Scope</label><textarea id="clScope" style="min-height:90px" placeholder="Was machen wir für diesen Client? Welche Features, welcher Umfang?"></textarea></div>
+      <div class="fr"><label>Notiz</label><textarea id="clNotiz" style="min-height:60px"></textarea></div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeClientModal()">Abbrechen</button><button class="btn bp" onclick="saveClient()">Speichern</button></div>
+  </div>
+</div>
+
+<!-- Client Side Panel -->
+<div class="po" id="clPo">
+  <div class="pbg" onclick="closeClPanel()"></div>
+  <div class="panel">
+    <div class="ph">
+      <div><div class="ph-firma" id="clPFirma"></div><div class="ph-sub" id="clPSub"></div></div>
+      <button class="btn bg" onclick="closeClPanel()">✕</button>
+    </div>
+    <div class="pb2" id="clPBody"></div>
+    <div class="pf" id="clPFoot"></div>
+  </div>
+</div>
 
 <!-- Side panel -->
 <div class="po" id="po">
@@ -503,6 +734,53 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
   </div>
 </div>
 
+<!-- Email Send Popup (1:1 mit LLM Preview) -->
+<div class="es-pop" id="esPop" style="display:none">
+  <div class="es-inner">
+    <div class="es-top">
+      <span class="es-title" id="esTitle">Email senden an …</span>
+      <button class="btn bg" onclick="closeEsPop()">✕</button>
+    </div>
+    <div class="es-body">
+      <div id="esStep1">
+        <div class="fr" style="margin-bottom:10px">
+          <label>Notiz aus CRM</label>
+          <div class="es-notiz" id="esNotiz">—</div>
+        </div>
+        <div class="fr">
+          <label>Anlass</label>
+          <select class="fs2" id="esAnlass">
+            <option value="keine_website">Keine Webseite vorhanden</option>
+            <option value="veraltet">Webseite veraltet (vor 2018)</option>
+            <option value="kein_kalkulator">Kein Kostenrechner</option>
+            <option value="kein_formular">Kein Kontaktformular</option>
+            <option value="nur_telefon">Nur Telefon erreichbar</option>
+            <option value="kein_termin">Keine Online-Terminbuchung</option>
+            <option value="mobile">Schlechte Mobile-Darstellung</option>
+            <option value="kein_google">Kein Google-Auftritt</option>
+            <option value="sonstiges">Sonstiges (Notiz verwenden)</option>
+          </select>
+        </div>
+      </div>
+      <div id="esStep2" style="display:none">
+        <div style="font-family:sans-serif;font-size:12px;font-weight:600;color:var(--st);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Betreff</div>
+        <input type="text" id="esSubject" style="width:100%;padding:7px 10px;border:1px solid var(--bd);border-radius:4px;font-size:13px;font-family:sans-serif;margin-bottom:10px;outline:none" onfocus="this.style.borderColor='var(--or)'" onblur="this.style.borderColor='var(--bd)'">
+        <div style="font-family:sans-serif;font-size:12px;font-weight:600;color:var(--st);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Email-Inhalt</div>
+        <textarea id="esBody" style="width:100%;min-height:200px;padding:9px 11px;border:1px solid var(--bd);border-radius:4px;font-size:13px;font-family:sans-serif;resize:vertical;outline:none" onfocus="this.style.borderColor='var(--or)'" onblur="this.style.borderColor='var(--bd)'"></textarea>
+        <div style="font-family:sans-serif;font-size:11px;color:#B0A898;margin-top:5px">✏️ Du kannst Betreff und Text vor dem Senden bearbeiten.</div>
+      </div>
+      <div id="esLoading" style="display:none;text-align:center;padding:20px;font-family:sans-serif;font-size:13px;color:var(--st)">
+        ✍️ LLM generiert Email…
+      </div>
+    </div>
+    <div class="es-foot">
+      <button class="btn bs" onclick="closeEsPop()">Abbrechen</button>
+      <button class="btn bs" id="esGenBtn" onclick="esGenerate()">✨ Generieren</button>
+      <button class="btn bp" id="esSendBtn" onclick="esSend()" style="display:none">📨 Senden</button>
+    </div>
+  </div>
+</div>
+
 <script>
 
 // ── Supabase Cloud Backup ─────────────────────────────────────────────────────
@@ -566,8 +844,15 @@ async function syncCloud() {
         gewerk:       c.gewerk       || null,
         besonderheit: c.besonderheit || null,
         notiz:        c.notiz        || null,
-        touches:          c.touches           || [],
-        status_changed_at: c.status_changed_at || null,
+        touches:           c.touches            || [],
+        status_changed_at: c.status_changed_at  || null,
+        email_1_sent:      c.email_1_sent        || null,
+        email_1_subject:   c.email_1_subject     || null,
+        email_2_sent:      c.email_2_sent        || null,
+        followup_sent:     c.followup_sent       || null,
+        email_status:      c.email_status        || null,
+        unsubscribed:      c.unsubscribed        || false,
+        reply_received:    c.reply_received      || false,
         extra:        {
           hauptleistung:    c.hauptleistung    || null,
           webseite_alter:   c.webseite_alter   || null,
@@ -747,6 +1032,7 @@ function render() {
     (colVis.stadt   ? thS('stadt','Stadt') : '') +
     (colVis.region  ? thS('region','Region') : '') +
     (colVis.gewerk  ? thS('gewerk','Gewerk') : '') +
+    thF('Email','width:44px;text-align:center') +
     thF('','width:64px') +
   '</tr>';
 
@@ -800,6 +1086,7 @@ function render() {
         (colVis.stadt   ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.stadt  || '—') + '</td>' : '') +
         (colVis.region  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.region || '—') + '</td>' : '') +
         (colVis.gewerk  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.gewerk || '—') + '</td>' : '') +
+        '<td onclick="event.stopPropagation()" style="white-space:nowrap">' + emailBadge(c) + '</td>' +
         '<td onclick="event.stopPropagation()"><div class="ra">' +
           '<button class="btn bg bsm" onclick="openQN(\'' + c.id + '\')" title="Schnellnotiz">&#128221;</button>' +
           '<button class="btn bg bsm" onclick="openE(\'' + c.id + '\')" title="Bearbeiten">&#9998;</button>' +
@@ -817,6 +1104,14 @@ function render() {
   pb.innerHTML = Array.from({length: pages}, function(_, i) { return i + 1; })
     .map(function(p) { return '<button class="pbb' + (p === pg ? ' on' : '') + '" onclick="goPg(' + p + ')">' + p + '</button>'; })
     .join('');
+
+  // Update bulk email counters
+  if (typeof countEligible === 'function') {
+    [1,2,3].forEach(function(n) {
+      const el = document.getElementById('bulkCnt' + n);
+      if (el) el.textContent = '(' + countEligible(n) + ')';
+    });
+  }
 }
 function goPg(p) { pg = p; render(); }
 
@@ -884,7 +1179,8 @@ function openP(id) {
     '<div class="ir"><span class="il">Website</span><div class="iv"><div class="pills">' +
       '<span class="pill ' + (wsOk ? 'py' : 'pn2') + '">' + (wsOk ? '&#10003; vorhanden' : '&#10007; keine Website') + '</span>' +
       '<span class="pill ' + (kalk ? 'py' : 'pn2') + '">' + (kalk ? '&#10003; Kalkulator' : '&#10007; kein Kalkulator') + '</span>' +
-    '</div></div></div>';
+    '</div></div></div>' +
+    emailPanelHtml(c);
 
   document.getElementById('pFoot').innerHTML =
     '<button class="btn bp bsm" onclick="openE(\'' + id + '\');closeP()">&#9998; Stammdaten</button>' +
@@ -1316,6 +1612,522 @@ document.addEventListener('keydown', function(e) {
 load();
 render();
 renderCalls();
+
+// ── Tab Navigation ────────────────────────────────────────────────────────────
+function switchTab(name) {
+  ['leadgen','prospecting','clients'].forEach(function(t) {
+    document.getElementById('sec-' + t).classList.toggle('active', t === name);
+  });
+  document.querySelectorAll('.tab-nav-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.tab === name);
+  });
+  if (name === 'leadgen')   loadLgPreview();
+  if (name === 'clients')   loadClients();
+  location.hash = name;
+}
+(function() {
+  // Assign data-tab to nav buttons
+  const btns = document.querySelectorAll('.tab-nav-btn');
+  const tabs = ['leadgen','prospecting','clients'];
+  btns.forEach(function(btn, i) { if (tabs[i]) btn.dataset.tab = tabs[i]; });
+  // Hash routing
+  const h = location.hash.replace('#','');
+  if (h === 'leadgen' || h === 'clients') switchTab(h);
+})();
+
+// ── Webhook Constants ─────────────────────────────────────────────────────────
+const WH_BASE = 'https://n8n.ritz-ai.solutions/webhook/';
+const WH = {
+  wf1:    WH_BASE + 'wf1-discover',
+  wf2:    WH_BASE + 'wf2-qualify',
+  wf3:    WH_BASE + 'wf3-enrich',
+  email1: WH_BASE + 'wf4-email1',
+  email2: WH_BASE + 'wf5-email2',
+  email3: WH_BASE + 'wf6-email3',
+};
+
+// ── Lead Gen ──────────────────────────────────────────────────────────────────
+let lgPollTimer = null;
+let lgCurrentRun = null;
+
+async function runWF(num) {
+  const stadt = document.getElementById('lgStadt').value.trim();
+  if (!stadt) { toast('Bitte Stadt eingeben.'); return; }
+  const query   = document.getElementById('lgGewerk').value;
+  const radius  = parseInt(document.getElementById('lgRadius').value) * 1000;
+  const btn  = document.getElementById('wfBtn' + num);
+  const stat = document.getElementById('wfSt' + num);
+  btn.classList.add('running');
+  btn.disabled = true;
+  stat.textContent = '⏳ läuft…';
+  stat.className = 'wf-status running';
+
+  const payload = { query: query, stadt: stadt, radius: radius };
+  try {
+    const wfKey = 'wf' + num;
+    await fetch(WH[wfKey], { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    // Start polling wf_runs
+    lgCurrentRun = { wf: wfKey, stadt: stadt, num: num };
+    lgPollTimer = setInterval(function() { pollWfRun(num); }, 15000);
+    toast('WF' + num + ' gestartet — läuft im Hintergrund.');
+  } catch(e) {
+    btn.classList.remove('running');
+    btn.classList.add('error');
+    stat.textContent = '✗ Fehler';
+    stat.className = 'wf-status error';
+    toast('Fehler: ' + e.message);
+  }
+}
+
+async function pollWfRun(num) {
+  if (!lgCurrentRun) return;
+  try {
+    const rows = await sbGet('/rest/v1/wf_runs?wf=eq.' + lgCurrentRun.wf + '&order=created_at.desc&limit=1');
+    if (!rows || !rows.length) return;
+    const run = rows[0];
+    if (run.status === 'done') {
+      clearInterval(lgPollTimer);
+      const btn  = document.getElementById('wfBtn' + num);
+      const stat = document.getElementById('wfSt' + num);
+      btn.classList.remove('running');
+      btn.classList.add('done');
+      btn.disabled = false;
+      stat.textContent = '✓ ' + (run.count || '') + ' Leads';
+      stat.className = 'wf-status done';
+      // Enable next button
+      if (num < 3) {
+        const nextBtn = document.getElementById('wfBtn' + (num + 1));
+        if (nextBtn) nextBtn.disabled = false;
+      }
+      if (num === 3) document.getElementById('lgImportBtn').disabled = false;
+      loadLgPreview();
+      toast('WF' + num + ' fertig — ' + (run.count||0) + ' Einträge.');
+    }
+  } catch(e) { /* ignore poll errors */ }
+}
+
+async function loadLgPreview() {
+  const stadt = document.getElementById('lgStadt').value.trim();
+  const body  = document.getElementById('lgPreviewBody');
+  const cntEl = document.getElementById('lgPreviewCount');
+  try {
+    let url = '/rest/v1/crm_contacts?select=firma,website,reviews,kontakt,email,status&order=created.desc&limit=30';
+    if (stadt) url += '&stadt=ilike.*' + encodeURIComponent(stadt) + '*';
+    const rows = await sbGet(url);
+    if (!rows || !rows.length) {
+      body.innerHTML = '<div class="lg-empty">Keine Ergebnisse für "' + (stadt||'alle') + '".</div>';
+      cntEl.textContent = '';
+      return;
+    }
+    cntEl.textContent = '(' + rows.length + ')';
+    body.innerHTML = '<table><thead><tr>' +
+      '<th>Firma</th><th>Website</th><th>Reviews</th><th>Kontakt</th><th>Status</th>' +
+      '</tr></thead><tbody>' +
+      rows.map(function(r) {
+        return '<tr>' +
+          '<td style="font-weight:600">' + esc(r.firma||'') + '</td>' +
+          '<td>' + (r.website ? '<a href="' + esc(r.website) + '" target="_blank" style="color:var(--bl);text-decoration:none;font-size:11px">' + esc(r.website.replace(/^https?:\/\//,'').slice(0,30)) + '</a>' : '<span style="color:#D9D1C7">—</span>') + '</td>' +
+          '<td>' + esc(r.reviews||'—') + '</td>' +
+          '<td>' + esc(r.kontakt||'—') + '</td>' +
+          '<td>' + sbadge(r.status||'neu') + '</td>' +
+          '</tr>';
+      }).join('') +
+      '</tbody></table>';
+  } catch(e) {
+    body.innerHTML = '<div class="lg-empty" style="color:var(--rd)">Fehler: ' + esc(e.message) + '</div>';
+  }
+}
+
+async function lgImportToCRM() {
+  await syncCloud();
+  switchTab('prospecting');
+  toast('Leads übernommen — Prospecting CRM aktualisiert.');
+}
+
+// ── Email Status Badge ────────────────────────────────────────────────────────
+function emailBadge(c) {
+  if (c.unsubscribed)    return '<span class="em-badge em-unsub" title="Abgemeldet" onclick="event.stopPropagation();openEsPanel(\'' + c.id + '\')">🚫</span>';
+  if (c.reply_received)  return '<span class="em-badge em-reply" title="Hat geantwortet" onclick="event.stopPropagation();openEsPanel(\'' + c.id + '\')">↩</span>';
+  if (c.followup_sent)   return '<span class="em-badge em-e3" title="Email 3 gesendet" onclick="event.stopPropagation();openEsPanel(\'' + c.id + '\')">E3</span>';
+  if (c.email_2_sent)    return '<span class="em-badge em-e2" title="Email 2 gesendet" onclick="event.stopPropagation();openEsPanel(\'' + c.id + '\')">E2</span>';
+  if (c.email_1_sent)    return '<span class="em-badge em-e1" title="Email 1 gesendet" onclick="event.stopPropagation();openEsPanel(\'' + c.id + '\')">E1</span>';
+  return '<span class="em-badge em-none" title="Noch keine Email" onclick="event.stopPropagation();openEsPop(\'' + c.id + '\')">—</span>';
+}
+
+function openEsPanel(id) {
+  openP(id);
+  // scroll to email section after panel opens
+  setTimeout(function() {
+    const el = document.getElementById('pEmailSec');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, 100);
+}
+
+// ── Email Send Popup (LLM Generate → Preview → Send) ──────────────────────────
+let esContactId = null;
+
+function openEsPop(id) {
+  const c = contacts.find(function(x) { return x.id === id; });
+  if (!c) return;
+  esContactId = id;
+  document.getElementById('esTitle').textContent = 'Email an: ' + c.firma;
+  document.getElementById('esNotiz').textContent = c.notiz || c.besonderheit || '— keine Notiz —';
+  document.getElementById('esStep1').style.display = '';
+  document.getElementById('esStep2').style.display = 'none';
+  document.getElementById('esLoading').style.display = 'none';
+  document.getElementById('esGenBtn').style.display = '';
+  document.getElementById('esSendBtn').style.display = 'none';
+  document.getElementById('esPop').style.display = 'flex';
+}
+
+function closeEsPop() {
+  document.getElementById('esPop').style.display = 'none';
+  esContactId = null;
+}
+
+async function esGenerate() {
+  const c = contacts.find(function(x) { return x.id === esContactId; });
+  if (!c) return;
+  const anlass = document.getElementById('esAnlass').value;
+  document.getElementById('esStep1').style.display = 'none';
+  document.getElementById('esLoading').style.display = 'block';
+  document.getElementById('esGenBtn').style.display = 'none';
+  try {
+    const resp = await fetch(WH.email1, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        contact_id:  c.id,
+        anlass:      anlass,
+        notiz:       c.notiz || c.besonderheit || '',
+        firma:       c.firma,
+        kontakt:     c.kontakt || '',
+        website:     c.website || '',
+        preview_only: true,
+      })
+    });
+    const data = await resp.json();
+    document.getElementById('esLoading').style.display = 'none';
+    document.getElementById('esStep2').style.display = 'block';
+    document.getElementById('esSubject').value = data.subject || '';
+    document.getElementById('esBody').value    = data.body    || '';
+    document.getElementById('esSendBtn').style.display = '';
+  } catch(e) {
+    document.getElementById('esLoading').style.display = 'none';
+    document.getElementById('esStep1').style.display = '';
+    document.getElementById('esGenBtn').style.display = '';
+    toast('Fehler beim Generieren: ' + e.message);
+  }
+}
+
+async function esSend() {
+  const c = contacts.find(function(x) { return x.id === esContactId; });
+  if (!c) return;
+  const subject = document.getElementById('esSubject').value;
+  const body    = document.getElementById('esBody').value;
+  if (!subject || !body) { toast('Betreff und Inhalt erforderlich.'); return; }
+  const btn = document.getElementById('esSendBtn');
+  btn.disabled = true;
+  btn.textContent = '📨 Sende…';
+  try {
+    await fetch(WH.email1, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        contact_id: c.id,
+        subject:    subject,
+        body:       body,
+        approved:   true,
+      })
+    });
+    toast('Email gesendet an ' + c.firma + ' ✓');
+    // Optimistic UI update
+    c.email_1_sent = td();
+    c.email_1_subject = subject;
+    c.email_status = 'sent';
+    persist(); render();
+    closeEsPop();
+    // Sync nach 30s
+    setTimeout(syncCloud, 30000);
+  } catch(e) {
+    toast('Sendefehler: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '📨 Senden';
+  }
+}
+
+// ── Email Section in Side Panel ───────────────────────────────────────────────
+function emailPanelHtml(c) {
+  const fmtDate = function(d) { return d ? d : null; };
+  const e1sent = fmtDate(c.email_1_sent);
+  const e2sent = fmtDate(c.email_2_sent);
+  const e3sent = fmtDate(c.followup_sent);
+  const hasEmail = !!c.email;
+
+  function row(label, val, btnHtml) {
+    return '<div class="email-row"><span class="email-lbl">' + label + '</span>' +
+      '<span class="email-val ' + (val ? 'sent' : 'pending') + '">' + (val || '—') + '</span>' +
+      (btnHtml || '') + '</div>';
+  }
+
+  const canSend1 = hasEmail && !e1sent && !c.unsubscribed && !c.reply_received;
+  const canSend2 = hasEmail && e1sent && !e2sent && !c.unsubscribed && !c.reply_received;
+  const canSend3 = hasEmail && e2sent && !e3sent && !c.unsubscribed && !c.reply_received;
+
+  let html = '<div id="pEmailSec"><div class="sh">Email</div>';
+  if (!hasEmail) {
+    html += '<div style="font-family:sans-serif;font-size:12px;color:#B0A898;font-style:italic;margin-bottom:8px">Keine Email-Adresse hinterlegt.</div>';
+  } else {
+    html += '<div class="email-sec">';
+    html += row('Email 1',
+      e1sent ? (e1sent + (c.email_1_subject ? ' • "' + c.email_1_subject.slice(0,30) + '"' : '')) : null,
+      canSend1 ? '<button class="btn bp bsm" onclick="openEsPop(\'' + c.id + '\');closeP()" style="white-space:nowrap">Senden ▶</button>' : '');
+    html += row('Email 2',
+      e2sent || null,
+      canSend2 ? '<button class="btn bs bsm" onclick="sendEmailBatch(\'' + c.id + '\',2)" style="white-space:nowrap">Senden ▶</button>' : (e1sent && !e2sent ? '<span style="font-size:11px;color:#B0A898;font-family:sans-serif">ab Tag 3</span>' : ''));
+    html += row('Email 3',
+      e3sent || null,
+      canSend3 ? '<button class="btn bs bsm" onclick="sendEmailBatch(\'' + c.id + '\',3)" style="white-space:nowrap">Senden ▶</button>' : (e2sent && !e3sent ? '<span style="font-size:11px;color:#B0A898;font-family:sans-serif">ab Tag 7</span>' : ''));
+    html += '</div>';
+    html += '<div style="display:flex;gap:6px;margin-top:8px">';
+    if (!c.reply_received && !c.unsubscribed) {
+      html += '<button class="btn bs bsm" onclick="markReply(\'' + c.id + '\')" style="color:var(--pn)">✓ Geantwortet</button>';
+    }
+    if (!c.unsubscribed) {
+      html += '<button class="btn bs bsm" onclick="markUnsub(\'' + c.id + '\')" style="color:var(--rd)">🚫 Abmelden</button>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+async function sendEmailBatch(id, emailNum) {
+  const c = contacts.find(function(x) { return x.id === id; });
+  if (!c) return;
+  const whKey = emailNum === 2 ? 'email2' : 'email3';
+  try {
+    await fetch(WH[whKey], { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ contact_id: id }) });
+    if (emailNum === 2) c.email_2_sent = td();
+    if (emailNum === 3) c.followup_sent = td();
+    c.email_status = 'sent';
+    persist(); render();
+    openP(id);
+    toast('Email ' + emailNum + ' an ' + c.firma + ' gesendet ✓');
+    setTimeout(syncCloud, 30000);
+  } catch(e) { toast('Fehler: ' + e.message); }
+}
+
+function markReply(id) {
+  const c = contacts.find(function(x) { return x.id === id; });
+  if (!c) return;
+  c.reply_received = true;
+  persist(); render(); openP(id);
+  toast('Als geantwortet markiert.');
+}
+function markUnsub(id) {
+  const c = contacts.find(function(x) { return x.id === id; });
+  if (!c) return;
+  c.unsubscribed = true;
+  persist(); render(); openP(id);
+  toast('Abgemeldet.');
+}
+
+// ── Bulk Email Buttons ────────────────────────────────────────────────────────
+function countEligible(num) {
+  return contacts.filter(function(c) {
+    if (!c.email || c.unsubscribed || c.reply_received) return false;
+    if (num === 1) return !c.email_1_sent;
+    if (num === 2) return c.email_1_sent && !c.email_2_sent;
+    if (num === 3) return c.email_2_sent && !c.followup_sent;
+    return false;
+  }).length;
+}
+
+async function bulkEmail(num) {
+  const cnt = countEligible(num);
+  if (!cnt) { toast('Keine Kontakte für Email ' + num + ' eligible.'); return; }
+  if (!confirm(cnt + ' Kontakte erhalten Email ' + num + '. Fortfahren?')) return;
+  const whKey = num === 1 ? 'email1' : num === 2 ? 'email2' : 'email3';
+  try {
+    await fetch(WH[whKey], { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ batch: true }) });
+    toast('Email ' + num + ' Batch gestartet — ' + cnt + ' Kontakte.');
+    setTimeout(syncCloud, 60000);
+  } catch(e) { toast('Fehler: ' + e.message); }
+}
+
+// ── syncCloud() extension — pull email fields ─────────────────────────────────
+// Extend existing merge to also pull email tracking fields from remote
+const _origSyncCloud = syncCloud;
+
+// ── Client CRM ───────────────────────────────────────────────────────────────
+let clClients = [];
+let clEid = null;
+const CL_KEY_SB = '/rest/v1/crm_clients';
+const MEDIUM_ICONS = { whatsapp:'📱', telegram:'✈️', email:'✉️', telefon:'📞', sonstiges:'💬' };
+
+async function loadClients() {
+  try {
+    const rows = await sbGet(CL_KEY_SB + '?select=*&order=created.asc');
+    clClients = rows || [];
+    renderClients();
+  } catch(e) {
+    toast('Clients laden fehlgeschlagen: ' + e.message);
+  }
+}
+
+function renderClients() {
+  const srch  = (document.getElementById('clSrch')  || {value:''}).value.toLowerCase();
+  const sflt  = (document.getElementById('clStatusF')|| {value:''}).value;
+  let list = clClients.filter(function(c) {
+    if (sflt && c.status !== sflt) return false;
+    if (srch) {
+      const hay = [c.firma, c.kontakt, c.scope, c.notiz, c.naechste_action].join(' ').toLowerCase();
+      if (!hay.includes(srch)) return false;
+    }
+    return true;
+  });
+  const tbody = document.getElementById('clTbody');
+  const empty = document.getElementById('clEmpty');
+  if (!list.length) { tbody.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = list.map(function(c, i) {
+    const sClass = 'client-status-' + (c.status || 'aktiv');
+    const mIcon  = MEDIUM_ICONS[c.kontakt_medium] || '💬';
+    const fd = c.naechste_datum;
+    const fdCls = fd && fd <= td() ? 'fdov' : 'fdup';
+    return '<tr onclick="openClPanel(\'' + c.id + '\')" style="cursor:pointer">' +
+      '<td style="color:#B0A898;font-family:sans-serif;font-size:12px;text-align:right;padding-right:8px">' + (i+1) + '</td>' +
+      '<td class="fc">' + esc(c.firma) + '</td>' +
+      '<td style="font-family:sans-serif;font-size:12px;color:var(--st)">' + esc(c.kontakt||'—') + '</td>' +
+      '<td style="font-size:16px" title="' + (c.kontakt_medium||'') + '">' + mIcon + '</td>' +
+      '<td><span class="badge ' + sClass + '">' + esc(c.status||'aktiv') + '</span></td>' +
+      '<td class="cl-scope">' + esc(c.naechste_action||'—') + '</td>' +
+      '<td class="fd ' + fdCls + '" style="font-family:sans-serif;font-size:12px">' + esc(fd||'—') + '</td>' +
+      '<td onclick="event.stopPropagation()"><div class="ra" style="opacity:1">' +
+        '<button class="btn bg bsm" onclick="openClientEdit(\'' + c.id + '\')" title="Bearbeiten">✎</button>' +
+        '<button class="btn bg bsm" onclick="delClient(\'' + c.id + '\')" title="Löschen" style="color:var(--rd)">🗑</button>' +
+      '</div></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function openClientAdd() {
+  clEid = null;
+  document.getElementById('clModalTitle').textContent = 'Client hinzufügen';
+  ['clFirma','clKontakt','clTelefon','clEmail','clWebsite','clAction','clScope','clNotiz'].forEach(function(id) {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('clMedium').value = 'whatsapp';
+  document.getElementById('clStatus').value = 'aktiv';
+  document.getElementById('clDatum').value = '';
+  document.getElementById('clEid').value = '';
+  document.getElementById('clientModal').classList.add('on');
+}
+
+function openClientEdit(id) {
+  const c = clClients.find(function(x) { return x.id === id; });
+  if (!c) return;
+  clEid = id;
+  document.getElementById('clModalTitle').textContent = 'Client bearbeiten';
+  document.getElementById('clEid').value    = id;
+  document.getElementById('clFirma').value  = c.firma        || '';
+  document.getElementById('clKontakt').value= c.kontakt      || '';
+  document.getElementById('clTelefon').value= c.telefon      || '';
+  document.getElementById('clEmail').value  = c.email        || '';
+  document.getElementById('clWebsite').value= c.website      || '';
+  document.getElementById('clMedium').value = c.kontakt_medium|| 'email';
+  document.getElementById('clStatus').value = c.status       || 'aktiv';
+  document.getElementById('clDatum').value  = c.naechste_datum|| '';
+  document.getElementById('clAction').value = c.naechste_action|| '';
+  document.getElementById('clScope').value  = c.scope        || '';
+  document.getElementById('clNotiz').value  = c.notiz        || '';
+  document.getElementById('clientModal').classList.add('on');
+}
+
+function closeClientModal() { document.getElementById('clientModal').classList.remove('on'); }
+
+async function saveClient() {
+  const firma = document.getElementById('clFirma').value.trim();
+  if (!firma) { toast('Firma fehlt.'); return; }
+  const now = new Date().toISOString();
+  const row = {
+    firma:           firma,
+    kontakt:         document.getElementById('clKontakt').value.trim() || null,
+    telefon:         document.getElementById('clTelefon').value.trim() || null,
+    email:           document.getElementById('clEmail').value.trim()   || null,
+    website:         document.getElementById('clWebsite').value.trim() || null,
+    kontakt_medium:  document.getElementById('clMedium').value,
+    status:          document.getElementById('clStatus').value,
+    naechste_datum:  document.getElementById('clDatum').value  || null,
+    naechste_action: document.getElementById('clAction').value.trim() || null,
+    scope:           document.getElementById('clScope').value.trim()  || null,
+    notiz:           document.getElementById('clNotiz').value.trim()  || null,
+    synced_at:       now,
+  };
+  if (clEid) {
+    row.id = clEid;
+    const idx = clClients.findIndex(function(c) { return c.id === clEid; });
+    if (idx >= 0) clClients[idx] = Object.assign({}, clClients[idx], row);
+  } else {
+    // Let Supabase generate the UUID
+  }
+  try {
+    await sbUpsert(CL_KEY_SB, clEid ? [row] : [row]);
+    if (!clEid) {
+      // Reload to get the server-generated ID
+      await loadClients();
+    } else {
+      renderClients();
+    }
+    closeClientModal();
+    toast(clEid ? 'Client gespeichert.' : 'Client hinzugefügt.');
+  } catch(e) {
+    toast('Fehler: ' + e.message);
+  }
+}
+
+async function delClient(id) {
+  if (!confirm('Client wirklich löschen?')) return;
+  try {
+    const r = await fetch(SB_URL + CL_KEY_SB + '?id=eq.' + id, { method: 'DELETE', headers: SB_HDR_GET });
+    if (!r.ok) throw new Error(await r.text());
+    clClients = clClients.filter(function(c) { return c.id !== id; });
+    renderClients();
+    toast('Client gelöscht.');
+  } catch(e) { toast('Fehler: ' + e.message); }
+}
+
+function openClPanel(id) {
+  const c = clClients.find(function(x) { return x.id === id; });
+  if (!c) return;
+  document.getElementById('clPFirma').textContent = c.firma;
+  document.getElementById('clPSub').textContent   = [MEDIUM_ICONS[c.kontakt_medium], c.kontakt].filter(Boolean).join(' ');
+  const b = document.getElementById('clPBody');
+  b.innerHTML =
+    '<div class="sh">Kontakt</div>' +
+    ir('Telefon',  c.telefon ? '<a href="tel:' + esc(c.telefon) + '">' + esc(c.telefon) + '</a>' : '—') +
+    ir('Email',    c.email   ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '—') +
+    ir('Website',  c.website ? '<a href="' + esc(c.website) + '" target="_blank">' + esc(c.website.replace(/^https?:\/\//,'')) + '</a>' : '—') +
+    ir('Medium',   (MEDIUM_ICONS[c.kontakt_medium]||'') + ' ' + esc(c.kontakt_medium||'—')) +
+    '<div class="sh">Projekt</div>' +
+    ir('Status',   '<span class="badge client-status-' + (c.status||'aktiv') + '">' + esc(c.status||'aktiv') + '</span>') +
+    ir('Nächstes', esc(c.naechste_action||'—') + (c.naechste_datum ? ' <span style="color:var(--st);font-size:11px">(' + c.naechste_datum + ')</span>' : '')) +
+    (c.scope ? '<div class="sh">Scope</div><div style="font-family:sans-serif;font-size:13px;background:#F5F2EC;border:1px solid #D9D1C7;border-radius:5px;padding:10px 13px;line-height:1.7;white-space:pre-wrap">' + esc(c.scope) + '</div>' : '') +
+    (c.notiz ? '<div class="sh">Notiz</div><div style="font-family:sans-serif;font-size:13px;color:var(--st);line-height:1.5">' + esc(c.notiz) + '</div>' : '');
+  document.getElementById('clPFoot').innerHTML =
+    '<button class="btn bp bsm" onclick="openClientEdit(\'' + id + '\');closeClPanel()">✎ Bearbeiten</button>' +
+    '<button class="btn bs bsm" onclick="delClient(\'' + id + '\');closeClPanel()" style="color:var(--rd)">🗑 Löschen</button>';
+  document.getElementById('clPo').classList.add('on');
+}
+function closeClPanel() { document.getElementById('clPo').classList.remove('on'); }
+
+// ESC also closes client panel
+const _origKeydown = document.onkeydown;
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { closeClPanel(); closeEsPop(); }
+});
 
 </script>
 </body>
