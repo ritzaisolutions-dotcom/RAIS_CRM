@@ -1,0 +1,337 @@
+{
+  "name": "WF3 — Enrich via Gemini (Supabase)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf3-enrich",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-800, -112],
+      "id": "wh-wf3",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-800, -272],
+      "id": "mt-wf3",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "rule": { "interval": [{ "triggerAtHour": 6 }] }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-800, 96],
+      "id": "sched-wf3",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-stadt",
+              "name": "stadt",
+              "value": "={{ $json.body?.stadt || $json.stadt || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "cfg-daily",
+              "name": "Daily_Limit",
+              "value": 1000,
+              "type": "number"
+            },
+            {
+              "id": "cfg-sb-url",
+              "name": "sb_url",
+              "value": "https://qdywaenmojdxhfxqbvun.supabase.co/rest/v1",
+              "type": "string"
+            },
+            {
+              "id": "cfg-sb-key",
+              "name": "sb_key",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkeXdhZW5tb2pkeGhmeHFidnVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDYwMTYsImV4cCI6MjA5MDk4MjAxNn0.rfIzS2eY3yZCvap0pKdB7V-AfKmnvQLx_QLaFEi1gts",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-576, 16],
+      "id": "cfg-wf3",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.sb_url }}/crm_contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "select", "value": "*" },
+            { "name": "qualified", "value": "eq.true" },
+            { "name": "besonderheit", "value": "is.null" },
+            { "name": "order", "value": "created_at.asc" },
+            { "name": "limit", "value": "={{ $('Config').item.json.Daily_Limit }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [-352, 16],
+      "id": "read-wf3",
+      "name": "Read from Supabase"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "chk-len",
+              "leftValue": "={{ $input.all().length }}",
+              "rightValue": 0,
+              "operator": { "type": "number", "operation": "gt" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [96, 0],
+      "id": "check-wf3",
+      "name": "Has Records?"
+    },
+    {
+      "parameters": {
+        "options": { "reset": false }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [400, -112],
+      "id": "loop-wf3",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "prep-id",
+              "name": "id",
+              "value": "={{ $json.id }}",
+              "type": "string"
+            },
+            {
+              "id": "prep-name",
+              "name": "Name",
+              "value": "={{ $json.firma }}",
+              "type": "string"
+            },
+            {
+              "id": "prep-website",
+              "name": "website",
+              "value": "={{ $json.website }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [624, -16],
+      "id": "prep-wf3",
+      "name": "Prep Fields"
+    },
+    {
+      "parameters": {
+        "amount": 17
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [848, -16],
+      "id": "wait-wf3",
+      "name": "Wait 17s",
+      "webhookId": "wf3-wait-001"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.0-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.0-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Company Name: {{ $json.Name }}\nWebsite: {{ $json.website }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": { "googleSearch": true },
+        "options": {
+          "systemMessage": "###ROLE\nYou are a research expert helping us find the business owner of a German tile/flooring contractor (Fliesenleger/Bodenleger) and one specific observation about their business.\n\n###TASK\n1. Find the owner/director name, email, and social media\n2. Visit their website and identify ONE specific detail about their business — something concrete and visible (e.g. they have a stone warehouse, they specialize in natural stone, they show 8 employees on their team page, they have no contact form, their site looks like it's from 2010, they only list a phone number)\n\n###OUTPUT\nRespond ONLY with valid JSON, no markdown, no explanation:\n{\n  \"Company Name\": \"Fliesen Weber\",\n  \"besonderheit\": \"Keine Kontaktmöglichkeit außer Telefon auf der Website\",\n  \"Person Name\": [\n    {\n      \"name\": \"Max Weber\",\n      \"title\": \"Inhaber\",\n      \"email\": \"max@fliesen-weber.de\",\n      \"LinkedIn\": \"NA\",\n      \"Instagram\": \"NA\",\n      \"Twitter\": \"NA\",\n      \"Facebook\": \"NA\"\n    }\n  ]\n}\n\n###IMPORTANT\n- besonderheit must be ONE sentence, specific and factual, in German\n- If no website exists, besonderheit = \"Keine Website vorhanden\"\n- Output ONLY the JSON object, nothing else"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [1072, -16],
+      "id": "gemini-wf3",
+      "name": "Gemini Research",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "Ewff9bZdQEgs99XA",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ext-out",
+              "name": "output",
+              "value": "={{ $json.content?.parts?.[0]?.text || $json.output || $json.text || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "ext-id",
+              "name": "record_id",
+              "value": "={{ $('Prep Fields').item.json.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1296, -16],
+      "id": "ext-wf3",
+      "name": "Extract Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = [];\n\nfor (const item of $input.all()) {\n  try {\n    let rawText = item.json.output || '';\n    if (!rawText) throw new Error('No output text');\n    const jsonString = rawText.replace(/```json|```/g, '').trim();\n    const parsedData = JSON.parse(jsonString);\n    const besonderheit = parsedData['besonderheit'] || 'NA';\n    const people = parsedData['Person Name'] || [];\n    const person = people[0] || {};\n    allItems.push({\n      json: {\n        record_id: item.json.record_id,\n        besonderheit: besonderheit,\n        person_name: person.name || null,\n        kontakt_titel: person.title || null,\n        email: (person.email && person.email !== 'NA') ? person.email : null,\n        instagram: (person.Instagram && person.Instagram !== 'NA') ? person.Instagram : null\n      }\n    });\n  } catch (error) {\n    allItems.push({\n      json: {\n        record_id: item.json.record_id,\n        besonderheit: null,\n        person_name: null,\n        email: null,\n        _parse_error: error.message\n      }\n    });\n  }\n}\n\nreturn allItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1520, -16],
+      "id": "parse-wf3",
+      "name": "Parse Gemini JSON"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Config').item.json.sb_url }}/crm_contacts?id=eq.{{ $json.record_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"besonderheit\": {{ $json.besonderheit ? '\"' + $json.besonderheit.replace(/\"/g, '\\\\\"') + '\"' : 'null' }},\n  \"kontakt\": {{ $json.person_name ? '\"' + $json.person_name.replace(/\"/g, '\\\\\"') + '\"' : 'null' }},\n  \"email\": {{ $json.email ? '\"' + $json.email + '\"' : 'null' }},\n  \"instagram\": {{ $json.instagram ? '\"' + $json.instagram + '\"' : 'null' }},\n  \"enriched\": true\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1744, -16],
+      "id": "update-wf3",
+      "name": "Update Supabase"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').item.json.sb_url }}/wf_runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" },
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "Prefer", "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"wf\": \"wf3\",\n  \"stadt\": \"{{ $('Config').item.json.stadt }}\",\n  \"status\": \"done\",\n  \"finished_at\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [912, -384],
+      "id": "notify-wf3",
+      "name": "Notify wf_runs"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"wf\": \"wf3\" }"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [1136, -384],
+      "id": "resp-wf3",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Manual Trigger": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Schedule Trigger": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Config": { "main": [[{ "node": "Read from Supabase", "type": "main", "index": 0 }]] },
+    "Read from Supabase": { "main": [[{ "node": "Has Records?", "type": "main", "index": 0 }]] },
+    "Has Records?": {
+      "main": [
+        [{ "node": "Loop Over Items", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [{ "node": "Notify wf_runs", "type": "main", "index": 0 }],
+        [{ "node": "Prep Fields", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prep Fields": { "main": [[{ "node": "Wait 17s", "type": "main", "index": 0 }]] },
+    "Wait 17s": { "main": [[{ "node": "Gemini Research", "type": "main", "index": 0 }]] },
+    "Gemini Research": { "main": [[{ "node": "Extract Output", "type": "main", "index": 0 }]] },
+    "Extract Output": { "main": [[{ "node": "Parse Gemini JSON", "type": "main", "index": 0 }]] },
+    "Parse Gemini JSON": { "main": [[{ "node": "Update Supabase", "type": "main", "index": 0 }]] },
+    "Update Supabase": { "main": [[{ "node": "Loop Over Items", "type": "main", "index": 0 }]] },
+    "Notify wf_runs": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "instanceId": "6140dcd1eeef56988d97baa4d030a839e61618e52e7b6b6368007789e07414e1"
+  },
+  "tags": []
+}
