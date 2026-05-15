@@ -825,11 +825,30 @@ async function syncCloud() {
       REMOTE_WINS.forEach(function(f) { if (r[f] != null) c[f] = r[f]; });
     });
 
+    // Also pull extra.* sub-fields onto top-level for existing contacts
+    contacts.forEach(function(c) {
+      const r = remoteById[c.id];
+      if (!r || !r.extra) return;
+      if (r.extra.hauptleistung  != null) c.hauptleistung    = r.extra.hauptleistung;
+      if (r.extra.webseite_alter != null) c.webseite_alter   = r.extra.webseite_alter;
+      if (r.extra.webseite_vorhanden != null) c.webseite_vorhanden = r.extra.webseite_vorhanden;
+      if (r.extra.hat_kalkulator != null) c.hat_kalkulator   = r.extra.hat_kalkulator;
+      if (r.extra.facebook       != null) c.facebook         = r.extra.facebook;
+    });
+
     // Add remote-only records (written by WF1/WF3) that don't exist locally yet
+    // Normalize extra.* onto top-level so upsert and UI can read them directly
     remote.forEach(function(r) {
       if (!localById[r.id]) {
         const c = Object.assign({}, r);
         if (!c.touches) c.touches = [];
+        if (c.extra) {
+          c.hauptleistung    = c.extra.hauptleistung    || null;
+          c.webseite_alter   = c.extra.webseite_alter   || null;
+          c.webseite_vorhanden = c.extra.webseite_vorhanden || null;
+          c.hat_kalkulator   = c.extra.hat_kalkulator   || null;
+          c.facebook         = c.extra.facebook         || null;
+        }
         contacts.push(c);
       }
     });
@@ -1469,7 +1488,7 @@ function parseCSV(txt) {
     'demo_termin': 'demo_termin', 'termin': 'demo_termin',
     'email_nurture': 'email_nurture', 'nurture': 'email_nurture', 'interessiert': 'email_nurture',
     'kein_anschluss': 'kein_anschluss', 'nicht erreicht': 'kein_anschluss', 'nicht_erreicht': 'kein_anschluss', 'no show': 'kein_anschluss',
-    'nicht_interessiert': 'nicht_interessiert', 'kein interesse': 'nicht_interessiert', 'kein_interesse': 'nicht_interessiert',
+    'nicht_interessiert': 'disqualified', 'kein interesse': 'disqualified', 'kein_interesse': 'disqualified', 'disqualified': 'disqualified',
     'gatekeeper': 'gatekeeper',
     'followup': 'callback', 'follow-up': 'callback',
   };
@@ -1974,7 +1993,8 @@ async function bulkEmail(num) {
   if (!confirm(cnt + ' Kontakte erhalten Email ' + num + '. Fortfahren?')) return;
   const whKey = num === 1 ? 'email1' : num === 2 ? 'email2' : 'email3';
   try {
-    await fetch(WH[whKey], { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ batch: true }) });
+    const bulkResp = await fetch(WH[whKey], { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ batch: true }) });
+    if (!bulkResp.ok) throw new Error('HTTP ' + bulkResp.status);
     toast('Email ' + num + ' Batch gestartet — ' + cnt + ' Kontakte.');
     setTimeout(syncCloud, 60000);
   } catch(e) { toast('Fehler: ' + e.message); }
