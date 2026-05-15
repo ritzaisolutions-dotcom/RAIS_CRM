@@ -128,8 +128,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"textQuery\": \"{{ $('Config').item.json.query }}\",\n  \"locationBias\": {\n    \"circle\": {\n      \"center\": { \"latitude\": {{ $json.lat }}, \"longitude\": {{ $json.lng }} },\n      \"radius\": {{ $('Config').item.json.radius }}\n    }\n  },\n  \"pageSize\": 20\n}",
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ textQuery: $('Config').item.json.query, locationBias: { circle: { center: { latitude: $json.lat, longitude: $json.lng }, radius: $('Config').item.json.radius } }, pageSize: 20 }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -231,8 +231,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"place_id\": \"{{ $json.place_id }}\",\n  \"firma\": \"{{ $json.firma }}\",\n  \"adresse\": \"{{ $json.adresse }}\",\n  \"telefon\": \"{{ $json.telefon }}\",\n  \"website\": \"{{ $json.website }}\",\n  \"rating\": {{ $json.rating || 0 }},\n  \"reviews\": {{ $json.reviews || 0 }},\n  \"stadt\": \"{{ $json.stadt }}\",\n  \"gewerk\": \"{{ $json.gewerk }}\",\n  \"status\": \"neu\"\n}",
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ place_id: $json.place_id, firma: $json.firma, adresse: $json.adresse, telefon: $json.telefon, website: $json.website, rating: $json.rating || 0, reviews: $json.reviews || 0, stadt: $json.stadt, gewerk: $json.gewerk, status: 'neu' }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -255,8 +255,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"wf\": \"wf1\",\n  \"stadt\": \"{{ $('Config').item.json.stadt }}\",\n  \"status\": \"done\",\n  \"finished_at\": \"{{ new Date().toISOString() }}\"\n}",
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ wf: 'wf1', stadt: $('Config').item.json.stadt, status: 'done', finished_at: new Date().toISOString() }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

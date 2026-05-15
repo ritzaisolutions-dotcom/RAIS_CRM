@@ -150,8 +150,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"website\": {{ $json.website ? '\"' + $json.website + '\"' : 'null' }},\n  \"telefon\": {{ $json.telefon ? '\"' + $json.telefon + '\"' : 'null' }},\n  \"rating\": {{ $json.rating }},\n  \"reviews\": {{ $json.reviews }},\n  \"lead_score\": {{ $json.lead_score }},\n  \"score_reasons\": \"{{ $json.score_reasons }}\",\n  \"qualified\": {{ $json.qualified }},\n  \"status\": \"{{ $json.status }}\"\n}",
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ website: $json.website || null, telefon: $json.telefon || null, rating: $json.rating, reviews: $json.reviews, lead_score: $json.lead_score, score_reasons: $json.score_reasons, qualified: $json.qualified, status: $json.status }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -174,8 +174,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"wf\": \"wf2\",\n  \"stadt\": \"{{ $('Config').item.json.stadt }}\",\n  \"status\": \"done\",\n  \"finished_at\": \"{{ new Date().toISOString() }}\"\n}",
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ wf: 'wf2', stadt: $('Config').item.json.stadt, status: 'done', finished_at: new Date().toISOString() }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

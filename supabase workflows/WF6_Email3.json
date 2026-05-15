@@ -223,8 +223,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"followup_sent\": \"{{ new Date().toISOString().split('T')[0] }}\",\n  \"email_status\": \"e3_sent\"\n}",
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ followup_sent: new Date().toISOString().split('T')[0], email_status: 'e3_sent' }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -247,8 +247,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"wf\": \"wf6\",\n  \"status\": \"done\",\n  \"finished_at\": \"{{ new Date().toISOString() }}\"\n}",
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ wf: 'wf6', status: 'done', finished_at: new Date().toISOString() }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

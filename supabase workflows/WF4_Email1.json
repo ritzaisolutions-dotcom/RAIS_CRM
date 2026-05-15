@@ -233,8 +233,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ $json.claude_request_body }}",
+        "specifyBody": "string",
+        "body": "={{ $json.claude_request_body }}",
         "options": {
           "response": { "response": { "responseFormat": "json" } },
           "timeout": 30000
@@ -329,8 +329,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"email_1_sent\": \"{{ new Date().toISOString().split('T')[0] }}\",\n  \"email_1_subject\": \"{{ $('Build Email').item.json.email_subject.replace(/\"/g, '\\\\\"') }}\",\n  \"email_status\": \"e1_sent\"\n}",
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ email_1_sent: new Date().toISOString().split('T')[0], email_1_subject: $('Build Email').item.json.email_subject, email_status: 'e1_sent' }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -353,8 +353,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"wf\": \"wf4\",\n  \"status\": \"done\",\n  \"finished_at\": \"{{ new Date().toISOString() }}\"\n}",
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ wf: 'wf4', status: 'done', finished_at: new Date().toISOString() }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",

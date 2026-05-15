@@ -255,8 +255,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"besonderheit\": {{ $json.besonderheit ? '\"' + $json.besonderheit.replace(/\"/g, '\\\\\"') + '\"' : 'null' }},\n  \"kontakt\": {{ $json.person_name ? '\"' + $json.person_name.replace(/\"/g, '\\\\\"') + '\"' : 'null' }},\n  \"email\": {{ $json.email ? '\"' + $json.email + '\"' : 'null' }},\n  \"instagram\": {{ $json.instagram ? '\"' + $json.instagram + '\"' : 'null' }},\n  \"enriched\": true\n}",
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ besonderheit: $json.besonderheit || null, kontakt: $json.person_name || null, email: $json.email || null, instagram: $json.instagram || null, enriched: true }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -279,8 +279,8 @@
           ]
         },
         "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={\n  \"wf\": \"wf3\",\n  \"stadt\": \"{{ $('Config').item.json.stadt }}\",\n  \"status\": \"done\",\n  \"finished_at\": \"{{ new Date().toISOString() }}\"\n}",
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ wf: 'wf3', stadt: $('Config').item.json.stadt, status: 'done', finished_at: new Date().toISOString() }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
