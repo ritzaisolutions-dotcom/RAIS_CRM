@@ -808,13 +808,24 @@ async function syncCloud() {
     // 1. Pull: alle Einträge aus der Cloud holen
     const remote = await sbGet('/rest/v1/crm_contacts?select=*&order=created.asc');
 
-    // 2. Merge: remote gewinnt bei Konflikt (neueres synced_at), lokal-only bleibt
+    // 2. Merge: automation-written fields come from remote, user-edited fields stay local
     const remoteById = {};
     remote.forEach(function(r) { remoteById[r.id] = r; });
     const localById  = {};
     contacts.forEach(function(c) { localById[c.id] = c; });
 
-    // Neue remote-Einträge lokal ergänzen
+    // Fields written by n8n automation — remote always wins
+    const REMOTE_WINS = ['email_1_sent','email_1_subject','email_2_sent','followup_sent',
+      'email_status','unsubscribed','reply_received','qualified','lead_score',
+      'besonderheit','enriched','rating','reviews','website','place_id','gewerk','adresse'];
+
+    contacts.forEach(function(c) {
+      const r = remoteById[c.id];
+      if (!r) return;
+      REMOTE_WINS.forEach(function(f) { if (r[f] != null) c[f] = r[f]; });
+    });
+
+    // Add remote-only records (written by WF1/WF3) that don't exist locally yet
     remote.forEach(function(r) {
       if (!localById[r.id]) {
         const c = Object.assign({}, r);
@@ -1453,11 +1464,14 @@ function parseCSV(txt) {
   const iFu = ci('follow');
   if (iF < 0) { toast('Keine Firma-Spalte gefunden.'); return; }
   const sm2 = {
-    interessiert:'interessiert', termin:'termin',
-    followup:'followup', 'follow-up':'followup',
-    'nicht erreicht':'nicht_erreicht', nicht_erreicht:'nicht_erreicht',
-    'no show':'nicht_erreicht', gatekeeper:'gatekeeper',
-    'kein interesse':'kein_interesse',
+    'neu': 'neu',
+    'callback': 'callback', 'rückruf': 'callback',
+    'demo_termin': 'demo_termin', 'termin': 'demo_termin',
+    'email_nurture': 'email_nurture', 'nurture': 'email_nurture', 'interessiert': 'email_nurture',
+    'kein_anschluss': 'kein_anschluss', 'nicht erreicht': 'kein_anschluss', 'nicht_erreicht': 'kein_anschluss', 'no show': 'kein_anschluss',
+    'nicht_interessiert': 'nicht_interessiert', 'kein interesse': 'nicht_interessiert', 'kein_interesse': 'nicht_interessiert',
+    'gatekeeper': 'gatekeeper',
+    'followup': 'callback', 'follow-up': 'callback',
   };
   const iSt  = ci('stadt');
   const iReg = ci('region');
@@ -1505,9 +1519,12 @@ function doImport() {
 
 // ── Export ────────────────────────────────────────────────────────────────────
 function exportCSV() {
-  const h = ['Firma','Kontakt','Titel','Telefon','Email','Website','ROI','Status','Follow-up','T1','Reviews','Leistung','Besonderheit'];
+  const h = ['Firma','Kontakt','Titel','Telefon','Email','Website','ROI','Status','Follow-up','Letzter Anruf','Reviews','Leistung','Besonderheit'];
   const rows = contacts.map(function(c) {
-    return [c.firma,c.kontakt,c.title,c.telefon,c.email,c.website,c.roi,c.status,c.followup,c.t1_status,c.reviews,c.hauptleistung,c.besonderheit]
+    const lastTouch = (c.touches && c.touches.length)
+      ? (c.touches[c.touches.length - 1].datum || '') + ' ' + (c.touches[c.touches.length - 1].status || '')
+      : '';
+    return [c.firma,c.kontakt,c.title,c.telefon,c.email,c.website,c.roi,c.status,c.followup,lastTouch,c.reviews,c.hauptleistung,c.besonderheit]
       .map(function(v) { return '"' + String(v || '').replace(/"/g, '""') + '"'; });
   });
   const csv = [h.join(',')].concat(rows.map(function(r) { return r.join(','); })).join('\n');
@@ -1665,9 +1682,12 @@ async function runWF(num) {
   const payload = { query: query, stadt: stadt, radius: radius };
   try {
     const wfKey = 'wf' + num;
-    await fetch(WH[wfKey], { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-    // Start polling wf_runs
-    lgCurrentRun = { wf: wfKey, stadt: stadt, num: num };
+    const runStartedAt = new Date().toISOString();
+    const wfResp = await fetch(WH[wfKey], { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    if (!wfResp.ok) throw new Error('HTTP ' + wfResp.status);
+    // Start polling wf_runs — clear any stale interval first
+    if (lgPollTimer) { clearInterval(lgPollTimer); lgPollTimer = null; }
+    lgCurrentRun = { wf: wfKey, stadt: stadt, num: num, startedAt: runStartedAt };
     lgPollTimer = setInterval(function() { pollWfRun(num); }, 15000);
     toast('WF' + num + ' gestartet — läuft im Hintergrund.');
   } catch(e) {
@@ -1682,7 +1702,7 @@ async function runWF(num) {
 async function pollWfRun(num) {
   if (!lgCurrentRun) return;
   try {
-    const rows = await sbGet('/rest/v1/wf_runs?wf=eq.' + lgCurrentRun.wf + '&order=created_at.desc&limit=1');
+    const rows = await sbGet('/rest/v1/wf_runs?wf=eq.' + lgCurrentRun.wf + '&created_at=gte.' + encodeURIComponent(lgCurrentRun.startedAt) + '&order=created_at.desc&limit=1');
     if (!rows || !rows.length) return;
     const run = rows[0];
     if (run.status === 'done') {
@@ -1806,6 +1826,7 @@ async function esGenerate() {
         preview_only: true,
       })
     });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
     document.getElementById('esLoading').style.display = 'none';
     document.getElementById('esStep2').style.display = 'block';
@@ -1830,7 +1851,7 @@ async function esSend() {
   btn.disabled = true;
   btn.textContent = '📨 Sende…';
   try {
-    await fetch(WH.email1, {
+    const sendResp = await fetch(WH.email1, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -1840,6 +1861,7 @@ async function esSend() {
         approved:   true,
       })
     });
+    if (!sendResp.ok) throw new Error('HTTP ' + sendResp.status);
     toast('Email gesendet an ' + c.firma + ' ✓');
     // Optimistic UI update
     c.email_1_sent = td();
@@ -1908,7 +1930,8 @@ async function sendEmailBatch(id, emailNum) {
   if (!c) return;
   const whKey = emailNum === 2 ? 'email2' : 'email3';
   try {
-    await fetch(WH[whKey], { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ contact_id: id }) });
+    const batchResp = await fetch(WH[whKey], { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ contact_id: id }) });
+    if (!batchResp.ok) throw new Error('HTTP ' + batchResp.status);
     if (emailNum === 2) c.email_2_sent = td();
     if (emailNum === 3) c.followup_sent = td();
     c.email_status = 'sent';
