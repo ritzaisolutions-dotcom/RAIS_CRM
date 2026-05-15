@@ -36,72 +36,16 @@
       "parameters": {
         "assignments": {
           "assignments": [
-            {
-              "id": "cfg-daily",
-              "name": "daily_limit",
-              "value": 40,
-              "type": "number"
-            },
-            {
-              "id": "cfg-sender",
-              "name": "sender_name",
-              "value": "Kevin Ritz",
-              "type": "string"
-            },
-            {
-              "id": "cfg-sender-email",
-              "name": "sender_email",
-              "value": "kevin@ritz-ai.solutions",
-              "type": "string"
-            },
-            {
-              "id": "cfg-demo",
-              "name": "demo_url",
-              "value": "https://fliesen-weber.vercel.app/",
-              "type": "string"
-            },
-            {
-              "id": "cfg-preview",
-              "name": "preview_only",
-              "value": "={{ $json.body?.preview_only || false }}",
-              "type": "boolean"
-            },
-            {
-              "id": "cfg-contact-id",
-              "name": "contact_id",
-              "value": "={{ $json.body?.contact_id || null }}",
-              "type": "string"
-            },
-            {
-              "id": "cfg-anlass",
-              "name": "anlass",
-              "value": "={{ $json.body?.anlass || null }}",
-              "type": "string"
-            },
-            {
-              "id": "cfg-notiz",
-              "name": "notiz",
-              "value": "={{ $json.body?.notiz || '' }}",
-              "type": "string"
-            },
-            {
-              "id": "cfg-batch",
-              "name": "batch_mode",
-              "value": "={{ $json.body?.batch || false }}",
-              "type": "boolean"
-            },
-            {
-              "id": "cfg-sb-url",
-              "name": "sb_url",
-              "value": "https://qdywaenmojdxhfxqbvun.supabase.co/rest/v1",
-              "type": "string"
-            },
-            {
-              "id": "cfg-sb-key",
-              "name": "sb_key",
-              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkeXdhZW5tb2pkeGhmeHFidnVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDYwMTYsImV4cCI6MjA5MDk4MjAxNn0.rfIzS2eY3yZCvap0pKdB7V-AfKmnvQLx_QLaFEi1gts",
-              "type": "string"
-            }
+            { "id": "cfg-daily",        "name": "daily_limit",   "value": 40,                                                  "type": "number" },
+            { "id": "cfg-sender",       "name": "sender_name",   "value": "Kevin Ritz",                                       "type": "string" },
+            { "id": "cfg-sender-email", "name": "sender_email",  "value": "kevin@ritz-ai.solutions",                          "type": "string" },
+            { "id": "cfg-demo",         "name": "demo_url",      "value": "https://fliesen-weber.vercel.app/",                 "type": "string" },
+            { "id": "cfg-preview",      "name": "preview_only",  "value": "={{ $json.body?.preview_only || false }}",          "type": "boolean" },
+            { "id": "cfg-contact-id",   "name": "contact_id",    "value": "={{ $json.body?.contact_id || null }}",             "type": "string" },
+            { "id": "cfg-anlass",       "name": "anlass",        "value": "={{ $json.body?.anlass || null }}",                 "type": "string" },
+            { "id": "cfg-notiz",        "name": "notiz",         "value": "={{ $json.body?.notiz || '' }}",                   "type": "string" },
+            { "id": "cfg-sb-url",       "name": "sb_url",        "value": "https://qdywaenmojdxhfxqbvun.supabase.co/rest/v1", "type": "string" },
+            { "id": "cfg-sb-key",       "name": "sb_key",        "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkeXdhZW5tb2pkeGhmeHFidnVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDYwMTYsImV4cCI6MjA5MDk4MjAxNn0.rfIzS2eY3yZCvap0pKdB7V-AfKmnvQLx_QLaFEi1gts", "type": "string" }
           ]
         },
         "options": {}
@@ -117,10 +61,10 @@
         "conditions": {
           "conditions": [
             {
-              "id": "chk-preview",
-              "leftValue": "={{ $json.preview_only }}",
-              "rightValue": true,
-              "operator": { "type": "boolean", "operation": "true" }
+              "id": "chk-single",
+              "leftValue": "={{ $json.contact_id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
             }
           ],
           "combinator": "and"
@@ -131,7 +75,7 @@
       "typeVersion": 2.3,
       "position": [-896, 304],
       "id": "mode-wf4",
-      "name": "Preview Mode?"
+      "name": "Single Contact?"
     },
     {
       "parameters": {
@@ -139,7 +83,7 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
             { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" }
           ]
         },
@@ -157,17 +101,18 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
             { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "select", "value": "*" },
-            { "name": "email_1_sent", "value": "is.null" },
-            { "name": "email", "value": "not.is.null" },
-            { "name": "unsubscribed", "value": "neq.true" }
+            { "name": "select",        "value": "*" },
+            { "name": "email_1_sent",  "value": "is.null" },
+            { "name": "email",         "value": "not.is.null" },
+            { "name": "unsubscribed",  "value": "neq.true" },
+            { "name": "reply_received","value": "neq.true" }
           ]
         },
         "options": {}
@@ -200,6 +145,17 @@
     },
     {
       "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"wf\": \"wf4\", \"sent\": true }"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [0, 160],
+      "id": "resp-empty-wf4",
+      "name": "Respond Done (empty)"
+    },
+    {
+      "parameters": {
         "amount": 45
       },
       "type": "n8n-nodes-base.wait",
@@ -211,7 +167,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst cfg = $('Config').item.json;\n\nconst person = item.kontakt || item.person || item.person_name || 'Inhaber';\nconst besonderheit = item.besonderheit || '';\nconst website = item.website || 'nicht verfügbar';\nconst anlass = cfg.anlass || null;\nconst notiz = cfg.notiz || '';\n\n// Anlass-specific observation hint\nconst anlassMap = {\n  'keine_website': 'Keine eigene Website vorhanden',\n  'veraltet': 'Website wirkt veraltet (ggf. vor 2018 erstellt)',\n  'kein_kalkulator': 'Kein Online-Kostenrechner oder Angebotsrechner',\n  'kein_formular': 'Kein Kontaktformular — nur Telefon',\n  'nur_telefon': 'Nur per Telefon erreichbar',\n  'kein_termin': 'Keine Online-Terminbuchung',\n  'mobile': 'Schlechte Darstellung auf Mobilgeräten',\n  'kein_google': 'Kein oder schwacher Google-Auftritt',\n  'sonstiges': notiz || besonderheit\n};\n\nconst anlassHint = anlass ? (anlassMap[anlass] || besonderheit) : besonderheit;\n\nconst prompt = `###ROLE\\nDu bist ein deutscher Cold-Email-Spezialist für lokale Fliesenleger-Betriebe.\\n\\n###TASK\\nSchreibe NUR diese 3 Felder für eine Cold Email:\\n1. subject: Betreffzeile (micro-yes, max 8 Wörter, kein Marketing-Speak)\\n2. observation: 1 Satz — öffentlich sichtbares UX Problem auf ihrer Website, kein Vorwurf\\n3. mechanics: 1 Satz — nachvollziehbare Konsequenz für einen zahlbereiten Kunden\\n\\n###REGELN\\n- Alles in einem Klick öffentlich verifizierbar\\n- Kein Marketing-Speak, keine Floskeln\\n- Sprache: Deutsch, Sie-Form\\n- KEINE Anrede in observation oder mechanics\\n- Starte observation NICHT mit \"Ich\" oder dem Firmennamen\\n\\n###INPUT\\n- Website: ${website}\\n- Beobachtung/Anlass: ${anlassHint}\\n- Notizen: ${notiz}\\n\\n###OUTPUT — NUR gültiges JSON, kein Markdown:\\n{\"subject\": \"...\", \"observation\": \"...\", \"mechanics\": \"...\"}`;\n\nconst body = {\n  model: 'claude-haiku-4-5-20251001',\n  max_tokens: 300,\n  messages: [{ role: 'user', content: prompt }]\n};\n\nreturn [{ json: { ...item, claude_request_body: JSON.stringify(body) } }];"
+        "jsCode": "const item = $input.first().json;\nconst cfg = $('Config').item.json;\n\nconst person = item.kontakt || item.person || item.person_name || 'Inhaber';\nconst besonderheit = item.besonderheit || '';\nconst website = item.website || 'nicht verfügbar';\nconst anlass = cfg.anlass || null;\nconst notiz = cfg.notiz || '';\n\nconst anlassMap = {\n  'keine_website': 'Keine eigene Website vorhanden',\n  'veraltet': 'Website wirkt veraltet (ggf. vor 2018 erstellt)',\n  'kein_kalkulator': 'Kein Online-Kostenrechner oder Angebotsrechner',\n  'kein_formular': 'Kein Kontaktformular — nur Telefon',\n  'nur_telefon': 'Nur per Telefon erreichbar',\n  'kein_termin': 'Keine Online-Terminbuchung',\n  'mobile': 'Schlechte Darstellung auf Mobilgeräten',\n  'kein_google': 'Kein oder schwacher Google-Auftritt',\n  'sonstiges': notiz || besonderheit\n};\n\nconst anlassHint = anlass ? (anlassMap[anlass] || besonderheit) : besonderheit;\n\nconst prompt = `###ROLE\\nDu bist ein deutscher Cold-Email-Spezialist für lokale Fliesenleger-Betriebe.\\n\\n###TASK\\nSchreibe NUR diese 3 Felder für eine Cold Email:\\n1. subject: Betreffzeile (micro-yes, max 8 Wörter, kein Marketing-Speak)\\n2. observation: 1 Satz — öffentlich sichtbares UX Problem auf ihrer Website, kein Vorwurf\\n3. mechanics: 1 Satz — nachvollziehbare Konsequenz für einen zahlbereiten Kunden\\n\\n###REGELN\\n- Alles in einem Klick öffentlich verifizierbar\\n- Kein Marketing-Speak, keine Floskeln\\n- Sprache: Deutsch, Sie-Form\\n- KEINE Anrede in observation oder mechanics\\n- Starte observation NICHT mit \"Ich\" oder dem Firmennamen\\n\\n###INPUT\\n- Website: ${website}\\n- Beobachtung/Anlass: ${anlassHint}\\n- Notizen: ${notiz}\\n\\n###OUTPUT — NUR gültiges JSON, kein Markdown:\\n{\"subject\": \"...\", \"observation\": \"...\", \"mechanics\": \"...\"}`;\n\nconst body = {\n  model: 'claude-haiku-4-5-20251001',\n  max_tokens: 300,\n  messages: [{ role: 'user', content: prompt }]\n};\n\nreturn [{ json: { ...item, claude_request_body: JSON.stringify(body) } }];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -229,7 +185,7 @@
         "headerParameters": {
           "parameters": [
             { "name": "anthropic-version", "value": "2023-06-01" },
-            { "name": "content-type", "value": "application/json" }
+            { "name": "content-type",      "value": "application/json" }
           ]
         },
         "sendBody": true,
@@ -254,7 +210,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $('Build Claude Prompt').first().json;\nconst rawResponse = $input.first().json;\nconst cfg = $('Config').item.json;\n\nlet claudeJson = {\n  subject: 'Kundenanfragen außerhalb Ihrer Erreichbarkeit',\n  observation: 'Auf Ihrer Website ist Telefon die einzige Möglichkeit, Sie zu kontaktieren.',\n  mechanics: 'Kunden die außerhalb Ihrer Erreichbarkeit anrufen und niemanden erreichen, gehen zur Konkurrenz.'\n};\n\ntry {\n  const rawText = rawResponse.content[0].text.trim().replace(/```json|```/g, '').trim();\n  claudeJson = JSON.parse(rawText);\n} catch (e) {}\n\nconst person = item.kontakt || item.person || '';\nconst firma = item.firma || item.company_name || item.Name || 'Ihr Betrieb';\nconst email = item.email || '';\n\nconst nachname = (person && person !== 'NA' && person !== 'na')\n  ? person.split(' ').slice(-1)[0]\n  : null;\nconst anrede = nachname ? `Sehr geehrter Herr ${nachname}` : 'Sehr geehrte Damen und Herren';\n\nconst subject = claudeJson.subject || 'Kundenanfragen außerhalb Ihrer Erreichbarkeit';\nconst bodyText = `${anrede},\\n\\n${claudeJson.observation}\\n\\n${claudeJson.mechanics}\\n\\nIch würde Ihnen gerne eine Demo vorbereiten — eine Version Ihrer Website mit Kostenrechner und Terminbuchung, damit Kunden auch dann anfragen können, wenn Sie auf der Baustelle sind.\\n\\nDemo ansehen: ${cfg.demo_url}\\n\\nWäre das einen kurzen Blick wert, ja oder nein?\\n\\nFalls nicht passend, ignorieren Sie diese Email.\\n\\nBeste Grüße\\nKevin Ritz\\nRitz AI Solutions\\nritz-ai.solutions | +49 151 2975 5134 | kevin@ritz-ai.solutions`;\n\nreturn [{\n  json: {\n    email_to: email,\n    email_subject: subject,\n    email_body: bodyText,\n    contact_id: item.id,\n    firma: firma,\n    preview_only: cfg.preview_only\n  }\n}];"
+        "jsCode": "const item = $('Build Claude Prompt').first().json;\nconst rawResponse = $input.first().json;\nconst cfg = $('Config').item.json;\n\nlet claudeJson = {\n  subject: 'Kundenanfragen außerhalb Ihrer Erreichbarkeit',\n  observation: 'Auf Ihrer Website ist Telefon die einzige Möglichkeit, Sie zu kontaktieren.',\n  mechanics: 'Kunden die außerhalb Ihrer Erreichbarkeit anrufen und niemanden erreichen, gehen zur Konkurrenz.'\n};\n\ntry {\n  const rawText = rawResponse.content[0].text.trim().replace(/```json|```/g, '').trim();\n  claudeJson = JSON.parse(rawText);\n} catch (e) {}\n\nconst person = item.kontakt || item.person || '';\nconst firma = item.firma || 'Ihr Betrieb';\nconst email = item.email || '';\n\nconst nachname = (person && person !== 'NA' && person !== 'na')\n  ? person.split(' ').slice(-1)[0] : null;\nconst anrede = nachname ? `Sehr geehrter Herr ${nachname}` : 'Sehr geehrte Damen und Herren';\n\nconst subject = claudeJson.subject || 'Kundenanfragen außerhalb Ihrer Erreichbarkeit';\nconst bodyText = `${anrede},\\n\\n${claudeJson.observation}\\n\\n${claudeJson.mechanics}\\n\\nIch würde Ihnen gerne eine Demo vorbereiten — eine Version Ihrer Website mit Kostenrechner und Terminbuchung, damit Kunden auch dann anfragen können, wenn Sie auf der Baustelle sind.\\n\\nDemo ansehen: ${cfg.demo_url}\\n\\nWäre das einen kurzen Blick wert, ja oder nein?\\n\\nFalls nicht passend, ignorieren Sie diese Email.\\n\\nBeste Grüße\\nKevin Ritz\\nRitz AI Solutions\\nritz-ai.solutions | +49 151 2975 5134 | kevin@ritz-ai.solutions`;\n\nreturn [{\n  json: {\n    email_to: email,\n    email_subject: subject,\n    email_body: bodyText,\n    contact_id: item.id,\n    firma: firma,\n    preview_only: cfg.preview_only\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -309,10 +265,7 @@
       "name": "Send Email",
       "webhookId": "wf4-smtp-001",
       "credentials": {
-        "smtp": {
-          "id": "jr5t6ZjMqqqydzQg",
-          "name": "SMTP account"
-        }
+        "smtp": { "id": "jr5t6ZjMqqqydzQg", "name": "SMTP account" }
       }
     },
     {
@@ -322,10 +275,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
             { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" },
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "Prefer", "value": "return=minimal" }
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "return=minimal" }
           ]
         },
         "sendBody": true,
@@ -346,10 +299,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
             { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" },
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "Prefer", "value": "resolution=merge-duplicates,return=minimal" }
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "resolution=merge-duplicates,return=minimal" }
           ]
         },
         "sendBody": true,
@@ -377,11 +330,11 @@
   ],
   "pinData": {},
   "connections": {
-    "Webhook": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
-    "Manual Trigger": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Webhook":          { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Manual Trigger":   { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
     "Schedule Trigger": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
-    "Config": { "main": [[{ "node": "Preview Mode?", "type": "main", "index": 0 }]] },
-    "Preview Mode?": {
+    "Config": { "main": [[{ "node": "Single Contact?", "type": "main", "index": 0 }]] },
+    "Single Contact?": {
       "main": [
         [{ "node": "Read Single Contact", "type": "main", "index": 0 }],
         [{ "node": "Read Batch Contacts", "type": "main", "index": 0 }]
@@ -392,23 +345,23 @@
     "Daily Limit": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }]] },
     "Loop": {
       "main": [
-        [],
+        [{ "node": "Respond Done (empty)", "type": "main", "index": 0 }],
         [{ "node": "Wait 45s", "type": "main", "index": 0 }]
       ]
     },
-    "Wait 45s": { "main": [[{ "node": "Build Claude Prompt", "type": "main", "index": 0 }]] },
-    "Build Claude Prompt": { "main": [[{ "node": "Claude Haiku API", "type": "main", "index": 0 }]] },
-    "Claude Haiku API": { "main": [[{ "node": "Build Email", "type": "main", "index": 0 }]] },
-    "Build Email": { "main": [[{ "node": "Preview or Send?", "type": "main", "index": 0 }]] },
+    "Wait 45s":           { "main": [[{ "node": "Build Claude Prompt", "type": "main", "index": 0 }]] },
+    "Build Claude Prompt":{ "main": [[{ "node": "Claude Haiku API",    "type": "main", "index": 0 }]] },
+    "Claude Haiku API":   { "main": [[{ "node": "Build Email",          "type": "main", "index": 0 }]] },
+    "Build Email":        { "main": [[{ "node": "Preview or Send?",     "type": "main", "index": 0 }]] },
     "Preview or Send?": {
       "main": [
         [{ "node": "Return Preview", "type": "main", "index": 0 }],
-        [{ "node": "Send Email", "type": "main", "index": 0 }]
+        [{ "node": "Send Email",     "type": "main", "index": 0 }]
       ]
     },
-    "Send Email": { "main": [[{ "node": "Mark Sent in Supabase", "type": "main", "index": 0 }]] },
-    "Mark Sent in Supabase": { "main": [[{ "node": "Notify wf_runs", "type": "main", "index": 0 }]] },
-    "Notify wf_runs": { "main": [[{ "node": "Respond Done", "type": "main", "index": 0 }]] }
+    "Send Email":           { "main": [[{ "node": "Mark Sent in Supabase", "type": "main", "index": 0 }]] },
+    "Mark Sent in Supabase":{ "main": [[{ "node": "Notify wf_runs",        "type": "main", "index": 0 }]] },
+    "Notify wf_runs":       { "main": [[{ "node": "Respond Done",          "type": "main", "index": 0 }]] }
   },
   "active": false,
   "settings": { "executionOrder": "v1" },

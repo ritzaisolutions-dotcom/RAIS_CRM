@@ -66,15 +66,15 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
             { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "select", "value": "*" },
-            { "name": "status", "value": "eq.neu" },
+            { "name": "select",    "value": "*" },
+            { "name": "status",    "value": "eq.neu" },
             { "name": "qualified", "value": "is.null" }
           ]
         },
@@ -113,9 +113,9 @@
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "key", "value": "={{ $('Config').item.json.Google_Maps_API_Key }}" },
+            { "name": "key",      "value": "={{ $('Config').item.json.Google_Maps_API_Key }}" },
             { "name": "place_id", "value": "={{ $json.place_id }}" },
-            { "name": "fields", "value": "name,website,formatted_phone_number,formatted_address,rating,user_ratings_total,place_id" }
+            { "name": "fields",   "value": "name,website,formatted_phone_number,formatted_address,rating,user_ratings_total,place_id" }
           ]
         },
         "options": {}
@@ -128,7 +128,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $input.first().json.result || $input.first().json;\nconst prev = $('Loop').item.json;\n\nconst rating = parseFloat(raw.rating) || 0;\nconst reviewCount = parseInt(raw.user_ratings_total) || 0;\nconst hasWebsite = !!(raw.website);\nconst website = (raw.website || '').toLowerCase();\nconst businessName = (raw.name || '').toLowerCase();\n\nconst chainKeywords = [\n  'hornbach','bauhaus','obi','toom','hagebau','baumarkt','globus','bauking'\n];\nconst aggregatorURLs = [\n  'facebook.com','instagram.com','gelbeseiten.de','golocal.de','11880.com','yelp.de'\n];\n\nconst isChain = chainKeywords.some(k => businessName.includes(k) || website.includes(k));\nconst isSocialOrAggregator = aggregatorURLs.some(u => website.includes(u));\n\nlet score = 0;\nlet reasons = [];\n\nif (!hasWebsite) reasons.push('Keine Website');\nelse if (isSocialOrAggregator) reasons.push('Nur Social/Aggregator');\nelse reasons.push('Hat Website');\n\nif (rating >= 3.5) { score += 50; reasons.push('Rating OK'); }\nif (reviewCount >= 10) { score += 50; reasons.push('Aktiv'); }\nif (isChain) { score = -99; reasons = ['KETTE - SKIP']; }\n\nreturn [{\n  json: {\n    id: prev.id,\n    place_id: prev.place_id,\n    website: raw.website || null,\n    telefon: raw.formatted_phone_number || prev.telefon || null,\n    rating: rating,\n    reviews: reviewCount,\n    lead_score: score,\n    score_reasons: reasons.join(', '),\n    qualified: (score >= 100 && !isChain) ? true : false,\n    status: (score >= 100 && !isChain) ? 'qualifiziert' : 'disqualifiziert'\n  }\n}];"
+        "jsCode": "const raw = $input.first().json.result || $input.first().json;\nconst prev = $('Loop').item.json;\n\nconst rating = parseFloat(raw.rating) || 0;\nconst reviewCount = parseInt(raw.user_ratings_total) || 0;\nconst hasWebsite = !!(raw.website);\nconst website = (raw.website || '').toLowerCase();\nconst businessName = (raw.name || '').toLowerCase();\n\nconst chainKeywords = [\n  'hornbach','bauhaus','obi','toom','hagebau','baumarkt','globus','bauking'\n];\nconst aggregatorURLs = [\n  'facebook.com','instagram.com','gelbeseiten.de','golocal.de','11880.com','yelp.de'\n];\n\nconst isChain = chainKeywords.some(k => businessName.includes(k) || website.includes(k));\nconst isSocialOrAggregator = aggregatorURLs.some(u => website.includes(u));\n\nlet score = 0;\nlet reasons = [];\n\nif (!hasWebsite) reasons.push('Keine Website');\nelse if (isSocialOrAggregator) reasons.push('Nur Social/Aggregator');\nelse reasons.push('Hat Website');\n\nif (rating >= 3.5) { score += 50; reasons.push('Rating OK'); }\nif (reviewCount >= 10) { score += 50; reasons.push('Aktiv'); }\nif (isChain) { score = -99; reasons = ['KETTE - SKIP']; }\n\nconst isQualified = (score >= 100 && !isChain);\n\nreturn [{\n  json: {\n    id: prev.id,\n    place_id: prev.place_id,\n    website: raw.website || null,\n    telefon: raw.formatted_phone_number || prev.telefon || null,\n    rating: rating,\n    reviews: reviewCount,\n    lead_score: score,\n    score_reasons: reasons.join(', '),\n    qualified: isQualified,\n    status: isQualified ? 'email_nurture' : 'disqualified'\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -143,10 +143,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
             { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" },
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "Prefer", "value": "return=minimal" }
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "return=minimal" }
           ]
         },
         "sendBody": true,
@@ -167,10 +167,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
             { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" },
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "Prefer", "value": "resolution=merge-duplicates,return=minimal" }
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "resolution=merge-duplicates,return=minimal" }
           ]
         },
         "sendBody": true,
@@ -198,21 +198,21 @@
   ],
   "pinData": {},
   "connections": {
-    "Webhook": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Webhook":        { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
     "Manual Trigger": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
-    "Config": { "main": [[{ "node": "Read from Supabase", "type": "main", "index": 0 }]] },
+    "Config":           { "main": [[{ "node": "Read from Supabase", "type": "main", "index": 0 }]] },
     "Read from Supabase": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }]] },
     "Loop": {
       "main": [
         [{ "node": "Notify wf_runs", "type": "main", "index": 0 }],
-        [{ "node": "Wait 2s", "type": "main", "index": 0 }]
+        [{ "node": "Wait 2s",        "type": "main", "index": 0 }]
       ]
     },
-    "Wait 2s": { "main": [[{ "node": "GET Place Details", "type": "main", "index": 0 }]] },
-    "GET Place Details": { "main": [[{ "node": "Score Lead", "type": "main", "index": 0 }]] },
-    "Score Lead": { "main": [[{ "node": "Update Supabase", "type": "main", "index": 0 }]] },
-    "Update Supabase": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }]] },
-    "Notify wf_runs": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+    "Wait 2s":         { "main": [[{ "node": "GET Place Details", "type": "main", "index": 0 }]] },
+    "GET Place Details":{ "main": [[{ "node": "Score Lead",        "type": "main", "index": 0 }]] },
+    "Score Lead":       { "main": [[{ "node": "Update Supabase",   "type": "main", "index": 0 }]] },
+    "Update Supabase":  { "main": [[{ "node": "Loop",              "type": "main", "index": 0 }]] },
+    "Notify wf_runs":   { "main": [[{ "node": "Respond to Webhook","type": "main", "index": 0 }]] }
   },
   "active": false,
   "settings": { "executionOrder": "v1" },

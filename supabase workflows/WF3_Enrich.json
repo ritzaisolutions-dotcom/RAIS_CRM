@@ -76,18 +76,18 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
             { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" }
           ]
         },
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
-            { "name": "select", "value": "*" },
-            { "name": "qualified", "value": "eq.true" },
+            { "name": "select",       "value": "*" },
+            { "name": "qualified",    "value": "eq.true" },
             { "name": "besonderheit", "value": "is.null" },
-            { "name": "order", "value": "created_at.asc" },
-            { "name": "limit", "value": "={{ $('Config').item.json.Daily_Limit }}" }
+            { "name": "order",        "value": "created_at.asc" },
+            { "name": "limit",        "value": "={{ $('Config').item.json.Daily_Limit }}" }
           ]
         },
         "options": {}
@@ -118,6 +118,17 @@
       "position": [96, 0],
       "id": "check-wf3",
       "name": "Has Records?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"wf\": \"wf3\", \"empty\": true }"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [320, 160],
+      "id": "resp-empty-wf3",
+      "name": "Respond Empty"
     },
     {
       "parameters": {
@@ -248,10 +259,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
             { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" },
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "Prefer", "value": "return=minimal" }
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "return=minimal" }
           ]
         },
         "sendBody": true,
@@ -272,10 +283,10 @@
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
-            { "name": "apikey", "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
             { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" },
-            { "name": "Content-Type", "value": "application/json" },
-            { "name": "Prefer", "value": "resolution=merge-duplicates,return=minimal" }
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "resolution=merge-duplicates,return=minimal" }
           ]
         },
         "sendBody": true,
@@ -303,30 +314,30 @@
   ],
   "pinData": {},
   "connections": {
-    "Webhook": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Webhook":        { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
     "Manual Trigger": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
     "Schedule Trigger": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
-    "Config": { "main": [[{ "node": "Read from Supabase", "type": "main", "index": 0 }]] },
+    "Config":           { "main": [[{ "node": "Read from Supabase", "type": "main", "index": 0 }]] },
     "Read from Supabase": { "main": [[{ "node": "Has Records?", "type": "main", "index": 0 }]] },
     "Has Records?": {
       "main": [
         [{ "node": "Loop Over Items", "type": "main", "index": 0 }],
-        []
+        [{ "node": "Respond Empty",   "type": "main", "index": 0 }]
       ]
     },
     "Loop Over Items": {
       "main": [
         [{ "node": "Notify wf_runs", "type": "main", "index": 0 }],
-        [{ "node": "Prep Fields", "type": "main", "index": 0 }]
+        [{ "node": "Prep Fields",    "type": "main", "index": 0 }]
       ]
     },
-    "Prep Fields": { "main": [[{ "node": "Wait 17s", "type": "main", "index": 0 }]] },
-    "Wait 17s": { "main": [[{ "node": "Gemini Research", "type": "main", "index": 0 }]] },
-    "Gemini Research": { "main": [[{ "node": "Extract Output", "type": "main", "index": 0 }]] },
-    "Extract Output": { "main": [[{ "node": "Parse Gemini JSON", "type": "main", "index": 0 }]] },
-    "Parse Gemini JSON": { "main": [[{ "node": "Update Supabase", "type": "main", "index": 0 }]] },
-    "Update Supabase": { "main": [[{ "node": "Loop Over Items", "type": "main", "index": 0 }]] },
-    "Notify wf_runs": { "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]] }
+    "Prep Fields":      { "main": [[{ "node": "Wait 17s",          "type": "main", "index": 0 }]] },
+    "Wait 17s":         { "main": [[{ "node": "Gemini Research",   "type": "main", "index": 0 }]] },
+    "Gemini Research":  { "main": [[{ "node": "Extract Output",    "type": "main", "index": 0 }]] },
+    "Extract Output":   { "main": [[{ "node": "Parse Gemini JSON", "type": "main", "index": 0 }]] },
+    "Parse Gemini JSON":{ "main": [[{ "node": "Update Supabase",   "type": "main", "index": 0 }]] },
+    "Update Supabase":  { "main": [[{ "node": "Loop Over Items",   "type": "main", "index": 0 }]] },
+    "Notify wf_runs":   { "main": [[{ "node": "Respond to Webhook","type": "main", "index": 0 }]] }
   },
   "active": false,
   "settings": { "executionOrder": "v1" },
