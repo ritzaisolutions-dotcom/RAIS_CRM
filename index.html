@@ -223,7 +223,10 @@ textarea { resize: vertical; min-height: 68px; }
 .fu-shortcuts button:hover { border-color: var(--or); color: var(--or); }
 
 /* Relatives Alter in Notiz-Spalte */
-.age-lbl { display: inline-block; margin-left: 5px; font-size: 10px; color: #B0A898; font-style: italic; white-space: nowrap; }
+.age-lbl { display: inline-block; margin-top: 3px; font-size: 10px; font-family: sans-serif; font-style: italic; white-space: nowrap; }
+.age-fresh  { color: #5A8F5A; }
+.age-warn   { color: #C47A1E; }
+.age-old    { color: #C05050; font-weight: 600; }
 
 /* Gewerk-Badge */
 .gw-badge { display: inline-block; margin-left: 5px; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; font-family: sans-serif; letter-spacing: .4px; text-transform: uppercase; vertical-align: middle; }
@@ -1097,6 +1100,11 @@ function render() {
       const ovr = (c.followup && c.followup < t) ? ' ov' : '';
       const t1  = (c.touches && c.touches[0]) || {};
       const note = (t1.status || t1.notiz || c.besonderheit || c.notiz || '').slice(0, 55);
+      const lastT = (c.touches && c.touches.slice().reverse().find(function(t){ return t.datum; })) || null;
+      const lastTDatum = lastT ? lastT.datum : null;
+      const lastTAge = lastTDatum ? Math.floor((new Date(td()) - new Date(lastTDatum)) / 86400000) : null;
+      const ageCls = lastTAge === null ? '' : (lastTAge <= 3 ? 'age-fresh' : lastTAge <= 7 ? 'age-warn' : 'age-old');
+      const ageStr = lastTDatum ? relAge(lastTDatum) : (c.created ? relAge(new Date(c.created).toISOString().slice(0,10)) : null);
       return '<tr class="' + ovr + '" onclick="openP(\'' + c.id + '\')">' +
         '<td style="text-align:right;font-family:sans-serif;font-size:11px;color:#B0A898;padding-right:10px;user-select:none">' + (pageOffset + i + 1) + '</td>' +
         '<td class="fc">' + esc(c.firma) + (c.gewerk ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>' : '') + '</td>' +
@@ -1122,7 +1130,7 @@ function render() {
         '<td onclick="event.stopPropagation()" class="fu-cell"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onchange="inlineFU(this)" title="Follow-up Datum"></td>' +
         '<td class="notiz-cell" onclick="event.stopPropagation()">' +
           '<textarea class="notiz-ta" data-id="' + c.id + '" rows="2" placeholder="Notiz…" onblur="saveNotiz(this)" onkeydown="notizKey(event,this)">' + esc(c.notiz || c.besonderheit || '') + '</textarea>' +
-          (t1.datum ? '<span class="age-lbl">' + relAge(t1.datum) + '</span>' : (c.created ? '<span class="age-lbl">' + relAge(new Date(c.created).toISOString().slice(0,10)) + '</span>' : '')) +
+          (ageStr ? '<span class="age-lbl ' + ageCls + '">' + (lastTDatum ? '&#128222; ' : '') + ageStr + '</span>' : '') +
         '</td>' +
         '<td style="font-family:sans-serif;font-size:12px;color:#7B746B">' + esc(c.reviews || '—') + '</td>' +
         (colVis.website ? '<td style="text-align:center" onclick="event.stopPropagation()">' + (c.website ? '<a class="wlink" href="' + esc(c.website) + '" target="_blank" rel="noopener" title="' + esc(c.website) + '">&#127760;</a>' : '<span class="wlink-none">&#127760;</span>') + '</td>' : '') +
