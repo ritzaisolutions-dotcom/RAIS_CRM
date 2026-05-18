@@ -898,10 +898,11 @@ async function syncCloud(silent) {
       }
     });
 
-    // 3. Push: alle lokalen Einträge in die Cloud (upsert)
+    // 3. Push: nur User-editierte Felder — Automation-Felder (qualified, lead_score etc.)
+    //    werden NICHT zurückgeschrieben, damit n8n-Werte nicht überschrieben werden.
     const now = new Date().toISOString();
     const rows = contacts.map(function(c) {
-      return {
+      const row = {
         id:           c.id,
         created:      c.created,
         firma:        c.firma        || '',
@@ -909,34 +910,26 @@ async function syncCloud(silent) {
         title:        c.title        || null,
         telefon:      c.telefon      || null,
         email:        c.email        || null,
-        website:      c.website      || null,
         status:       c.status       || 'neu',
         followup:     c.followup     || null,
         roi:          c.roi          || null,
-        reviews:      c.reviews      || null,
         stadt:        c.stadt        || null,
         region:       c.region       || null,
-        gewerk:       c.gewerk       || null,
-        besonderheit: c.besonderheit || null,
         notiz:        c.notiz        || null,
-        touches:           c.touches            || [],
-        status_changed_at: c.status_changed_at  || null,
-        email_1_sent:      c.email_1_sent        || null,
-        email_1_subject:   c.email_1_subject     || null,
-        email_2_sent:      c.email_2_sent        || null,
-        followup_sent:     c.followup_sent       || null,
-        email_status:      c.email_status        || null,
-        unsubscribed:      c.unsubscribed        || false,
-        reply_received:    c.reply_received      || false,
-        extra:        {
-          hauptleistung:    c.hauptleistung    || null,
-          webseite_alter:   c.webseite_alter   || null,
-          webseite_vorhanden: c.webseite_vorhanden || null,
-          hat_kalkulator:   c.hat_kalkulator   || null,
-          facebook:         c.facebook         || null,
-        },
-        synced_at: now,
+        touches:           c.touches           || [],
+        status_changed_at: c.status_changed_at || null,
+        synced_at:         now,
       };
+      // Email-tracking nur mitschicken wenn lokal bereits gesetzt —
+      // nie null/false überschreiben was n8n schon gesetzt hat
+      if (c.email_1_sent)    row.email_1_sent    = c.email_1_sent;
+      if (c.email_1_subject) row.email_1_subject = c.email_1_subject;
+      if (c.email_2_sent)    row.email_2_sent    = c.email_2_sent;
+      if (c.followup_sent)   row.followup_sent   = c.followup_sent;
+      if (c.email_status)    row.email_status    = c.email_status;
+      if (c.unsubscribed)    row.unsubscribed    = true;
+      if (c.reply_received)  row.reply_received  = true;
+      return row;
     });
     // Supabase upsert in Batches von 50
     for (let i = 0; i < rows.length; i += 50) {
