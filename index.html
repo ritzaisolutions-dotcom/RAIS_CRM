@@ -844,9 +844,10 @@ async function sbUpsert(path, body) {
   if (!r.ok) throw new Error(await r.text());
 }
 
-async function syncCloud() {
+async function syncCloud(silent) {
   const btn = document.getElementById('syncBtn');
   btn.disabled = true;
+  btn.style.opacity = '1';
   btn.textContent = '⟳ Sync…';
   try {
     // 1. Pull: alle Einträge aus der Cloud holen
@@ -946,9 +947,10 @@ async function syncCloud() {
     render();
     toast('☁ Sync erfolgreich — ' + contacts.length + ' Kontakte.');
   } catch(e) {
-    toast('Sync fehlgeschlagen: ' + e.message);
+    if (!silent) toast('Sync fehlgeschlagen: ' + e.message);
   } finally {
     btn.disabled = false;
+    btn.style.opacity = '1';
     btn.textContent = '☁ Sync';
   }
 }
@@ -958,6 +960,16 @@ const KEY = 'rais_crm_v2';
 let contacts = [], flt = 'all', pg = 1, PG = 30, ibuf = [], dueMode = false, eid = null;
 let sortStack = []; // [{col, dir}] — ordered multi-sort
 const colVis = {website: true, stadt: false, region: false, gewerk: false};
+let autoSyncTimer = null;
+function scheduleAutoSync() {
+  if (autoSyncTimer) clearTimeout(autoSyncTimer);
+  autoSyncTimer = setTimeout(function() {
+    autoSyncTimer = null;
+    syncCloud(true);
+  }, 10000);
+  const btn = document.getElementById('syncBtn');
+  if (btn && !btn.disabled) { btn.textContent = '⟳ Sync…'; btn.style.opacity = '.6'; }
+}
 const TSTAT = ['','Nicht kontaktiert','Nicht erreicht','Mailbox','Rückruf erbeten','Gatekeeper','Interessiert','Termin vereinbart','Angebot gesendet','Kein Interesse'];
 const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'ni','Rückruf erbeten':'fu','Gatekeeper':'gk','Interessiert':'in','Termin vereinbart':'te','Angebot gesendet':'ib','Kein Interesse':'ki'};
 
@@ -1322,7 +1334,7 @@ function inlineFU(inp) {
   const c = contacts.find(function(x) { return x.id === inp.dataset.id; });
   if (!c) return;
   c.followup = inp.value;
-  persist(); render();
+  persist(); render(); scheduleAutoSync();
 }
 
 // ── Datum-Shortcuts ───────────────────────────────────────────────────────────
@@ -1340,7 +1352,7 @@ function saveNotiz(ta) {
   const val = ta.value.trim();
   if (val === (c.notiz || c.besonderheit || '').trim()) return;
   c.notiz = val; c.besonderheit = val;
-  persist();
+  persist(); scheduleAutoSync();
 }
 function notizKey(e, ta) {
   if (e.key === 'Escape') { ta.blur(); }
@@ -1425,7 +1437,7 @@ function inlineROI(sel) {
   const c = contacts.find(function(x) { return x.id === sel.dataset.id; });
   if (!c) return;
   c.roi = parseInt(sel.value) || null;
-  persist(); render();
+  persist(); render(); scheduleAutoSync();
 }
 function inlineST(sel) {
   const c = contacts.find(function(x) { return x.id === sel.dataset.id; });
@@ -1433,7 +1445,7 @@ function inlineST(sel) {
   const prev = c.status;
   c.status = sel.value;
   if (prev !== c.status) { bumpCall(); c.status_changed_at = td(); }
-  persist(); render();
+  persist(); render(); scheduleAutoSync();
 }
 
 // ── Edit ──────────────────────────────────────────────────────────────────────
