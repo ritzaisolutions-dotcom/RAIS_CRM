@@ -2080,10 +2080,6 @@ async function bulkEmail(num) {
   } catch(e) { toast('Fehler: ' + e.message); }
 }
 
-// ── syncCloud() extension — pull email fields ─────────────────────────────────
-// Extend existing merge to also pull email tracking fields from remote
-const _origSyncCloud = syncCloud;
-
 // ── Client CRM ───────────────────────────────────────────────────────────────
 let clClients = [];
 let clEid = null;
