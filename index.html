@@ -245,7 +245,8 @@ textarea { resize: vertical; min-height: 68px; }
 .gw-son { background: #F0EDE8; color: #7B746B; }
 
 /* Schnellnotiz Popup */
-.qn-pop { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); }
+.qn-pop { position: fixed; inset: 0; z-index: 500; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.4); }
+.qn-pop.on { display: flex; }
 .qn-inner { background: var(--sf); border-radius: 8px; width: 360px; box-shadow: 0 8px 32px rgba(0,0,0,.2); }
 .qn-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px 8px; border-bottom: 1px solid var(--bd); }
 .qn-title { font-weight: 700; font-size: 13px; font-family: sans-serif; color: var(--ch); }
@@ -280,7 +281,8 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
 #syncBtn:disabled { opacity: .5; cursor: default; }
 
 /* Toast */
-.toast { position: fixed; bottom: 22px; right: 22px; background: var(--ch); color: #fff; padding: 9px 16px; border-radius: 5px; font-family: sans-serif; font-size: 13px; z-index: 9999; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.2); border-left: 3px solid var(--or); animation: si .2s ease; }
+.toast { position: fixed; bottom: 22px; right: 22px; background: var(--ch); color: #fff; padding: 9px 16px; border-radius: 5px; font-family: sans-serif; font-size: 13px; z-index: 9999; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.2); border-left: 3px solid var(--or); }
+.toast.on { display: block; animation: si .2s ease; }
 @keyframes si { from { transform: translateY(8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
 @media (max-width: 1100px) { .stats { grid-template-columns: repeat(4, 1fr); } }
@@ -790,7 +792,7 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
 <div id="toast" class="toast"></div>
 
 <!-- Schnellnotiz Mini-Popup -->
-<div id="qnPop" class="qn-pop" style="display:none">
+<div id="qnPop" class="qn-pop">
   <div class="qn-inner">
     <div class="qn-top"><span id="qnTitle" class="qn-title"></span><button class="btn bg" onclick="closeQN()">&#10005;</button></div>
     <textarea id="qnText" class="qn-ta" placeholder="Notiz…"></textarea>
@@ -864,6 +866,10 @@ async function sbGet(path) {
 }
 async function sbUpsert(path, body) {
   const r = await fetch(SB_URL + path, { method: 'POST', headers: SB_HDR_UPSERT, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(await r.text());
+}
+async function sbDelete(path) {
+  const r = await fetch(SB_URL + path, { method: 'DELETE', headers: Object.assign({}, SB_HDR_GET, { 'Prefer': 'return=minimal' }) });
   if (!r.ok) throw new Error(await r.text());
 }
 
@@ -1015,23 +1021,23 @@ function persist() { localStorage.setItem(KEY, JSON.stringify(contacts)); }
 function gid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
 function td() { return new Date().toISOString().slice(0,10); }
 
-const SM = {
-  neu:           ['b-neu', 'Neu'],
-  kein_anschluss:['b-ni',  'Kein Anschluss'],
-  gatekeeper:    ['b-gk',  'Gatekeeper'],
-  callback:      ['b-fu',  'Callback'],
-  email_nurture: ['b-ib',  'Email Nurture'],
-  interessiert:  ['b-in',  'Interessiert'],
-  demo_termin:   ['b-te',  'Demo Termin'],
-  no_show:       ['b-ns',  'No Show'],
-  disqualified:  ['b-ki',  'Disqualified'],
-  gewonnen:      ['b-gw',  'Gewonnen'],
-  archiviert:    ['b-ki',  'Archiviert'],
+const STATUS = {
+  neu:            { cls: 'b-neu', label: 'Neu' },
+  kein_anschluss: { cls: 'b-ni',  label: 'Kein Anschluss' },
+  gatekeeper:     { cls: 'b-gk',  label: 'Gatekeeper' },
+  callback:       { cls: 'b-fu',  label: 'Callback' },
+  email_nurture:  { cls: 'b-ib',  label: 'Email Nurture' },
+  interessiert:   { cls: 'b-in',  label: 'Interessiert' },
+  demo_termin:    { cls: 'b-te',  label: 'Demo Termin' },
+  no_show:        { cls: 'b-ns',  label: 'No Show' },
+  disqualified:   { cls: 'b-ki',  label: 'Disqualified' },
+  gewonnen:       { cls: 'b-gw',  label: 'Gewonnen' },
+  archiviert:     { cls: 'b-ki',  label: 'Archiviert' },
 };
 
 function sbadge(s) {
-  const [c, l] = SM[s] || ['b-neu', s || 'Neu'];
-  return '<span class="badge ' + c + '">' + l + '</span>';
+  const st = STATUS[s] || { cls: 'b-neu', label: s || 'Neu' };
+  return '<span class="badge ' + st.cls + '">' + st.label + '</span>';
 }
 function roib(n) {
   if (!n) return '<span class="roi r0">—</span>';
@@ -1113,7 +1119,7 @@ function filterDue() { dueMode = true; pg = 1; render(); }
 function render() {
   const t = td();
   const cnt = {all: contacts.length};
-  Object.keys(SM).forEach(function(k) { cnt[k] = contacts.filter(function(c) { return c.status === k; }).length; });
+  Object.keys(STATUS).forEach(function(k) { cnt[k] = contacts.filter(function(c) { return c.status === k; }).length; });
   document.getElementById('c-all').textContent = cnt.all;
   document.getElementById('c-neu').textContent = cnt.neu          || 0;
   document.getElementById('c-ka').textContent  = cnt.kein_anschluss || 0;
@@ -1321,7 +1327,7 @@ function qs(id, s) {
   if (!c) return;
   if (c.status !== s) { bumpCall(); c.status_changed_at = td(); }
   c.status = s; persist(); render(); closeP();
-  toast('Status: ' + (SM[s] ? SM[s][1] : s));
+  toast('Status: ' + (STATUS[s] ? STATUS[s].label : s));
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1387,10 +1393,10 @@ function openQN(id) {
   qnId = id;
   document.getElementById('qnTitle').textContent = c.firma;
   document.getElementById('qnText').value = c.notiz || c.besonderheit || '';
-  document.getElementById('qnPop').style.display = 'flex';
+  document.getElementById('qnPop').classList.add('on');
   setTimeout(function() { document.getElementById('qnText').focus(); }, 50);
 }
-function closeQN() { document.getElementById('qnPop').style.display = 'none'; qnId = null; }
+function closeQN() { document.getElementById('qnPop').classList.remove('on'); qnId = null; }
 function saveQN() {
   const c = contacts.find(function(x) { return x.id === qnId; });
   if (!c) return;
@@ -1578,15 +1584,11 @@ async function purgeDq(mode) {
     } else {
       // IDs sammeln und aus Supabase löschen
       const ids = dqContacts.map(function(c) { return c.id; });
-      // Supabase REST: DELETE mit in-Filter, in Batches von 50
+      // DELETE in Batches von 50
       for (let i = 0; i < ids.length; i += 50) {
         const batch = ids.slice(i, i + 50);
         const idList = batch.map(function(id) { return 'id.eq.' + id; }).join(',');
-        const r = await fetch(SB_URL + '/rest/v1/crm_contacts?or=(' + idList + ')', {
-          method: 'DELETE',
-          headers: Object.assign({}, SB_HDR_GET, { 'Prefer': 'return=minimal' })
-        });
-        if (!r.ok) throw new Error('HTTP ' + r.status);
+        await sbDelete('/rest/v1/crm_contacts?or=(' + idList + ')');
       }
       // Lokal entfernen
       contacts = contacts.filter(function(c) { return c.status !== 'disqualified'; });
@@ -1706,9 +1708,9 @@ function exportCSV() {
 function toast(m) {
   const el = document.getElementById('toast');
   el.textContent = m;
-  el.style.display = 'block';
+  el.classList.add('on');
   clearTimeout(el._t);
-  el._t = setTimeout(function() { el.style.display = 'none'; }, 2600);
+  el._t = setTimeout(function() { el.classList.remove('on'); }, 2600);
 }
 
 // ── Touch accordion ───────────────────────────────────────────────────────────
@@ -1788,7 +1790,7 @@ document.addEventListener('click', function(e) {
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); }
+  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeClPanel(); closeEsPop(); }
   const tag = document.activeElement.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (inInput) return;
@@ -2285,8 +2287,7 @@ async function saveClient() {
 async function delClient(id) {
   if (!confirm('Client wirklich löschen?')) return;
   try {
-    const r = await fetch(SB_URL + CL_KEY_SB + '?id=eq.' + id, { method: 'DELETE', headers: SB_HDR_GET });
-    if (!r.ok) throw new Error(await r.text());
+    await sbDelete(CL_KEY_SB + '?id=eq.' + id);
     clClients = clClients.filter(function(c) { return c.id !== id; });
     renderClients();
     toast('Client gelöscht.');
@@ -2317,11 +2318,6 @@ function openClPanel(id) {
 }
 function closeClPanel() { document.getElementById('clPo').classList.remove('on'); }
 
-// ESC also closes client panel
-const _origKeydown = document.onkeydown;
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeClPanel(); closeEsPop(); }
-});
 
 </script>
 </body>
