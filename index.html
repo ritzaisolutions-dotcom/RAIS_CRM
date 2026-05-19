@@ -904,6 +904,9 @@ async function syncCloud(silent) {
       if (r.extra.facebook       != null) c.facebook         = r.extra.facebook;
     });
 
+    // Remove local contacts that no longer exist in Supabase (e.g. deleted server-side)
+    contacts = contacts.filter(function(c) { return !!remoteById[c.id]; });
+
     // Add remote-only records (written by WF1/WF3) that don't exist locally yet
     // Normalize extra.* onto top-level so upsert and UI can read them directly
     remote.forEach(function(r) {
