@@ -974,7 +974,7 @@ async function syncCloud(silent) {
     render();
     toast('☁ Sync erfolgreich — ' + contacts.length + ' Kontakte.');
   } catch(e) {
-    if (!silent) toast('Sync fehlgeschlagen: ' + e.message);
+    alert('Sync fehlgeschlagen: ' + e.message);
   } finally {
     btn.disabled = false;
     btn.style.opacity = '1';
@@ -1598,7 +1598,7 @@ async function purgeDq(mode) {
       toast(ids.length + ' Leads gelöscht.');
     }
   } catch(e) {
-    toast('Fehler: ' + e.message);
+    alert('Fehler: ' + e.message);
   } finally {
     btn.disabled = false;
   }
