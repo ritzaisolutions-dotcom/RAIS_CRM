@@ -874,13 +874,15 @@ async function sbDelete(path) {
 }
 
 async function syncCloud(silent) {
+  // Cancel any pending auto-sync so it can't push stale data after we pull
+  if (autoSyncTimer) { clearTimeout(autoSyncTimer); autoSyncTimer = null; }
   const btn = document.getElementById('syncBtn');
   btn.disabled = true;
   btn.style.opacity = '1';
   btn.textContent = '⟳ Sync…';
   try {
     // 1. Pull: alle Einträge aus der Cloud holen
-    const remote = await sbGet('/rest/v1/crm_contacts?select=*&order=created.asc');
+    const remote = await sbGet('/rest/v1/crm_contacts?select=*&order=created.asc&limit=10000');
 
     // 2. Merge: automation-written fields come from remote, user-edited fields stay local
     const remoteById = {};
@@ -933,7 +935,7 @@ async function syncCloud(silent) {
     // 3. Push: nur User-editierte Felder — Automation-Felder (qualified, lead_score etc.)
     //    werden NICHT zurückgeschrieben, damit n8n-Werte nicht überschrieben werden.
     const now = new Date().toISOString();
-    const rows = contacts.map(function(c) {
+    const rows = contacts.filter(function(c) { return !!remoteById[c.id]; }).map(function(c) {
       const row = {
         id:           c.id,
         created:      c.created,
