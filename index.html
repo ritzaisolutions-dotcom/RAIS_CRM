@@ -435,6 +435,7 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
     <button class="btn bs" onclick="openImport()">CSV importieren</button>
     <button class="btn bs" onclick="exportCSV()">Exportieren</button>
     <button class="btn bs" id="syncBtn" onclick="syncCloud()" title="Daten mit Supabase synchronisieren">&#9729; Sync</button>
+    <button class="btn bs" id="purgeBtn" onclick="openPurgeDq()" title="Disqualified Leads bereinigen" style="color:#A00000;border-color:#F5CCBB">&#128465; DQ</button>
     <button class="btn bp" onclick="openAdd()">+ Kontakt</button>
   </div>
 </header>
@@ -747,6 +748,28 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
   </div>
 </div>
 
+<!-- Purge DQ modal -->
+<div class="ovl" id="purgeDqModal">
+  <div class="modal" style="max-width:420px">
+    <div class="mh"><h2>Disqualified bereinigen</h2><button class="btn bg" onclick="closePurgeDq()">&#10005;</button></div>
+    <div style="padding:0 22px 22px">
+      <p style="font-family:sans-serif;font-size:14px;color:var(--st);margin-bottom:16px">
+        <span id="purge-count" style="font-weight:700;color:#A00000">0</span> Leads mit Status <strong>Disqualified</strong> gefunden.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn bs" onclick="purgeDq('archive')" style="justify-content:flex-start;gap:10px;padding:12px 16px">
+          <span style="font-size:16px">📦</span>
+          <span style="text-align:left"><strong style="display:block">Archivieren</strong><small style="color:var(--st);font-weight:400">Status wird auf "archiviert" gesetzt — bleibt sichtbar im Filter</small></span>
+        </button>
+        <button class="btn bs" onclick="purgeDq('delete')" style="justify-content:flex-start;gap:10px;padding:12px 16px;border-color:#F5CCBB">
+          <span style="font-size:16px">&#128465;</span>
+          <span style="text-align:left"><strong style="display:block;color:#A00000">Komplett löschen</strong><small style="color:var(--st);font-weight:400">Unwiderruflich — aus CRM und Datenbank entfernt</small></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Import modal -->
 <div class="ovl" id="io">
   <div class="modal">
@@ -1000,6 +1023,7 @@ const SM = {
   no_show:       ['b-ns',  'No Show'],
   disqualified:  ['b-ki',  'Disqualified'],
   gewonnen:      ['b-gw',  'Gewonnen'],
+  archiviert:    ['b-ki',  'Archiviert'],
 };
 
 function sbadge(s) {
@@ -1516,6 +1540,61 @@ function del(id) {
   if (!confirm('Kontakt wirklich löschen?')) return;
   contacts = contacts.filter(function(c) { return c.id !== id; });
   persist(); render(); toast('Gelöscht.');
+}
+
+// ── Purge Disqualified ────────────────────────────────────────────────────────
+function openPurgeDq() {
+  const dqContacts = contacts.filter(function(c) { return c.status === 'disqualified'; });
+  document.getElementById('purge-count').textContent = dqContacts.length;
+  document.getElementById('purgeDqModal').classList.add('on');
+}
+function closePurgeDq() {
+  document.getElementById('purgeDqModal').classList.remove('on');
+}
+async function purgeDq(mode) {
+  const dqContacts = contacts.filter(function(c) { return c.status === 'disqualified'; });
+  if (!dqContacts.length) { closePurgeDq(); return; }
+
+  const btn = document.getElementById('purgeBtn');
+  btn.disabled = true;
+  closePurgeDq();
+
+  try {
+    if (mode === 'archive') {
+      // Lokal Status setzen
+      dqContacts.forEach(function(c) { c.status = 'archiviert'; });
+      // In Supabase updaten
+      for (let i = 0; i < dqContacts.length; i += 50) {
+        const batch = dqContacts.slice(i, i + 50);
+        await sbUpsert('/rest/v1/crm_contacts', batch.map(function(c) {
+          return { id: c.id, status: 'archiviert', synced_at: new Date().toISOString() };
+        }));
+      }
+      persist(); render();
+      toast(dqContacts.length + ' Leads archiviert.');
+    } else {
+      // IDs sammeln und aus Supabase löschen
+      const ids = dqContacts.map(function(c) { return c.id; });
+      // Supabase REST: DELETE mit in-Filter, in Batches von 50
+      for (let i = 0; i < ids.length; i += 50) {
+        const batch = ids.slice(i, i + 50);
+        const idList = batch.map(function(id) { return 'id.eq.' + id; }).join(',');
+        const r = await fetch(SB_URL + '/rest/v1/crm_contacts?or=(' + idList + ')', {
+          method: 'DELETE',
+          headers: Object.assign({}, SB_HDR_GET, { 'Prefer': 'return=minimal' })
+        });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+      }
+      // Lokal entfernen
+      contacts = contacts.filter(function(c) { return c.status !== 'disqualified'; });
+      persist(); render();
+      toast(ids.length + ' Leads gelöscht.');
+    }
+  } catch(e) {
+    toast('Fehler: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ── Import ────────────────────────────────────────────────────────────────────
