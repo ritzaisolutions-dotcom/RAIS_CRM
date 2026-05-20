@@ -1,0 +1,223 @@
+{
+  "name": "WF2 — Qualify (Supabase)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf2-qualify",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1280, 1040],
+      "id": "wh-wf2",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1280, 880],
+      "id": "mt-wf2",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-gmaps",
+              "name": "Google_Maps_API_Key",
+              "value": "AIzaSyDH2F2RsFPRXrE_8ydJbzzrDVH206hhnHg",
+              "type": "string"
+            },
+            {
+              "id": "cfg-stadt",
+              "name": "stadt",
+              "value": "={{ $json.body?.stadt || $json.stadt || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "cfg-sb-url",
+              "name": "sb_url",
+              "value": "https://qdywaenmojdxhfxqbvun.supabase.co/rest/v1",
+              "type": "string"
+            },
+            {
+              "id": "cfg-sb-key",
+              "name": "sb_key",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkeXdhZW5tb2pkeGhmeHFidnVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDYwMTYsImV4cCI6MjA5MDk4MjAxNn0.rfIzS2eY3yZCvap0pKdB7V-AfKmnvQLx_QLaFEi1gts",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1008, 1040],
+      "id": "cfg-wf2",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.sb_url }}/crm_contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "select",    "value": "*" },
+            { "name": "status",    "value": "eq.neu" },
+            { "name": "qualified", "value": "is.null" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [-784, 1040],
+      "id": "read-wf2",
+      "name": "Read from Supabase"
+    },
+    {
+      "parameters": {
+        "options": { "reset": false }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [-336, 1040],
+      "id": "loop-wf2",
+      "name": "Loop"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [-112, 1040],
+      "id": "wait-wf2",
+      "name": "Wait 2s",
+      "webhookId": "wf2-wait-001"
+    },
+    {
+      "parameters": {
+        "url": "https://maps.googleapis.com/maps/api/place/details/json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "key",      "value": "={{ $('Config').item.json.Google_Maps_API_Key }}" },
+            { "name": "place_id", "value": "={{ $json.place_id }}" },
+            { "name": "fields",   "value": "name,website,formatted_phone_number,formatted_address,rating,user_ratings_total,place_id" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [112, 1040],
+      "id": "details-wf2",
+      "name": "GET Place Details"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.result || $input.first().json;\nconst prev = $('Loop').item.json;\n\nconst rating = parseFloat(raw.rating) || 0;\nconst reviewCount = parseInt(raw.user_ratings_total) || 0;\nconst hasWebsite = !!(raw.website);\nconst website = (raw.website || '').toLowerCase();\nconst businessName = (raw.name || '').toLowerCase();\n\nconst chainKeywords = [\n  'hornbach','bauhaus','obi','toom','hagebau','baumarkt','globus','bauking'\n];\nconst aggregatorURLs = [\n  'facebook.com','instagram.com','gelbeseiten.de','golocal.de','11880.com','yelp.de'\n];\n\nconst isChain = chainKeywords.some(k => businessName.includes(k) || website.includes(k));\nconst isSocialOrAggregator = aggregatorURLs.some(u => website.includes(u));\n\nlet score = 0;\nlet reasons = [];\n\nif (!hasWebsite) reasons.push('Keine Website');\nelse if (isSocialOrAggregator) reasons.push('Nur Social/Aggregator');\nelse reasons.push('Hat Website');\n\nif (rating >= 3.5) { score += 50; reasons.push('Rating OK'); }\nif (reviewCount >= 10) { score += 50; reasons.push('Aktiv'); }\nif (isChain) { score = -99; reasons = ['KETTE - SKIP']; }\n\nconst isQualified = (score >= 100 && !isChain);\n\nreturn [{\n  json: {\n    id: prev.id,\n    place_id: prev.place_id,\n    website: raw.website || null,\n    telefon: raw.formatted_phone_number || prev.telefon || null,\n    rating: rating,\n    reviews: reviewCount,\n    lead_score: score,\n    score_reasons: reasons.join(', '),\n    qualified: isQualified,\n    status: isQualified ? 'email_nurture' : 'disqualified'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [336, 1040],
+      "id": "score-wf2",
+      "name": "Score Lead"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Config').item.json.sb_url }}/crm_contacts?id=eq.{{ $json.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ website: $json.website || null, telefon: $json.telefon || null, rating: $json.rating, reviews: $json.reviews, lead_score: $json.lead_score, score_reasons: $json.score_reasons, qualified: $json.qualified, status: $json.status }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [560, 1040],
+      "id": "update-wf2",
+      "name": "Update Supabase"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').item.json.sb_url }}/wf_runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ wf: 'wf2', stadt: $('Config').item.json.stadt, status: 'done', finished_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [784, 960],
+      "id": "notify-wf2",
+      "name": "Notify wf_runs"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"wf\": \"wf2\" }"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [1008, 960],
+      "id": "resp-wf2",
+      "name": "Respond to Webhook"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook":        { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Manual Trigger": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Config":           { "main": [[{ "node": "Read from Supabase", "type": "main", "index": 0 }]] },
+    "Read from Supabase": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }]] },
+    "Loop": {
+      "main": [
+        [{ "node": "Notify wf_runs", "type": "main", "index": 0 }],
+        [{ "node": "Wait 2s",        "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 2s":         { "main": [[{ "node": "GET Place Details", "type": "main", "index": 0 }]] },
+    "GET Place Details":{ "main": [[{ "node": "Score Lead",        "type": "main", "index": 0 }]] },
+    "Score Lead":       { "main": [[{ "node": "Update Supabase",   "type": "main", "index": 0 }]] },
+    "Update Supabase":  { "main": [[{ "node": "Loop",              "type": "main", "index": 0 }]] },
+    "Notify wf_runs":   { "main": [[{ "node": "Respond to Webhook","type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "instanceId": "6140dcd1eeef56988d97baa4d030a839e61618e52e7b6b6368007789e07414e1"
+  },
+  "tags": []
+}

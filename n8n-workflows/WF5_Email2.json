@@ -1,0 +1,367 @@
+{
+  "name": "WF5 — Email 2 Follow-Up (Supabase)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf5-email2",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-1376, 208],
+      "id": "wh-wf5",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-1376, 48],
+      "id": "mt-wf5",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "rule": { "interval": [{ "triggerAtHour": 9 }] }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-1376, 400],
+      "id": "sched-wf5",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-daily",
+              "name": "daily_limit",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "cfg-days",
+              "name": "min_days_since_email1",
+              "value": 3,
+              "type": "number"
+            },
+            {
+              "id": "cfg-contact-id",
+              "name": "contact_id",
+              "value": "={{ $json.body?.contact_id || null }}",
+              "type": "string"
+            },
+            {
+              "id": "cfg-demo",
+              "name": "demo_url",
+              "value": "https://fliesen-weber.vercel.app/",
+              "type": "string"
+            },
+            {
+              "id": "cfg-sb-url",
+              "name": "sb_url",
+              "value": "https://qdywaenmojdxhfxqbvun.supabase.co/rest/v1",
+              "type": "string"
+            },
+            {
+              "id": "cfg-sb-key",
+              "name": "sb_key",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkeXdhZW5tb2pkeGhmeHFidnVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDYwMTYsImV4cCI6MjA5MDk4MjAxNn0.rfIzS2eY3yZCvap0pKdB7V-AfKmnvQLx_QLaFEi1gts",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-1136, 304],
+      "id": "cfg-wf5",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "chk-single",
+              "leftValue": "={{ $json.contact_id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-896, 304],
+      "id": "mode-wf5",
+      "name": "Single Contact?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.sb_url }}/crm_contacts?id=eq.{{ $('Config').item.json.contact_id }}&select=*",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [-672, 160],
+      "id": "read-single-wf5",
+      "name": "Read Single Contact"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Config').item.json.sb_url }}/crm_contacts",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "select",         "value": "*" },
+            { "name": "email_1_sent",   "value": "not.is.null" },
+            { "name": "email_2_sent",   "value": "is.null" },
+            { "name": "unsubscribed",   "value": "neq.true" },
+            { "name": "reply_received", "value": "neq.true" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [-672, 448],
+      "id": "read-batch-wf5",
+      "name": "Read Batch Contacts"
+    },
+    {
+      "parameters": {
+        "jsCode": "const minDays = $('Config').item.json.min_days_since_email1;\nconst now = new Date();\n\nconst filtered = [];\nfor (const item of $input.all()) {\n  const email = (item.json.email || '').trim();\n  const sent1 = item.json.email_1_sent;\n  if (!email || !sent1) continue;\n  const sentDate = new Date(sent1);\n  const daysDiff = (now - sentDate) / (1000 * 60 * 60 * 24);\n  if (daysDiff >= minDays) {\n    filtered.push(item);\n  }\n}\n\nif (filtered.length === 0) {\n  return [{ json: { _empty: true } }];\n}\nreturn filtered;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-448, 448],
+      "id": "filter-wf5",
+      "name": "Filter Day 3+ Leads"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "id": "chk-empty",
+              "leftValue": "={{ $json._empty }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "notTrue" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-224, 448],
+      "id": "has-leads-wf5",
+      "name": "Has Leads?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"wf\": \"wf5\", \"empty\": true }"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [0, 592],
+      "id": "resp-empty-batch-wf5",
+      "name": "Respond Empty (batch)"
+    },
+    {
+      "parameters": {
+        "maxItems": "={{ $('Config').item.json.daily_limit }}"
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [0, 304],
+      "id": "limit-wf5",
+      "name": "Daily Limit"
+    },
+    {
+      "parameters": {
+        "options": { "reset": false }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [224, 304],
+      "id": "loop-wf5",
+      "name": "Loop"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"wf\": \"wf5\", \"sent\": true }"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [448, 160],
+      "id": "resp-done-empty-wf5",
+      "name": "Respond Done (empty)"
+    },
+    {
+      "parameters": {
+        "amount": 50
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [448, 448],
+      "id": "wait-wf5",
+      "name": "Wait 50s",
+      "webhookId": "wf5-wait-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst cfg = $('Config').item.json;\n\nconst person = item.kontakt || '';\nconst nachname = (person && person !== 'NA') ? person.split(' ').slice(-1)[0] : null;\nconst anrede = nachname ? `Sehr geehrter Herr ${nachname}` : 'Sehr geehrte Damen und Herren';\nconst firma = item.firma || 'Ihr Betrieb';\nconst subject1 = item.email_1_subject || 'meine letzte Nachricht';\n\nconst subject = `Re: ${subject1}`;\nconst body = `${anrede},\n\nnur eine kurze Nachfrage zu meiner letzten Email — ich wollte sicherstellen, dass sie Sie erreicht hat.\n\nFalls Sie kurz schauen möchten, wie ein modernes Anfrage-Tool für Ihren Betrieb aussehen könnte:\n${cfg.demo_url}\n\nJa oder Nein reicht als Antwort.\n\nBeste Grüße\nKevin Ritz\nRitz AI Solutions\nritz-ai.solutions | +49 151 2975 5134 | kevin@ritz-ai.solutions`;\n\nreturn [{\n  json: {\n    email_to: item.email,\n    email_subject: subject,\n    email_body: body,\n    contact_id: item.id,\n    firma: firma\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [672, 448],
+      "id": "build-email-wf5",
+      "name": "Build Email 2"
+    },
+    {
+      "parameters": {
+        "fromEmail": "kevin@ritz-ai.solutions",
+        "toEmail": "={{ $json.email_to }}",
+        "subject": "={{ $json.email_subject }}",
+        "html": "={{ $json.email_body.replace(/\\n/g, '<br>') }}",
+        "options": { "replyTo": "kevin@ritz-ai.solutions" }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [896, 448],
+      "id": "send-wf5",
+      "name": "Send Email",
+      "webhookId": "wf5-smtp-001",
+      "credentials": {
+        "smtp": {
+          "id": "jr5t6ZjMqqqydzQg",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Config').item.json.sb_url }}/crm_contacts?id=eq.{{ $('Build Email 2').item.json.contact_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ email_2_sent: new Date().toISOString().split('T')[0], email_status: 'e2_sent' }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1120, 448],
+      "id": "mark-sent-wf5",
+      "name": "Mark Sent in Supabase"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').item.json.sb_url }}/wf_runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "apikey",        "value": "={{ $('Config').item.json.sb_key }}" },
+            { "name": "Authorization", "value": "=Bearer {{ $('Config').item.json.sb_key }}" },
+            { "name": "Content-Type",  "value": "application/json" },
+            { "name": "Prefer",        "value": "resolution=merge-duplicates,return=minimal" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ wf: 'wf5', status: 'done', finished_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1344, 448],
+      "id": "notify-wf5",
+      "name": "Notify wf_runs"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true, \"wf\": \"wf5\", \"sent\": true }"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [1568, 448],
+      "id": "resp-done-wf5",
+      "name": "Respond Done"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook":          { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Manual Trigger":   { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Schedule Trigger": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Config": { "main": [[{ "node": "Single Contact?", "type": "main", "index": 0 }]] },
+    "Single Contact?": {
+      "main": [
+        [{ "node": "Read Single Contact", "type": "main", "index": 0 }],
+        [{ "node": "Read Batch Contacts", "type": "main", "index": 0 }]
+      ]
+    },
+    "Read Single Contact": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }]] },
+    "Read Batch Contacts": { "main": [[{ "node": "Filter Day 3+ Leads", "type": "main", "index": 0 }]] },
+    "Filter Day 3+ Leads": { "main": [[{ "node": "Has Leads?", "type": "main", "index": 0 }]] },
+    "Has Leads?": {
+      "main": [
+        [{ "node": "Daily Limit", "type": "main", "index": 0 }],
+        [{ "node": "Respond Empty (batch)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Daily Limit": { "main": [[{ "node": "Loop", "type": "main", "index": 0 }]] },
+    "Loop": {
+      "main": [
+        [{ "node": "Respond Done (empty)", "type": "main", "index": 0 }],
+        [{ "node": "Wait 50s", "type": "main", "index": 0 }]
+      ]
+    },
+    "Wait 50s":              { "main": [[{ "node": "Build Email 2",        "type": "main", "index": 0 }]] },
+    "Build Email 2":         { "main": [[{ "node": "Send Email",           "type": "main", "index": 0 }]] },
+    "Send Email":            { "main": [[{ "node": "Mark Sent in Supabase","type": "main", "index": 0 }]] },
+    "Mark Sent in Supabase": { "main": [[{ "node": "Notify wf_runs",       "type": "main", "index": 0 }]] },
+    "Notify wf_runs":        { "main": [[{ "node": "Respond Done",         "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "instanceId": "6140dcd1eeef56988d97baa4d030a839e61618e52e7b6b6368007789e07414e1"
+  },
+  "tags": []
+}

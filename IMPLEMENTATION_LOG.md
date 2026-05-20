@@ -90,3 +90,55 @@ Der Token-Check kann aktiviert werden wann Kevin will — unabhängig von Phase 
 5. Test: CRM durchklicken, WF1 triggern → Phase 1 abgehakt
 
 Phase 2 (Sync-Lock + Realtime) kann danach sofort folgen.
+
+---
+
+## [2026-05-20] Phase 2 — Sync-Stabilität ✓
+
+**Status:** ✓ Abgeschlossen
+
+- `syncInProgress` Lock verhindert parallele Syncs
+- `pushDirty()` ersetzt 10s-Debounce-Timer für sofortiges lokales Pushen
+- `handleRealtimeChange()` verarbeitet INSERT/UPDATE/DELETE aus Supabase Realtime
+- `initRealtime()` abonniert `crm_contacts` via `@supabase/supabase-js@2` CDN
+- Supabase Realtime für `crm_contacts` aktiviert via `ALTER PUBLICATION supabase_realtime ADD TABLE public.crm_contacts`
+
+---
+
+## [2026-05-20] Phase 3 — Modularisierung ✓
+
+**Status:** ✓ Abgeschlossen — index.html 1984 → 533 Zeilen (−73%)
+
+14 ES Module in `src/`:
+
+| Modul | Inhalt |
+|-------|--------|
+| `auth.js` | Login-Wall |
+| `state.js` | Shared State + Konstanten |
+| `supabase.js` | sbGet / sbUpsert / sbDelete |
+| `utils.js` | gid, td, relAge, GKUERZEL/GSLUG |
+| `ui.js` | sbadge, roib, fdc, esc, ir, toast |
+| `sync.js` | syncCloud, pushDirty, load, persist |
+| `realtime.js` | initRealtime, handleRealtimeChange |
+| `prospecting.js` | render, getList, openP, alle Inline-Handler |
+| `calls.js` | Anruf-Counter (bumpCall, renderCalls) |
+| `touch.js` | Touch-Accordion (saveTF, addTouch) |
+| `import.js` | CSV Import + Export |
+| `email.js` | Email-Tracking, Send-Popup, Bulk-Email |
+| `leadgen.js` | n8n Webhooks, Lead-Preview, Tab-Routing |
+| `clients.js` | Client-CRM |
+
+---
+
+## [2026-05-20] Phase 4 — Schema-Versionierung & n8n-Konsistenz ✓
+
+**Status:** ✓ Abgeschlossen
+
+- `supabase/migrations/2026-05-20_initial_schema.sql` — vollständiger Schema-Snapshot aller 5 Tabellen
+- `supabase/migrations/README.md` — Anleitung für neue Migrations
+- `n8n-workflows/` erstellt (umbenannt von `supabase workflows/` — Spaces in Pfaden entfernt)
+- `n8n-workflows/SCHEMA_MAP.md` — alle Spalten mit schreibendem Workflow dokumentiert
+- `n8n-workflows/README.md` — Anleitung für Import, Export und Versionierung
+
+**Wichtig:** Der alte Ordner `supabase workflows/` existiert noch lokal (untracked).
+Kevin kann ihn manuell löschen oder wir lassen ihn stehen — Inhalt ist identisch mit `n8n-workflows/`.
