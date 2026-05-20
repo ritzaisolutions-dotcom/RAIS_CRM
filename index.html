@@ -115,7 +115,7 @@ td { padding: 9px 12px; vertical-align: middle; }
 
 /* Row actions */
 .ra { display: flex; gap: 3px; opacity: 0; transition: opacity .1s; }
-tr:hover .ra { opacity: 1; }
+tr:hover .ra, tr:focus-within .ra { opacity: 1; }
 
 /* Empty */
 .empty { text-align: center; padding: 50px 20px; color: var(--st); font-family: sans-serif; }
@@ -886,23 +886,24 @@ async function syncCloud(silent) {
     const remote = await sbGet('/rest/v1/crm_contacts?select=*&order=created.asc&limit=10000');
 
     // 2. Supabase is the source of truth for which contacts exist.
-    //    Build a map of local user-editable data to overlay onto remote records.
+    //    Only locally dirty records may overlay remote user-editable fields.
     const remoteById = {};
     remote.forEach(function(r) { remoteById[r.id] = r; });
 
     const LOCAL_WINS = ['status','followup','roi','notiz','kontakt','title','telefon',
       'email','touches','status_changed_at'];
 
-    // Identify unsynced locally added contacts so they aren't pruned/dropped.
-    // Exclude legacy numeric seed IDs (e.g. "1", "55", "156") which are never locally added unsynced contacts.
-    const unsyncedLocal = contacts.filter(function(c) {
-      const isLegacyId = /^\d+$/.test(c.id);
-      return !c.synced_at && !isLegacyId;
+    const dirtyLocalById = {};
+    contacts.filter(isDirtyContact).forEach(function(c) { dirtyLocalById[c.id] = c; });
+
+    // Keep truly local draft contacts that do not exist remotely yet.
+    const unsyncedLocal = Object.values(dirtyLocalById).filter(function(c) {
+      return !remoteById[c.id];
     });
 
-    // Rebuild contacts from remote — remote controls existence, local controls user fields
+    // Rebuild contacts from remote — remote controls existence, only dirty local fields override
     const newContacts = remote.map(function(r) {
-      const local = contacts.find(function(c) { return c.id === r.id; });
+      const local = dirtyLocalById[r.id];
       // Start from remote record (has all automation fields correct)
       const c = Object.assign({}, r);
       if (!c.touches) c.touches = [];
@@ -967,6 +968,7 @@ async function syncCloud(silent) {
     render();
     toast('☁ Sync erfolgreich — ' + contacts.length + ' Kontakte.');
   } catch(e) {
+    render();
     if (!silent) toast('Sync fehlgeschlagen: ' + e.message);
   } finally {
     btn.disabled = false;
@@ -980,6 +982,12 @@ let contacts = [], flt = 'all', pg = 1, PG = 30, ibuf = [], dueMode = false, eid
 let sortStack = []; // [{col, dir}] — ordered multi-sort
 const colVis = {website: true, stadt: false, region: false, gewerk: false};
 let autoSyncTimer = null;
+function isDirtyContact(c) {
+  return !!(c && !c.synced_at);
+}
+function markDirty(c) {
+  if (c) c.synced_at = null;
+}
 function scheduleAutoSync() {
   if (autoSyncTimer) clearTimeout(autoSyncTimer);
   autoSyncTimer = setTimeout(function() {
@@ -995,7 +1003,7 @@ const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'ni','R�
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    contacts = (s && s.length) ? s : [];
+    contacts = Array.isArray(s) ? s : [];
   } catch(e) {
     contacts = [];
   }
@@ -1320,7 +1328,7 @@ function qs(id, s) {
   const c = contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   if (c.status !== s) { bumpCall(); c.status_changed_at = td(); }
-  c.status = s; persist(); render(); scheduleAutoSync(); closeP();
+  c.status = s; markDirty(c); persist(); render(); scheduleAutoSync(); closeP();
   toast('Status: ' + (STATUS[s] ? STATUS[s].label : s));
 }
 
@@ -1354,6 +1362,7 @@ function inlineFU(inp) {
   const c = contacts.find(function(x) { return x.id === inp.dataset.id; });
   if (!c) return;
   c.followup = inp.value;
+  markDirty(c);
   persist(); render(); scheduleAutoSync();
 }
 
@@ -1372,6 +1381,7 @@ function saveNotiz(ta) {
   const val = ta.value.trim();
   if (val === (c.notiz || c.besonderheit || '').trim()) return;
   c.notiz = val; c.besonderheit = val;
+  markDirty(c);
   persist(); scheduleAutoSync();
 }
 function notizKey(e, ta) {
@@ -1396,6 +1406,7 @@ function saveQN() {
   if (!c) return;
   c.notiz = document.getElementById('qnText').value.trim();
   c.besonderheit = c.notiz;
+  markDirty(c);
   persist(); render(); scheduleAutoSync(); closeQN();
   toast('Notiz gespeichert.');
 }
@@ -1457,6 +1468,7 @@ function inlineROI(sel) {
   const c = contacts.find(function(x) { return x.id === sel.dataset.id; });
   if (!c) return;
   c.roi = parseInt(sel.value) || null;
+  markDirty(c);
   persist(); render(); scheduleAutoSync();
 }
 function inlineST(sel) {
@@ -1465,6 +1477,7 @@ function inlineST(sel) {
   const prev = c.status;
   c.status = sel.value;
   if (prev !== c.status) { bumpCall(); c.status_changed_at = td(); }
+  markDirty(c);
   persist(); render(); scheduleAutoSync();
 }
 
@@ -1531,10 +1544,10 @@ function save() {
     const i = contacts.findIndex(function(c) { return c.id === eid; });
     if (i >= 0) {
       if (contacts[i].status !== d.status) d.status_changed_at = td();
-      contacts[i] = Object.assign({}, contacts[i], d);
+      contacts[i] = Object.assign({}, contacts[i], d, { synced_at: null });
     }
   } else {
-    contacts.push(Object.assign({id: gid(), created: Date.now(), touches:[{status:'',datum:'',notiz:''}]}, d));
+    contacts.push(Object.assign({id: gid(), created: Date.now(), touches:[{status:'',datum:'',notiz:''}], synced_at: null}, d));
   }
   persist(); closeE(); render(); scheduleAutoSync();
   toast(eid ? 'Gespeichert.' : 'Kontakt hinzugefügt.');
@@ -1805,12 +1818,7 @@ document.addEventListener('keydown', function(e) {
 
 load();
 renderCalls();
-if (contacts.length > 0) {
-  render();
-  syncCloud(true);
-} else {
-  syncCloud(false);
-}
+syncCloud(true);
 
 // ── Tab Navigation ────────────────────────────────────────────────────────────
 function switchTab(name) {
@@ -2049,6 +2057,7 @@ async function esSend() {
     c.email_1_sent = td();
     c.email_1_subject = subject;
     c.email_status = 'sent';
+    markDirty(c);
     persist(); render();
     closeEsPop();
     // Sync nach 30s
@@ -2117,6 +2126,7 @@ async function sendEmailBatch(id, emailNum) {
     if (emailNum === 2) c.email_2_sent = td();
     if (emailNum === 3) c.followup_sent = td();
     c.email_status = 'sent';
+    markDirty(c);
     persist(); render();
     openP(id);
     toast('Email ' + emailNum + ' an ' + c.firma + ' gesendet ✓');
@@ -2128,6 +2138,7 @@ function markReply(id) {
   const c = contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   c.reply_received = true;
+  markDirty(c);
   persist(); render(); scheduleAutoSync(); openP(id);
   toast('Als geantwortet markiert.');
 }
@@ -2135,6 +2146,7 @@ function markUnsub(id) {
   const c = contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   c.unsubscribed = true;
+  markDirty(c);
   persist(); render(); scheduleAutoSync(); openP(id);
   toast('Abgemeldet.');
 }
