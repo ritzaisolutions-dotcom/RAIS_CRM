@@ -484,13 +484,13 @@
 <script type="module">
 import { gid, td, relAge, GKUERZEL, GSLUG, gewerkKuerzel, gewerkSlug } from './src/utils.js';
 import { SB_URL, SB_KEY, sbGet, sbUpsert, sbDelete } from './src/supabase.js';
-import { KEY, PG, CC_KEY, CL_KEY_SB, MEDIUM_ICONS, TSTAT, TSCLS, STATUS } from './src/state.js';
+import { KEY, PG, CC_KEY, CL_KEY_SB, MEDIUM_ICONS, TSTAT, TSCLS, STATUS, S } from './src/state.js';
 import { sbadge, roib, fdc, esc, toast } from './src/ui.js';
 
 async function syncCloud(silent) {
-  if (syncInProgress) { if (!silent) toast('Sync läuft bereits…'); return; }
-  syncInProgress = true;
-  if (autoSyncTimer) { clearTimeout(autoSyncTimer); autoSyncTimer = null; }
+  if (S.syncInProgress) { if (!silent) toast('Sync läuft bereits…'); return; }
+  S.syncInProgress = true;
+  if (S.autoSyncTimer) { clearTimeout(S.autoSyncTimer); S.autoSyncTimer = null; }
   const btn = document.getElementById('syncBtn');
   btn.disabled = true;
   btn.style.opacity = '1';
@@ -499,7 +499,7 @@ async function syncCloud(silent) {
     // 1. Pull: alle Einträge aus der Cloud holen
     const remote = await sbGet('/rest/v1/crm_contacts?select=*&order=created.asc&limit=10000');
 
-    // 2. Supabase is the source of truth for which contacts exist.
+    // 2. Supabase is the source of truth for which S.contacts exist.
     //    Only locally dirty records may overlay remote user-editable fields.
     const remoteById = {};
     remote.forEach(function(r) { remoteById[r.id] = r; });
@@ -508,14 +508,14 @@ async function syncCloud(silent) {
       'email','touches','status_changed_at','firma','website','gewerk','stadt','region'];
 
     const dirtyLocalById = {};
-    contacts.filter(isDirtyContact).forEach(function(c) { dirtyLocalById[c.id] = c; });
+    S.contacts.filter(isDirtyContact).forEach(function(c) { dirtyLocalById[c.id] = c; });
 
-    // Keep truly local draft contacts that do not exist remotely yet.
+    // Keep truly local draft S.contacts that do not exist remotely yet.
     const unsyncedLocal = Object.values(dirtyLocalById).filter(function(c) {
       return !remoteById[c.id];
     });
 
-    // Rebuild contacts from remote — remote controls existence, only dirty local fields override
+    // Rebuild S.contacts from remote — remote controls existence, only dirty local fields override
     const newContacts = remote.map(function(r) {
       const local = dirtyLocalById[r.id];
       // Start from remote record (has all automation fields correct)
@@ -536,13 +536,13 @@ async function syncCloud(silent) {
       return c;
     });
 
-    // Merge remote-derived contacts with local-only unsynced ones
-    contacts = newContacts.concat(unsyncedLocal);
+    // Merge remote-derived S.contacts with local-only unsynced ones
+    S.contacts = newContacts.concat(unsyncedLocal);
 
     // 3. Push: nur User-editierte Felder — Automation-Felder (qualified, lead_score etc.)
     //    werden NICHT zurückgeschrieben, damit n8n-Werte nicht überschrieben werden.
     const now = new Date().toISOString();
-    const rows = contacts.filter(function(c) { return !!remoteById[c.id] || !c.synced_at; }).map(function(c) {
+    const rows = S.contacts.filter(function(c) { return !!remoteById[c.id] || !c.synced_at; }).map(function(c) {
       c.synced_at = now; // Mark local reference as synced
       const row = {
         id:           c.id,
@@ -582,23 +582,23 @@ async function syncCloud(silent) {
 
     persist();
     render();
-    toast('☁ Sync erfolgreich — ' + contacts.length + ' Kontakte.');
+    toast('☁ Sync erfolgreich — ' + S.contacts.length + ' Kontakte.');
   } catch(e) {
     render();
     if (!silent) toast('Sync fehlgeschlagen: ' + e.message);
   } finally {
-    syncInProgress = false;
+    S.syncInProgress = false;
     btn.disabled = false;
     btn.style.opacity = '1';
     btn.textContent = '☁ Sync';
   }
 }
 
-let contacts = [], flt = 'all', pg = 1, ibuf = [], dueMode = false, eid = null;
-let sortStack = []; // [{col, dir}] — ordered multi-sort
-const colVis = {website: true, stadt: false, region: false, gewerk: false};
-let autoSyncTimer = null;
-let syncInProgress = false;
+
+
+
+
+
 function isDirtyContact(c) {
   return !!(c && !c.synced_at);
 }
@@ -606,10 +606,10 @@ function markDirty(c) {
   if (c) c.synced_at = null;
 }
 async function pushDirty() {
-  if (syncInProgress) return;
-  const dirty = contacts.filter(isDirtyContact);
+  if (S.syncInProgress) return;
+  const dirty = S.contacts.filter(isDirtyContact);
   if (!dirty.length) return;
-  syncInProgress = true;
+  S.syncInProgress = true;
   const btn = document.getElementById('syncBtn');
   if (btn) { btn.textContent = '⟳ Sync…'; btn.style.opacity = '.6'; btn.disabled = true; }
   try {
@@ -644,35 +644,35 @@ async function pushDirty() {
   } catch(e) {
     dirty.forEach(function(c) { c.synced_at = null; });
   } finally {
-    syncInProgress = false;
+    S.syncInProgress = false;
     if (btn) { btn.textContent = '☁ Sync'; btn.style.opacity = '1'; btn.disabled = false; }
   }
 }
 
 function handleRealtimeChange(payload) {
-  if (syncInProgress) return;
+  if (S.syncInProgress) return;
   var eventType = payload.eventType;
   var row = payload.new;
   var old = payload.old;
   if (eventType === 'DELETE') {
     var id = old.id;
-    if (contacts.some(function(c) { return c.id === id; })) {
-      contacts = contacts.filter(function(c) { return c.id !== id; });
+    if (S.contacts.some(function(c) { return c.id === id; })) {
+      S.contacts = S.contacts.filter(function(c) { return c.id !== id; });
       persist(); render();
     }
   } else if (eventType === 'INSERT') {
-    if (!contacts.some(function(c) { return c.id === row.id; })) {
+    if (!S.contacts.some(function(c) { return c.id === row.id; })) {
       var c = Object.assign({}, row);
       if (!c.touches) c.touches = [];
-      contacts.unshift(c);
+      S.contacts.unshift(c);
       persist(); render();
     }
   } else if (eventType === 'UPDATE') {
-    var idx = contacts.findIndex(function(c) { return c.id === row.id; });
-    if (idx !== -1 && !isDirtyContact(contacts[idx])) {
+    var idx = S.contacts.findIndex(function(c) { return c.id === row.id; });
+    if (idx !== -1 && !isDirtyContact(S.contacts[idx])) {
       var updated = Object.assign({}, row);
       if (!updated.touches) updated.touches = [];
-      contacts[idx] = updated;
+      S.contacts[idx] = updated;
       persist(); render();
     }
   }
@@ -692,23 +692,23 @@ async function initRealtime() {
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    contacts = Array.isArray(s) ? s : [];
+    S.contacts = Array.isArray(s) ? s : [];
   } catch(e) {
-    contacts = [];
+    S.contacts = [];
   }
-  contacts.forEach(function(c) {
+  S.contacts.forEach(function(c) {
     if (!c.touches) c.touches = [{status: c.t1_status||'', datum: c.t1_datum||'', notiz: c.t1_einwand||''}];
   });
   try {
     const cv = JSON.parse(localStorage.getItem('rais_crm_colvis'));
-    if (cv) Object.assign(colVis, cv);
+    if (cv) Object.assign(S.colVis, cv);
   } catch(e) {}
   ['website','stadt','region','gewerk'].forEach(function(k) {
     const cb = document.getElementById('cv-' + k);
-    if (cb) cb.checked = !!colVis[k];
+    if (cb) cb.checked = !!S.colVis[k];
   });
 }
-function persist() { localStorage.setItem(KEY, JSON.stringify(contacts)); }
+function persist() { localStorage.setItem(KEY, JSON.stringify(S.contacts)); }
 
 
 function getList() {
@@ -716,13 +716,13 @@ function getList() {
   const roi    = document.getElementById('roiF').value;
   const gewF   = document.getElementById('gewerkF').value;
   const srt    = document.getElementById('sortS').value;
-  let list = contacts.filter(function(c) {
-    if (flt === 'heute') { const t = td(); return c.followup && c.followup <= t; }
-    if (flt !== 'all' && c.status !== flt) return false;
+  let list = S.contacts.filter(function(c) {
+    if (S.flt === 'heute') { const t = td(); return c.followup && c.followup <= t; }
+    if (S.flt !== 'all' && c.status !== S.flt) return false;
     if (roi === '0' && c.roi) return false;
     if (roi && roi !== '0' && String(c.roi||'') !== roi) return false;
     if (gewF && (c.gewerk || '') !== gewF) return false;
-    if (dueMode) { const t = td(); return c.followup && c.followup <= t; }
+    if (S.dueMode) { const t = td(); return c.followup && c.followup <= t; }
     if (q) {
       const t1 = (c.touches && c.touches[0]) || {};
       const hay = [c.firma, c.kontakt, c.hauptleistung, t1.status, t1.notiz, c.besonderheit, c.notiz, c.stadt, c.region, c.gewerk].join(' ').toLowerCase();
@@ -736,10 +736,10 @@ function getList() {
     if (col === 'followup') return c.followup || '9999';
     return String(c[col] || '');
   }
-  if (sortStack.length) {
+  if (S.sortStack.length) {
     list = list.slice().sort(function(a, b) {
-      for (var i = 0; i < sortStack.length; i++) {
-        var s = sortStack[i];
+      for (var i = 0; i < S.sortStack.length; i++) {
+        var s = S.sortStack[i];
         var numeric = (s.col === 'roi' || s.col === 'reviews');
         var va = cmpVal(a, s.col), vb = cmpVal(b, s.col);
         var r = numeric ? (vb - va) : String(va).localeCompare(String(vb));
@@ -762,7 +762,7 @@ function getList() {
 }
 
 function setF(f) {
-  flt = f; pg = 1; dueMode = false;
+  S.flt = f; S.pg = 1; S.dueMode = false;
   document.querySelectorAll('.stat').forEach(function(el) { el.classList.remove('on'); });
   const map = {all:'s-all', neu:'s-neu', kein_anschluss:'s-ka', gatekeeper:'s-gk',
                callback:'s-cb', email_nurture:'s-en', demo_termin:'s-dt',
@@ -770,12 +770,12 @@ function setF(f) {
   if (map[f]) document.getElementById(map[f]).classList.add('on');
   render();
 }
-function filterDue() { dueMode = true; pg = 1; render(); }
+function filterDue() { S.dueMode = true; S.pg = 1; render(); }
 
 function render() {
   const t = td();
-  const cnt = {all: contacts.length};
-  Object.keys(STATUS).forEach(function(k) { cnt[k] = contacts.filter(function(c) { return c.status === k; }).length; });
+  const cnt = {all: S.contacts.length};
+  Object.keys(STATUS).forEach(function(k) { cnt[k] = S.contacts.filter(function(c) { return c.status === k; }).length; });
   document.getElementById('c-all').textContent = cnt.all;
   document.getElementById('c-neu').textContent = cnt.neu          || 0;
   document.getElementById('c-ka').textContent  = cnt.kein_anschluss || 0;
@@ -787,7 +787,7 @@ function render() {
   document.getElementById('c-dq').textContent  = cnt.disqualified || 0;
   document.getElementById('c-gw').textContent  = cnt.gewonnen     || 0;
 
-  const due = contacts.filter(function(c) { return c.followup && c.followup <= t; }).length;
+  const due = S.contacts.filter(function(c) { return c.followup && c.followup <= t; }).length;
   document.getElementById('c-heute').textContent = due;
   document.getElementById('banner').classList.toggle('on', due > 0);
   document.getElementById('bannerC').textContent = due;
@@ -795,11 +795,11 @@ function render() {
 
   // Dynamic thead
   function thS(col, lbl) {
-    const idx = sortStack.findIndex(function(s) { return s.col === col; });
+    const idx = S.sortStack.findIndex(function(s) { return s.col === col; });
     const act = idx !== -1;
-    const dir = act ? sortStack[idx].dir : 0;
+    const dir = act ? S.sortStack[idx].dir : 0;
     const arr = !act ? '&#8645;' : (dir === 1 ? '&#8593;' : '&#8595;');
-    const badge = (act && sortStack.length > 1) ? '<span class="sort-badge">' + (idx + 1) + '</span>' : '';
+    const badge = (act && S.sortStack.length > 1) ? '<span class="sort-badge">' + (idx + 1) + '</span>' : '';
     return '<th class="sortable' + (act ? ' sa' : '') + '" onclick="doSort(\'' + col + '\')">' + lbl + '<span class="si">' + arr + '</span>' + badge + '</th>';
   }
   function thF(lbl, sty) { return '<th' + (sty ? ' style="' + sty + '"' : '') + '>' + lbl + '</th>'; }
@@ -808,10 +808,10 @@ function render() {
     thS('firma','Firma') + thF('Ansprechpartner') + thF('Telefon') +
     thS('roi','ROI') + thS('status','Status') + thS('followup','Follow-up') +
     thF('T1 / Notiz') + thS('reviews','Reviews') +
-    (colVis.website ? thF('&#127760;','width:36px;text-align:center') : '') +
-    (colVis.stadt   ? thS('stadt','Stadt') : '') +
-    (colVis.region  ? thS('region','Region') : '') +
-    (colVis.gewerk  ? thS('gewerk','Gewerk') : '') +
+    (S.colVis.website ? thF('&#127760;','width:36px;text-align:center') : '') +
+    (S.colVis.stadt   ? thS('stadt','Stadt') : '') +
+    (S.colVis.region  ? thS('region','Region') : '') +
+    (S.colVis.gewerk  ? thS('gewerk','Gewerk') : '') +
     thF('Email','width:44px;text-align:center') +
     thF('','width:64px') +
   '</tr>';
@@ -819,8 +819,8 @@ function render() {
   const list = getList();
   const tot  = list.length;
   const pages = Math.max(1, Math.ceil(tot / PG));
-  if (pg > pages) pg = pages;
-  const sl = list.slice((pg - 1) * PG, pg * PG);
+  if (S.pg > pages) S.pg = pages;
+  const sl = list.slice((S.pg - 1) * PG, S.pg * PG);
 
   const tbody = document.getElementById('tbody');
   const empty = document.getElementById('empty');
@@ -829,7 +829,7 @@ function render() {
     empty.style.display = 'block';
   } else {
     empty.style.display = 'none';
-    const pageOffset = (pg - 1) * PG;
+    const pageOffset = (S.pg - 1) * PG;
     tbody.innerHTML = sl.map(function(c, i) {
       const ovr = (c.followup && c.followup < t) ? ' ov' : '';
       const t1  = (c.touches && c.touches[0]) || {};
@@ -867,10 +867,10 @@ function render() {
           (ageStr ? '<span class="age-lbl ' + ageCls + '">' + (lastTDatum ? '&#128222; ' : '') + ageStr + '</span>' : '') +
         '</td>' +
         '<td style="font-family:sans-serif;font-size:12px;color:#7B746B">' + esc(c.reviews || '—') + '</td>' +
-        (colVis.website ? '<td style="text-align:center" onclick="event.stopPropagation()">' + (c.website ? '<a class="wlink" href="' + esc(c.website) + '" target="_blank" rel="noopener" title="' + esc(c.website) + '">&#127760;</a>' : '<span class="wlink-none">&#127760;</span>') + '</td>' : '') +
-        (colVis.stadt   ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.stadt  || '—') + '</td>' : '') +
-        (colVis.region  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.region || '—') + '</td>' : '') +
-        (colVis.gewerk  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.gewerk || '—') + '</td>' : '') +
+        (S.colVis.website ? '<td style="text-align:center" onclick="event.stopPropagation()">' + (c.website ? '<a class="wlink" href="' + esc(c.website) + '" target="_blank" rel="noopener" title="' + esc(c.website) + '">&#127760;</a>' : '<span class="wlink-none">&#127760;</span>') + '</td>' : '') +
+        (S.colVis.stadt   ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.stadt  || '—') + '</td>' : '') +
+        (S.colVis.region  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.region || '—') + '</td>' : '') +
+        (S.colVis.gewerk  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.gewerk || '—') + '</td>' : '') +
         '<td onclick="event.stopPropagation()" style="white-space:nowrap">' + emailBadge(c) + '</td>' +
         '<td onclick="event.stopPropagation()"><div class="ra">' +
           '<button class="btn bg bsm" onclick="openQN(\'' + c.id + '\')" title="Schnellnotiz">&#128221;</button>' +
@@ -881,13 +881,13 @@ function render() {
     }).join('');
   }
 
-  document.getElementById('rc').textContent = tot === contacts.length
-    ? tot + ' Einträge' : tot + ' von ' + contacts.length;
+  document.getElementById('rc').textContent = tot === S.contacts.length
+    ? tot + ' Einträge' : tot + ' von ' + S.contacts.length;
 
   const pb = document.getElementById('pb');
   if (pages <= 1) { pb.innerHTML = ''; return; }
   pb.innerHTML = Array.from({length: pages}, function(_, i) { return i + 1; })
-    .map(function(p) { return '<button class="pbb' + (p === pg ? ' on' : '') + '" onclick="goPg(' + p + ')">' + p + '</button>'; })
+    .map(function(p) { return '<button class="pbb' + (p === S.pg ? ' on' : '') + '" onclick="goPg(' + p + ')">' + p + '</button>'; })
     .join('');
 
   // Update bulk email counters
@@ -898,11 +898,11 @@ function render() {
     });
   }
 }
-function goPg(p) { pg = p; render(); }
+function goPg(p) { S.pg = p; render(); }
 
 // ── Panel ─────────────────────────────────────────────────────────────────────
 function openP(id) {
-  const c = contacts.find(function(x) { return x.id === id; });
+  const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   document.getElementById('pFirma').textContent = c.firma;
   document.getElementById('pSub').textContent = [c.title, c.kontakt].filter(Boolean).join(' · ');
@@ -979,7 +979,7 @@ function openP(id) {
 function ir(l, v) { return '<div class="ir"><span class="il">' + l + '</span><div class="iv">' + v + '</div></div>'; }
 function closeP() { document.getElementById('po').classList.remove('on'); }
 function qs(id, s) {
-  const c = contacts.find(function(x) { return x.id === id; });
+  const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   if (c.status !== s) { bumpCall(); c.status_changed_at = td(); }
   c.status = s; markDirty(c); persist(); render(); pushDirty(); closeP();
@@ -990,7 +990,7 @@ function qs(id, s) {
 
 // ── Inline Follow-up ──────────────────────────────────────────────────────────
 function inlineFU(inp) {
-  const c = contacts.find(function(x) { return x.id === inp.dataset.id; });
+  const c = S.contacts.find(function(x) { return x.id === inp.dataset.id; });
   if (!c) return;
   c.followup = inp.value;
   markDirty(c);
@@ -1007,7 +1007,7 @@ function shiftFU(days) {
 
 // ── Inline Notiz ─────────────────────────────────────────────────────────────
 function saveNotiz(ta) {
-  const c = contacts.find(function(x) { return x.id === ta.dataset.id; });
+  const c = S.contacts.find(function(x) { return x.id === ta.dataset.id; });
   if (!c) return;
   const val = ta.value.trim();
   if (val === (c.notiz || c.besonderheit || '').trim()) return;
@@ -1021,19 +1021,19 @@ function notizKey(e, ta) {
 }
 
 // ── Schnellnotiz ──────────────────────────────────────────────────────────────
-let qnId = null;
+
 function openQN(id) {
-  const c = contacts.find(function(x) { return x.id === id; });
+  const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
-  qnId = id;
+  S.qnId = id;
   document.getElementById('qnTitle').textContent = c.firma;
   document.getElementById('qnText').value = c.notiz || c.besonderheit || '';
   document.getElementById('qnPop').classList.add('on');
   setTimeout(function() { document.getElementById('qnText').focus(); }, 50);
 }
-function closeQN() { document.getElementById('qnPop').classList.remove('on'); qnId = null; }
+function closeQN() { document.getElementById('qnPop').classList.remove('on'); S.qnId = null; }
 function saveQN() {
-  const c = contacts.find(function(x) { return x.id === qnId; });
+  const c = S.contacts.find(function(x) { return x.id === S.qnId; });
   if (!c) return;
   c.notiz = document.getElementById('qnText').value.trim();
   c.besonderheit = c.notiz;
@@ -1074,35 +1074,35 @@ function renderCalls() {
 // (integriert in setF / getList — 'heute' filtert fällige Follow-ups)
 
 // ── Keyboard Navigation ───────────────────────────────────────────────────────
-let kbIdx = -1;
+
 function kbRows() { return Array.from(document.querySelectorAll('#tbody tr')); }
 function kbMove(delta) {
   const rows = kbRows(); if (!rows.length) return;
   rows.forEach(function(r) { r.classList.remove('kb-focus'); });
-  kbIdx = Math.max(0, Math.min(rows.length - 1, kbIdx + delta));
-  rows[kbIdx].classList.add('kb-focus');
-  rows[kbIdx].scrollIntoView({ block: 'nearest' });
+  S.kbIdx = Math.max(0, Math.min(rows.length - 1, S.kbIdx + delta));
+  rows[S.kbIdx].classList.add('kb-focus');
+  rows[S.kbIdx].scrollIntoView({ block: 'nearest' });
 }
 function kbOpen() {
   const rows = kbRows();
-  if (kbIdx >= 0 && rows[kbIdx]) rows[kbIdx].click();
+  if (S.kbIdx >= 0 && rows[S.kbIdx]) rows[S.kbIdx].click();
 }
 function kbEdit() {
   const rows = kbRows();
-  if (kbIdx < 0 || !rows[kbIdx]) return;
-  const btn = rows[kbIdx].querySelector('button[title="Bearbeiten"]');
+  if (S.kbIdx < 0 || !rows[S.kbIdx]) return;
+  const btn = rows[S.kbIdx].querySelector('button[title="Bearbeiten"]');
   if (btn) btn.click();
 }
 
 function inlineROI(sel) {
-  const c = contacts.find(function(x) { return x.id === sel.dataset.id; });
+  const c = S.contacts.find(function(x) { return x.id === sel.dataset.id; });
   if (!c) return;
   c.roi = parseInt(sel.value) || null;
   markDirty(c);
   persist(); render(); pushDirty();
 }
 function inlineST(sel) {
-  const c = contacts.find(function(x) { return x.id === sel.dataset.id; });
+  const c = S.contacts.find(function(x) { return x.id === sel.dataset.id; });
   if (!c) return;
   const prev = c.status;
   c.status = sel.value;
@@ -1113,7 +1113,7 @@ function inlineST(sel) {
 
 // ── Edit ──────────────────────────────────────────────────────────────────────
 function openAdd() {
-  eid = null;
+  S.eid = null;
   document.getElementById('mt').textContent = 'Kontakt hinzufügen';
   clrF();
   const tm = new Date(); tm.setDate(tm.getDate() + 1);
@@ -1121,9 +1121,9 @@ function openAdd() {
   document.getElementById('eo').classList.add('on');
 }
 function openE(id) {
-  const c = contacts.find(function(x) { return x.id === id; });
+  const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
-  eid = id;
+  S.eid = id;
   document.getElementById('mt').textContent    = 'Kontakt bearbeiten';
   document.getElementById('ef').value          = c.firma        || '';
   document.getElementById('ek').value          = c.kontakt      || '';
@@ -1170,34 +1170,34 @@ function save() {
     besonderheit:document.getElementById('en').value.trim(),
     notiz:       document.getElementById('en').value.trim(),
   };
-  if (eid) {
-    const i = contacts.findIndex(function(c) { return c.id === eid; });
+  if (S.eid) {
+    const i = S.contacts.findIndex(function(c) { return c.id === S.eid; });
     if (i >= 0) {
-      if (contacts[i].status !== d.status) d.status_changed_at = td();
-      contacts[i] = Object.assign({}, contacts[i], d, { synced_at: null });
+      if (S.contacts[i].status !== d.status) d.status_changed_at = td();
+      S.contacts[i] = Object.assign({}, S.contacts[i], d, { synced_at: null });
     }
   } else {
-    contacts.push(Object.assign({id: gid(), created: Date.now(), touches:[{status:'',datum:'',notiz:''}], synced_at: null}, d));
+    S.contacts.push(Object.assign({id: gid(), created: Date.now(), touches:[{status:'',datum:'',notiz:''}], synced_at: null}, d));
   }
   persist(); closeE(); render(); pushDirty();
-  toast(eid ? 'Gespeichert.' : 'Kontakt hinzugefügt.');
+  toast(S.eid ? 'Gespeichert.' : 'Kontakt hinzugefügt.');
 }
 async function del(id) {
   if (!confirm('Kontakt wirklich löschen?')) return;
-  if (syncInProgress) { toast('Sync läuft — bitte kurz warten.'); return; }
+  if (S.syncInProgress) { toast('Sync läuft — bitte kurz warten.'); return; }
   try {
     await sbDelete('/rest/v1/crm_contacts?id=eq.' + id);
   } catch(e) {
     toast('Löschen fehlgeschlagen: ' + e.message);
     return;
   }
-  contacts = contacts.filter(function(c) { return c.id !== id; });
+  S.contacts = S.contacts.filter(function(c) { return c.id !== id; });
   persist(); render(); toast('Gelöscht.');
 }
 
 // ── Purge Disqualified ────────────────────────────────────────────────────────
 function openPurgeDq() {
-  const dqContacts = contacts.filter(function(c) { return c.status === 'disqualified'; });
+  const dqContacts = S.contacts.filter(function(c) { return c.status === 'disqualified'; });
   document.getElementById('purge-count').textContent = dqContacts.length;
   document.getElementById('purgeDqModal').classList.add('on');
 }
@@ -1205,9 +1205,9 @@ function closePurgeDq() {
   document.getElementById('purgeDqModal').classList.remove('on');
 }
 async function purgeDq(mode) {
-  const dqContacts = contacts.filter(function(c) { return c.status === 'disqualified'; });
+  const dqContacts = S.contacts.filter(function(c) { return c.status === 'disqualified'; });
   if (!dqContacts.length) { closePurgeDq(); return; }
-  if (syncInProgress) { toast('Sync läuft — bitte kurz warten.'); closePurgeDq(); return; }
+  if (S.syncInProgress) { toast('Sync läuft — bitte kurz warten.'); closePurgeDq(); return; }
 
   const btn = document.getElementById('purgeBtn');
   btn.disabled = true;
@@ -1236,7 +1236,7 @@ async function purgeDq(mode) {
         await sbDelete('/rest/v1/crm_contacts?or=(' + idList + ')');
       }
       // Lokal entfernen
-      contacts = contacts.filter(function(c) { return c.status !== 'disqualified'; });
+      S.contacts = S.contacts.filter(function(c) { return c.status !== 'disqualified'; });
       persist(); render();
       toast(ids.length + ' Leads gelöscht.');
     }
@@ -1249,7 +1249,7 @@ async function purgeDq(mode) {
 
 // ── Import ────────────────────────────────────────────────────────────────────
 function openImport() {
-  ibuf = [];
+  S.ibuf = [];
   document.getElementById('ip').innerHTML = '';
   document.getElementById('ib').style.display = 'none';
   document.getElementById('cf').value = '';
@@ -1289,7 +1289,7 @@ function parseCSV(txt) {
   };
   const iSt  = ci('stadt');
   const iReg = ci('region');
-  ibuf = lines.slice(1).map(function(l) {
+  S.ibuf = lines.slice(1).map(function(l) {
     const c = spl(l);
     const g = function(i) { return i >= 0 ? (c[i] || '').trim() : ''; };
     const rs = g(iS).toLowerCase();
@@ -1300,7 +1300,7 @@ function parseCSV(txt) {
   }).filter(function(c) { return c.firma; });
   document.getElementById('ip').innerHTML =
     '<div style="font-family:sans-serif;font-size:13px;color:#789464;font-weight:600">' +
-    '&#10003; ' + ibuf.length + ' Kontakte erkannt</div>';
+    '&#10003; ' + S.ibuf.length + ' Kontakte erkannt</div>';
   document.getElementById('ib').style.display = 'inline-flex';
 }
 function spl(l) {
@@ -1314,27 +1314,27 @@ function spl(l) {
   r.push(c); return r;
 }
 function doImport() {
-  if (!ibuf.length) return;
+  if (!S.ibuf.length) return;
   let added = 0, skipped = 0;
-  ibuf.forEach(function(c) {
-    const dup = contacts.find(function(x) {
+  S.ibuf.forEach(function(c) {
+    const dup = S.contacts.find(function(x) {
       const samePhone = c.telefon && x.telefon && c.telefon.replace(/\s/g,'') === x.telefon.replace(/\s/g,'');
       const sameFirma = c.firma.toLowerCase().trim() === (x.firma||'').toLowerCase().trim();
       return samePhone || sameFirma;
     });
     if (dup) { skipped++; return; }
-    contacts.push(c);
+    S.contacts.push(c);
     added++;
   });
   persist(); closeI(); render();
   toast(added + ' importiert' + (skipped ? ', ' + skipped + ' Duplikate übersprungen.' : '.'));
-  ibuf = [];
+  S.ibuf = [];
 }
 
 // ── Export ────────────────────────────────────────────────────────────────────
 function exportCSV() {
   const h = ['Firma','Kontakt','Titel','Telefon','Email','Website','ROI','Status','Follow-up','Letzter Anruf','Reviews','Leistung','Besonderheit'];
-  const rows = contacts.map(function(c) {
+  const rows = S.contacts.map(function(c) {
     const lastTouch = (c.touches && c.touches.length)
       ? (c.touches[c.touches.length - 1].datum || '') + ' ' + (c.touches[c.touches.length - 1].status || '')
       : '';
@@ -1360,7 +1360,7 @@ function toggleAcc(el) {
   tah.classList.toggle('open', open);
 }
 function saveTF(id, idx, field, val) {
-  const c = contacts.find(function(x) { return x.id === id; });
+  const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   if (!c.touches) c.touches = [];
   while (c.touches.length <= idx) c.touches.push({status:'',datum:'',notiz:''});
@@ -1384,7 +1384,7 @@ function saveTF(id, idx, field, val) {
   toast('Touch ' + (idx + 1) + ' gespeichert.');
 }
 function addTouch(id) {
-  const c = contacts.find(function(x) { return x.id === id; });
+  const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c || (c.touches && c.touches.length >= 10)) return;
   if (!c.touches) c.touches = [];
   c.touches.push({status:'',datum:'',notiz:''});
@@ -1399,13 +1399,13 @@ function addTouch(id) {
 
 // ── Column sort — multi-sort stack ────────────────────────────────────────────
 function doSort(col) {
-  const idx = sortStack.findIndex(function(s) { return s.col === col; });
+  const idx = S.sortStack.findIndex(function(s) { return s.col === col; });
   if (idx === -1) {
-    sortStack.push({ col: col, dir: 1 });
-  } else if (sortStack[idx].dir === 1) {
-    sortStack[idx].dir = -1;
+    S.sortStack.push({ col: col, dir: 1 });
+  } else if (S.sortStack[idx].dir === 1) {
+    S.sortStack[idx].dir = -1;
   } else {
-    sortStack.splice(idx, 1);
+    S.sortStack.splice(idx, 1);
   }
   render();
 }
@@ -1416,8 +1416,8 @@ function toggleColMenu(e) {
   document.getElementById('ctdrop').classList.toggle('on');
 }
 function toggleCol(col) {
-  colVis[col] = !colVis[col];
-  localStorage.setItem('rais_crm_colvis', JSON.stringify(colVis));
+  S.colVis[col] = !S.colVis[col];
+  localStorage.setItem('rais_crm_colvis', JSON.stringify(S.colVis));
   render();
 }
 document.addEventListener('click', function(e) {
@@ -1488,8 +1488,8 @@ function whFetch(url, opts) {
 }
 
 // ── Lead Gen ──────────────────────────────────────────────────────────────────
-let lgPollTimer = null;
-let lgCurrentRun = null;
+
+
 
 async function runWF(num) {
   const stadt = document.getElementById('lgStadt').value.trim();
@@ -1510,9 +1510,9 @@ async function runWF(num) {
     const wfResp = await whFetch(WH[wfKey], { method: 'POST', body: JSON.stringify(payload) });
     if (!wfResp.ok) throw new Error('HTTP ' + wfResp.status);
     // Start polling wf_runs — clear any stale interval first
-    if (lgPollTimer) { clearInterval(lgPollTimer); lgPollTimer = null; }
-    lgCurrentRun = { wf: wfKey, stadt: stadt, num: num, startedAt: runStartedAt };
-    lgPollTimer = setInterval(function() { pollWfRun(num); }, 15000);
+    if (S.lgPollTimer) { clearInterval(S.lgPollTimer); S.lgPollTimer = null; }
+    S.lgCurrentRun = { wf: wfKey, stadt: stadt, num: num, startedAt: runStartedAt };
+    S.lgPollTimer = setInterval(function() { pollWfRun(num); }, 15000);
     toast('WF' + num + ' gestartet — läuft im Hintergrund.');
   } catch(e) {
     btn.classList.remove('running');
@@ -1524,13 +1524,13 @@ async function runWF(num) {
 }
 
 async function pollWfRun(num) {
-  if (!lgCurrentRun) return;
+  if (!S.lgCurrentRun) return;
   try {
-    const rows = await sbGet('/rest/v1/wf_runs?wf=eq.' + lgCurrentRun.wf + '&created_at=gte.' + encodeURIComponent(lgCurrentRun.startedAt) + '&order=created_at.desc&limit=1');
+    const rows = await sbGet('/rest/v1/wf_runs?wf=eq.' + S.lgCurrentRun.wf + '&created_at=gte.' + encodeURIComponent(S.lgCurrentRun.startedAt) + '&order=created_at.desc&limit=1');
     if (!rows || !rows.length) return;
     const run = rows[0];
     if (run.status === 'done') {
-      clearInterval(lgPollTimer);
+      clearInterval(S.lgPollTimer);
       const btn  = document.getElementById('wfBtn' + num);
       const stat = document.getElementById('wfSt' + num);
       btn.classList.remove('running');
@@ -1608,12 +1608,12 @@ function openEsPanel(id) {
 }
 
 // ── Email Send Popup (LLM Generate → Preview → Send) ──────────────────────────
-let esContactId = null;
+
 
 function openEsPop(id) {
-  const c = contacts.find(function(x) { return x.id === id; });
+  const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
-  esContactId = id;
+  S.esContactId = id;
   document.getElementById('esTitle').textContent = 'Email an: ' + c.firma;
   document.getElementById('esNotiz').textContent = c.notiz || c.besonderheit || '— keine Notiz —';
   document.getElementById('esStep1').style.display = '';
@@ -1626,11 +1626,11 @@ function openEsPop(id) {
 
 function closeEsPop() {
   document.getElementById('esPop').style.display = 'none';
-  esContactId = null;
+  S.esContactId = null;
 }
 
 async function esGenerate() {
-  const c = contacts.find(function(x) { return x.id === esContactId; });
+  const c = S.contacts.find(function(x) { return x.id === S.esContactId; });
   if (!c) return;
   const anlass = document.getElementById('esAnlass').value;
   document.getElementById('esStep1').style.display = 'none';
@@ -1665,7 +1665,7 @@ async function esGenerate() {
 }
 
 async function esSend() {
-  const c = contacts.find(function(x) { return x.id === esContactId; });
+  const c = S.contacts.find(function(x) { return x.id === S.esContactId; });
   if (!c) return;
   const subject = document.getElementById('esSubject').value;
   const body    = document.getElementById('esBody').value;
@@ -1749,7 +1749,7 @@ function emailPanelHtml(c) {
 }
 
 async function sendEmailBatch(id, emailNum) {
-  const c = contacts.find(function(x) { return x.id === id; });
+  const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   const whKey = emailNum === 2 ? 'email2' : 'email3';
   try {
@@ -1767,7 +1767,7 @@ async function sendEmailBatch(id, emailNum) {
 }
 
 function markReply(id) {
-  const c = contacts.find(function(x) { return x.id === id; });
+  const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   c.reply_received = true;
   markDirty(c);
@@ -1775,7 +1775,7 @@ function markReply(id) {
   toast('Als geantwortet markiert.');
 }
 function markUnsub(id) {
-  const c = contacts.find(function(x) { return x.id === id; });
+  const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   c.unsubscribed = true;
   markDirty(c);
@@ -1785,7 +1785,7 @@ function markUnsub(id) {
 
 // ── Bulk Email Buttons ────────────────────────────────────────────────────────
 function countEligible(num) {
-  return contacts.filter(function(c) {
+  return S.contacts.filter(function(c) {
     if (!c.email || c.unsubscribed || c.reply_received) return false;
     if (num === 1) return !c.email_1_sent;
     if (num === 2) return c.email_1_sent && !c.email_2_sent;
@@ -1808,13 +1808,13 @@ async function bulkEmail(num) {
 }
 
 // ── Client CRM ───────────────────────────────────────────────────────────────
-let clClients = [];
-let clEid = null;
+
+
 
 async function loadClients() {
   try {
     const rows = await sbGet(CL_KEY_SB + '?select=*&order=created.asc');
-    clClients = rows || [];
+    S.clClients = rows || [];
     renderClients();
   } catch(e) {
     toast('Clients laden fehlgeschlagen: ' + e.message);
@@ -1824,7 +1824,7 @@ async function loadClients() {
 function renderClients() {
   const srch  = (document.getElementById('clSrch')  || {value:''}).value.toLowerCase();
   const sflt  = (document.getElementById('clStatusF')|| {value:''}).value;
-  let list = clClients.filter(function(c) {
+  let list = S.clClients.filter(function(c) {
     if (sflt && c.status !== sflt) return false;
     if (srch) {
       const hay = [c.firma, c.kontakt, c.scope, c.notiz, c.naechste_action].join(' ').toLowerCase();
@@ -1858,7 +1858,7 @@ function renderClients() {
 }
 
 function openClientAdd() {
-  clEid = null;
+  S.clEid = null;
   document.getElementById('clModalTitle').textContent = 'Client hinzufügen';
   ['clFirma','clKontakt','clTelefon','clEmail','clWebsite','clAction','clScope','clNotiz'].forEach(function(id) {
     const el = document.getElementById(id); if (el) el.value = '';
@@ -1866,16 +1866,16 @@ function openClientAdd() {
   document.getElementById('clMedium').value = 'whatsapp';
   document.getElementById('clStatus').value = 'aktiv';
   document.getElementById('clDatum').value = '';
-  document.getElementById('clEid').value = '';
+  document.getElementById('S.clEid').value = '';
   document.getElementById('clientModal').classList.add('on');
 }
 
 function openClientEdit(id) {
-  const c = clClients.find(function(x) { return x.id === id; });
+  const c = S.clClients.find(function(x) { return x.id === id; });
   if (!c) return;
-  clEid = id;
+  S.clEid = id;
   document.getElementById('clModalTitle').textContent = 'Client bearbeiten';
-  document.getElementById('clEid').value    = id;
+  document.getElementById('S.clEid').value    = id;
   document.getElementById('clFirma').value  = c.firma        || '';
   document.getElementById('clKontakt').value= c.kontakt      || '';
   document.getElementById('clTelefon').value= c.telefon      || '';
@@ -1910,23 +1910,23 @@ async function saveClient() {
     notiz:           document.getElementById('clNotiz').value.trim()  || null,
     synced_at:       now,
   };
-  if (clEid) {
-    row.id = clEid;
-    const idx = clClients.findIndex(function(c) { return c.id === clEid; });
-    if (idx >= 0) clClients[idx] = Object.assign({}, clClients[idx], row);
+  if (S.clEid) {
+    row.id = S.clEid;
+    const idx = S.clClients.findIndex(function(c) { return c.id === S.clEid; });
+    if (idx >= 0) S.clClients[idx] = Object.assign({}, S.clClients[idx], row);
   } else {
     // Let Supabase generate the UUID
   }
   try {
-    await sbUpsert(CL_KEY_SB, clEid ? [row] : [row]);
-    if (!clEid) {
+    await sbUpsert(CL_KEY_SB, S.clEid ? [row] : [row]);
+    if (!S.clEid) {
       // Reload to get the server-generated ID
       await loadClients();
     } else {
       renderClients();
     }
     closeClientModal();
-    toast(clEid ? 'Client gespeichert.' : 'Client hinzugefügt.');
+    toast(S.clEid ? 'Client gespeichert.' : 'Client hinzugefügt.');
   } catch(e) {
     toast('Fehler: ' + e.message);
   }
@@ -1936,14 +1936,14 @@ async function delClient(id) {
   if (!confirm('Client wirklich löschen?')) return;
   try {
     await sbDelete(CL_KEY_SB + '?id=eq.' + id);
-    clClients = clClients.filter(function(c) { return c.id !== id; });
+    S.clClients = S.clClients.filter(function(c) { return c.id !== id; });
     renderClients();
     toast('Client gelöscht.');
   } catch(e) { toast('Fehler: ' + e.message); }
 }
 
 function openClPanel(id) {
-  const c = clClients.find(function(x) { return x.id === id; });
+  const c = S.clClients.find(function(x) { return x.id === id; });
   if (!c) return;
   document.getElementById('clPFirma').textContent = c.firma;
   document.getElementById('clPSub').textContent   = [MEDIUM_ICONS[c.kontakt_medium], c.kontakt].filter(Boolean).join(' ');
