@@ -884,52 +884,33 @@ async function syncCloud(silent) {
     // 1. Pull: alle Einträge aus der Cloud holen
     const remote = await sbGet('/rest/v1/crm_contacts?select=*&order=created.asc&limit=10000');
 
-    // 2. Merge: automation-written fields come from remote, user-edited fields stay local
+    // 2. Supabase is the source of truth for which contacts exist.
+    //    Build a map of local user-editable data to overlay onto remote records.
     const remoteById = {};
     remote.forEach(function(r) { remoteById[r.id] = r; });
-    const localById  = {};
-    contacts.forEach(function(c) { localById[c.id] = c; });
 
-    // Fields written by n8n automation — remote always wins
-    const REMOTE_WINS = ['email_1_sent','email_1_subject','email_2_sent','followup_sent',
-      'email_status','unsubscribed','reply_received','qualified','lead_score',
-      'besonderheit','enriched','rating','reviews','website','place_id','gewerk','adresse'];
+    const LOCAL_WINS = ['status','followup','roi','notiz','kontakt','title','telefon',
+      'email','touches','status_changed_at'];
 
-    contacts.forEach(function(c) {
-      const r = remoteById[c.id];
-      if (!r) return;
-      REMOTE_WINS.forEach(function(f) { if (r[f] != null) c[f] = r[f]; });
-    });
-
-    // Also pull extra.* sub-fields onto top-level for existing contacts
-    contacts.forEach(function(c) {
-      const r = remoteById[c.id];
-      if (!r || !r.extra) return;
-      if (r.extra.hauptleistung  != null) c.hauptleistung    = r.extra.hauptleistung;
-      if (r.extra.webseite_alter != null) c.webseite_alter   = r.extra.webseite_alter;
-      if (r.extra.webseite_vorhanden != null) c.webseite_vorhanden = r.extra.webseite_vorhanden;
-      if (r.extra.hat_kalkulator != null) c.hat_kalkulator   = r.extra.hat_kalkulator;
-      if (r.extra.facebook       != null) c.facebook         = r.extra.facebook;
-    });
-
-    // Remove local contacts that no longer exist in Supabase (e.g. deleted server-side)
-    contacts = contacts.filter(function(c) { return !!remoteById[c.id]; });
-
-    // Add remote-only records (written by WF1/WF3) that don't exist locally yet
-    // Normalize extra.* onto top-level so upsert and UI can read them directly
-    remote.forEach(function(r) {
-      if (!localById[r.id]) {
-        const c = Object.assign({}, r);
-        if (!c.touches) c.touches = [];
-        if (c.extra) {
-          c.hauptleistung    = c.extra.hauptleistung    || null;
-          c.webseite_alter   = c.extra.webseite_alter   || null;
-          c.webseite_vorhanden = c.extra.webseite_vorhanden || null;
-          c.hat_kalkulator   = c.extra.hat_kalkulator   || null;
-          c.facebook         = c.extra.facebook         || null;
-        }
-        contacts.push(c);
+    // Rebuild contacts from remote — remote controls existence, local controls user fields
+    contacts = remote.map(function(r) {
+      const local = contacts.find(function(c) { return c.id === r.id; });
+      // Start from remote record (has all automation fields correct)
+      const c = Object.assign({}, r);
+      if (!c.touches) c.touches = [];
+      // Overlay extra.* sub-fields onto top-level
+      if (c.extra) {
+        c.hauptleistung      = c.extra.hauptleistung      || null;
+        c.webseite_alter     = c.extra.webseite_alter     || null;
+        c.webseite_vorhanden = c.extra.webseite_vorhanden || null;
+        c.hat_kalkulator     = c.extra.hat_kalkulator     || null;
+        c.facebook           = c.extra.facebook           || null;
       }
+      // If we had local edits for this contact, apply them on top
+      if (local) {
+        LOCAL_WINS.forEach(function(f) { if (local[f] != null) c[f] = local[f]; });
+      }
+      return c;
     });
 
     // 3. Push: nur User-editierte Felder — Automation-Felder (qualified, lead_score etc.)
