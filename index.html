@@ -955,7 +955,7 @@ async function syncCloud(silent) {
     render();
     toast('☁ Sync erfolgreich — ' + contacts.length + ' Kontakte.');
   } catch(e) {
-    alert('Sync fehlgeschlagen: ' + e.message);
+    if (!silent) toast('Sync fehlgeschlagen: ' + e.message);
   } finally {
     btn.disabled = false;
     btn.style.opacity = '1';
@@ -984,7 +984,7 @@ const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'ni','R�
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    contacts = (s && s.length) ? s : EMBED.slice();
+    contacts = (s && s.length) ? s : [];
   } catch(e) {
     contacts = EMBED.slice();
   }
@@ -1528,8 +1528,15 @@ function save() {
   persist(); closeE(); render();
   toast(eid ? 'Gespeichert.' : 'Kontakt hinzugefügt.');
 }
-function del(id) {
+async function del(id) {
   if (!confirm('Kontakt wirklich löschen?')) return;
+  if (autoSyncTimer) { clearTimeout(autoSyncTimer); autoSyncTimer = null; }
+  try {
+    await sbDelete('/rest/v1/crm_contacts?id=eq.' + id);
+  } catch(e) {
+    toast('Löschen fehlgeschlagen: ' + e.message);
+    return;
+  }
   contacts = contacts.filter(function(c) { return c.id !== id; });
   persist(); render(); toast('Gelöscht.');
 }
@@ -1579,7 +1586,7 @@ async function purgeDq(mode) {
       toast(ids.length + ' Leads gelöscht.');
     }
   } catch(e) {
-    alert('Fehler: ' + e.message);
+    toast('Fehler: ' + e.message);
   } finally {
     btn.disabled = false;
   }
