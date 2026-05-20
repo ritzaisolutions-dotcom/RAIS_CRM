@@ -24,6 +24,10 @@ export function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+export function ir(l, v) {
+  return '<div class="ir"><span class="il">' + l + '</span><div class="iv">' + v + '</div></div>';
+}
+
 export function toast(m) {
   const el = document.getElementById('toast');
   el.textContent = m;
