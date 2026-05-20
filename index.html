@@ -875,7 +875,8 @@ async function sbDelete(path) {
 }
 
 async function syncCloud(silent) {
-  // Cancel any pending auto-sync so it can't push stale data after we pull
+  if (syncInProgress) { if (!silent) toast('Sync läuft bereits…'); return; }
+  syncInProgress = true;
   if (autoSyncTimer) { clearTimeout(autoSyncTimer); autoSyncTimer = null; }
   const btn = document.getElementById('syncBtn');
   btn.disabled = true;
@@ -973,6 +974,7 @@ async function syncCloud(silent) {
     render();
     if (!silent) toast('Sync fehlgeschlagen: ' + e.message);
   } finally {
+    syncInProgress = false;
     btn.disabled = false;
     btn.style.opacity = '1';
     btn.textContent = '☁ Sync';
@@ -984,20 +986,96 @@ let contacts = [], flt = 'all', pg = 1, PG = 30, ibuf = [], dueMode = false, eid
 let sortStack = []; // [{col, dir}] — ordered multi-sort
 const colVis = {website: true, stadt: false, region: false, gewerk: false};
 let autoSyncTimer = null;
+let syncInProgress = false;
 function isDirtyContact(c) {
   return !!(c && !c.synced_at);
 }
 function markDirty(c) {
   if (c) c.synced_at = null;
 }
-function scheduleAutoSync() {
-  if (autoSyncTimer) clearTimeout(autoSyncTimer);
-  autoSyncTimer = setTimeout(function() {
-    autoSyncTimer = null;
-    syncCloud(true);
-  }, 10000);
+async function pushDirty() {
+  if (syncInProgress) return;
+  const dirty = contacts.filter(isDirtyContact);
+  if (!dirty.length) return;
+  syncInProgress = true;
   const btn = document.getElementById('syncBtn');
-  if (btn && !btn.disabled) { btn.textContent = '⟳ Sync…'; btn.style.opacity = '.6'; }
+  if (btn) { btn.textContent = '⟳ Sync…'; btn.style.opacity = '.6'; btn.disabled = true; }
+  try {
+    const now = new Date().toISOString();
+    const rows = dirty.map(function(c) {
+      c.synced_at = now;
+      const row = {
+        id: c.id, created: c.created, firma: c.firma || '',
+        kontakt: c.kontakt || null, title: c.title || null,
+        telefon: c.telefon || null, email: c.email || null,
+        status: c.status || 'neu', followup: c.followup || null,
+        roi: c.roi || null, stadt: c.stadt || null,
+        region: c.region || null, notiz: c.notiz || null,
+        website: c.website || null, gewerk: c.gewerk || null,
+        touches: c.touches || [],
+        status_changed_at: c.status_changed_at || null,
+        synced_at: now,
+      };
+      if (c.email_1_sent)    row.email_1_sent    = c.email_1_sent;
+      if (c.email_1_subject) row.email_1_subject = c.email_1_subject;
+      if (c.email_2_sent)    row.email_2_sent    = c.email_2_sent;
+      if (c.followup_sent)   row.followup_sent   = c.followup_sent;
+      if (c.email_status)    row.email_status    = c.email_status;
+      if (c.unsubscribed)    row.unsubscribed    = true;
+      if (c.reply_received)  row.reply_received  = true;
+      return row;
+    });
+    for (let i = 0; i < rows.length; i += 50) {
+      await sbUpsert('/rest/v1/crm_contacts', rows.slice(i, i + 50));
+    }
+    persist();
+  } catch(e) {
+    dirty.forEach(function(c) { c.synced_at = null; });
+  } finally {
+    syncInProgress = false;
+    if (btn) { btn.textContent = '☁ Sync'; btn.style.opacity = '1'; btn.disabled = false; }
+  }
+}
+
+function handleRealtimeChange(payload) {
+  if (syncInProgress) return;
+  var eventType = payload.eventType;
+  var row = payload.new;
+  var old = payload.old;
+  if (eventType === 'DELETE') {
+    var id = old.id;
+    if (contacts.some(function(c) { return c.id === id; })) {
+      contacts = contacts.filter(function(c) { return c.id !== id; });
+      persist(); render();
+    }
+  } else if (eventType === 'INSERT') {
+    if (!contacts.some(function(c) { return c.id === row.id; })) {
+      var c = Object.assign({}, row);
+      if (!c.touches) c.touches = [];
+      contacts.unshift(c);
+      persist(); render();
+    }
+  } else if (eventType === 'UPDATE') {
+    var idx = contacts.findIndex(function(c) { return c.id === row.id; });
+    if (idx !== -1 && !isDirtyContact(contacts[idx])) {
+      var updated = Object.assign({}, row);
+      if (!updated.touches) updated.touches = [];
+      contacts[idx] = updated;
+      persist(); render();
+    }
+  }
+}
+
+async function initRealtime() {
+  try {
+    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+    const sbRt = createClient(SB_URL, SB_KEY);
+    sbRt.channel('crm_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_contacts' }, handleRealtimeChange)
+      .subscribe();
+  } catch(e) {
+    console.warn('Realtime init failed:', e.message);
+  }
 }
 const TSTAT = ['','Nicht kontaktiert','Nicht erreicht','Mailbox','Rückruf erbeten','Gatekeeper','Interessiert','Termin vereinbart','Angebot gesendet','Kein Interesse'];
 const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'ni','Rückruf erbeten':'fu','Gatekeeper':'gk','Interessiert':'in','Termin vereinbart':'te','Angebot gesendet':'ib','Kein Interesse':'ki'};
@@ -1330,7 +1408,7 @@ function qs(id, s) {
   const c = contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   if (c.status !== s) { bumpCall(); c.status_changed_at = td(); }
-  c.status = s; markDirty(c); persist(); render(); scheduleAutoSync(); closeP();
+  c.status = s; markDirty(c); persist(); render(); pushDirty(); closeP();
   toast('Status: ' + (STATUS[s] ? STATUS[s].label : s));
 }
 
@@ -1365,7 +1443,7 @@ function inlineFU(inp) {
   if (!c) return;
   c.followup = inp.value;
   markDirty(c);
-  persist(); render(); scheduleAutoSync();
+  persist(); render(); pushDirty();
 }
 
 // ── Datum-Shortcuts ───────────────────────────────────────────────────────────
@@ -1384,7 +1462,7 @@ function saveNotiz(ta) {
   if (val === (c.notiz || c.besonderheit || '').trim()) return;
   c.notiz = val; c.besonderheit = val;
   markDirty(c);
-  persist(); scheduleAutoSync();
+  persist(); pushDirty();
 }
 function notizKey(e, ta) {
   if (e.key === 'Escape') { ta.blur(); }
@@ -1409,7 +1487,7 @@ function saveQN() {
   c.notiz = document.getElementById('qnText').value.trim();
   c.besonderheit = c.notiz;
   markDirty(c);
-  persist(); render(); scheduleAutoSync(); closeQN();
+  persist(); render(); pushDirty(); closeQN();
   toast('Notiz gespeichert.');
 }
 
@@ -1471,7 +1549,7 @@ function inlineROI(sel) {
   if (!c) return;
   c.roi = parseInt(sel.value) || null;
   markDirty(c);
-  persist(); render(); scheduleAutoSync();
+  persist(); render(); pushDirty();
 }
 function inlineST(sel) {
   const c = contacts.find(function(x) { return x.id === sel.dataset.id; });
@@ -1480,7 +1558,7 @@ function inlineST(sel) {
   c.status = sel.value;
   if (prev !== c.status) { bumpCall(); c.status_changed_at = td(); }
   markDirty(c);
-  persist(); render(); scheduleAutoSync();
+  persist(); render(); pushDirty();
 }
 
 // ── Edit ──────────────────────────────────────────────────────────────────────
@@ -1551,12 +1629,12 @@ function save() {
   } else {
     contacts.push(Object.assign({id: gid(), created: Date.now(), touches:[{status:'',datum:'',notiz:''}], synced_at: null}, d));
   }
-  persist(); closeE(); render(); scheduleAutoSync();
+  persist(); closeE(); render(); pushDirty();
   toast(eid ? 'Gespeichert.' : 'Kontakt hinzugefügt.');
 }
 async function del(id) {
   if (!confirm('Kontakt wirklich löschen?')) return;
-  if (autoSyncTimer) { clearTimeout(autoSyncTimer); autoSyncTimer = null; }
+  if (syncInProgress) { toast('Sync läuft — bitte kurz warten.'); return; }
   try {
     await sbDelete('/rest/v1/crm_contacts?id=eq.' + id);
   } catch(e) {
@@ -1579,6 +1657,7 @@ function closePurgeDq() {
 async function purgeDq(mode) {
   const dqContacts = contacts.filter(function(c) { return c.status === 'disqualified'; });
   if (!dqContacts.length) { closePurgeDq(); return; }
+  if (syncInProgress) { toast('Sync läuft — bitte kurz warten.'); closePurgeDq(); return; }
 
   const btn = document.getElementById('purgeBtn');
   btn.disabled = true;
@@ -1745,7 +1824,7 @@ function saveTF(id, idx, field, val) {
   while (c.touches.length <= idx) c.touches.push({status:'',datum:'',notiz:''});
   c.touches[idx][field] = val;
   markDirty(c);
-  persist(); scheduleAutoSync();
+  persist(); pushDirty();
   // Refresh header badge/date without closing the accordion
   const tah = document.getElementById('tah-' + idx);
   if (tah) {
@@ -1768,7 +1847,7 @@ function addTouch(id) {
   if (!c.touches) c.touches = [];
   c.touches.push({status:'',datum:'',notiz:''});
   markDirty(c);
-  persist(); scheduleAutoSync();
+  persist(); pushDirty();
   openP(id);
   setTimeout(function() {
     const tah = document.getElementById('tah-' + (c.touches.length - 1));
@@ -1824,6 +1903,7 @@ load();
 render();
 renderCalls();
 syncCloud(true);
+initRealtime();
 
 // ── Tab Navigation ────────────────────────────────────────────────────────────
 function switchTab(name) {
@@ -2149,7 +2229,7 @@ function markReply(id) {
   if (!c) return;
   c.reply_received = true;
   markDirty(c);
-  persist(); render(); scheduleAutoSync(); openP(id);
+  persist(); render(); pushDirty(); openP(id);
   toast('Als geantwortet markiert.');
 }
 function markUnsub(id) {
@@ -2157,7 +2237,7 @@ function markUnsub(id) {
   if (!c) return;
   c.unsubscribed = true;
   markDirty(c);
-  persist(); render(); scheduleAutoSync(); openP(id);
+  persist(); render(); pushDirty(); openP(id);
   toast('Abgemeldet.');
 }
 
