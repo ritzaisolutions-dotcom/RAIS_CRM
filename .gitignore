@@ -2,5 +2,7 @@ data.json
 __pycache__/
 *.pyc
 .claude/
+node_modules/
+npm-debug.log*
 
 .vercel
