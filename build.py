@@ -213,16 +213,20 @@ textarea { resize: vertical; min-height: 68px; }
 
 # ── JS (plain string — no f-string, braces work normally) ────────────────────
 JS = """
-const EMBED = __DATA__;
-const KEY = 'rais_crm_v2';
+const KEY = 'rais_crm_v3';
 let contacts = [], flt = 'all', pg = 1, PG = 30, ibuf = [], dueMode = false, eid = null;
 
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    contacts = (s && s.length) ? s : EMBED.slice();
+    contacts = (s && s.length) ? s.filter(function(c) {
+      return !(c && typeof c.id === 'string' && /^\d+$/.test(c.id));
+    }) : [];
+    if (s && s.length && contacts.length !== s.length) {
+      localStorage.setItem(KEY, JSON.stringify(contacts));
+    }
   } catch(e) {
-    contacts = EMBED.slice();
+    contacts = [];
   }
 }
 function persist() { localStorage.setItem(KEY, JSON.stringify(contacts)); }
@@ -728,7 +732,7 @@ HTML = f"""<!DOCTYPE html>
 </html>"""
 
 # Inject data (JS is already a plain string — no escaping issues)
-html_out = HTML.replace('__DATA__', DATA)
+html_out = HTML
 
 with open('index.html', 'w', encoding='utf-8') as f:
     f.write(html_out)

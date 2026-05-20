@@ -1970,7 +1970,12 @@ const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'ni','RÃ
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    contacts = (s && s.length) ? s : [];
+    contacts = (s && s.length) ? s.filter(function(c) {
+      return !(c && typeof c.id === 'string' && /^\d+$/.test(c.id));
+    }) : [];
+    if (s && s.length && contacts.length !== s.length) {
+      localStorage.setItem(KEY, JSON.stringify(contacts));
+    }
   } catch(e) {
     contacts = [];
   }
