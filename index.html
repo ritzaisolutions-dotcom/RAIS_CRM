@@ -1848,7 +1848,8 @@ function switchTab(name) {
 })();
 
 // ── Webhook Constants ─────────────────────────────────────────────────────────
-const WH_BASE = 'https://n8n.ritz-ai.solutions/webhook/';
+const WH_BASE  = 'https://n8n.ritz-ai.solutions/webhook/';
+const WH_TOKEN = 'ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc'; // Phase 1.5 — add to n8n Header Auth
 const WH = {
   wf1:    WH_BASE + 'wf1-discover',
   wf2:    WH_BASE + 'wf2-qualify',
@@ -1857,6 +1858,12 @@ const WH = {
   email2: WH_BASE + 'wf5-email2',
   email3: WH_BASE + 'wf6-email3',
 };
+// Helper: fetch a webhook with the auth token pre-attached
+function whFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({ 'Content-Type': 'application/json', 'X-RAIS-Token': WH_TOKEN }, opts.headers || {});
+  return fetch(url, opts);
+}
 
 // ── Lead Gen ──────────────────────────────────────────────────────────────────
 let lgPollTimer = null;
@@ -1878,7 +1885,7 @@ async function runWF(num) {
   try {
     const wfKey = 'wf' + num;
     const runStartedAt = new Date().toISOString();
-    const wfResp = await fetch(WH[wfKey], { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+    const wfResp = await whFetch(WH[wfKey], { method: 'POST', body: JSON.stringify(payload) });
     if (!wfResp.ok) throw new Error('HTTP ' + wfResp.status);
     // Start polling wf_runs — clear any stale interval first
     if (lgPollTimer) { clearInterval(lgPollTimer); lgPollTimer = null; }
@@ -2008,9 +2015,8 @@ async function esGenerate() {
   document.getElementById('esLoading').style.display = 'block';
   document.getElementById('esGenBtn').style.display = 'none';
   try {
-    const resp = await fetch(WH.email1, {
+    const resp = await whFetch(WH.email1, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         contact_id:  c.id,
         anlass:      anlass,
@@ -2046,9 +2052,8 @@ async function esSend() {
   btn.disabled = true;
   btn.textContent = '📨 Sende…';
   try {
-    const sendResp = await fetch(WH.email1, {
+    const sendResp = await whFetch(WH.email1, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         contact_id: c.id,
         subject:    subject,
@@ -2126,7 +2131,7 @@ async function sendEmailBatch(id, emailNum) {
   if (!c) return;
   const whKey = emailNum === 2 ? 'email2' : 'email3';
   try {
-    const batchResp = await fetch(WH[whKey], { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ contact_id: id }) });
+    const batchResp = await whFetch(WH[whKey], { method: 'POST', body: JSON.stringify({ contact_id: id }) });
     if (!batchResp.ok) throw new Error('HTTP ' + batchResp.status);
     if (emailNum === 2) c.email_2_sent = td();
     if (emailNum === 3) c.followup_sent = td();
@@ -2173,7 +2178,7 @@ async function bulkEmail(num) {
   if (!confirm(cnt + ' Kontakte erhalten Email ' + num + '. Fortfahren?')) return;
   const whKey = num === 1 ? 'email1' : num === 2 ? 'email2' : 'email3';
   try {
-    const bulkResp = await fetch(WH[whKey], { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ batch: true }) });
+    const bulkResp = await whFetch(WH[whKey], { method: 'POST', body: JSON.stringify({ batch: true }) });
     if (!bulkResp.ok) throw new Error('HTTP ' + bulkResp.status);
     toast('Email ' + num + ' Batch gestartet — ' + cnt + ' Kontakte.');
     setTimeout(syncCloud, 60000);
