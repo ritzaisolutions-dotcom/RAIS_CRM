@@ -995,12 +995,7 @@ const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'ni','R�
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
-    contacts = (s && s.length) ? s.filter(function(c) {
-      return !(c && typeof c.id === 'string' && /^\d+$/.test(c.id));
-    }) : [];
-    if (s && s.length && contacts.length !== s.length) {
-      localStorage.setItem(KEY, JSON.stringify(contacts));
-    }
+    contacts = (s && s.length) ? s : [];
   } catch(e) {
     contacts = [];
   }
@@ -1809,9 +1804,13 @@ document.addEventListener('keydown', function(e) {
 
 
 load();
-render();
 renderCalls();
-syncCloud(true);
+if (contacts.length > 0) {
+  render();
+  syncCloud(true);
+} else {
+  syncCloud(false);
+}
 
 // ── Tab Navigation ────────────────────────────────────────────────────────────
 function switchTab(name) {
