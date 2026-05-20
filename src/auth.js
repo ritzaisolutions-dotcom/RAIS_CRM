@@ -19,6 +19,7 @@ window.doLogin = async function() {
   setAuthToken(data.session.access_token);
   wall.style.display = 'none';
   document.body.style.overflow = '';
+  if (window.syncCloud) window.syncCloud(true);
 };
 
 async function init() {
