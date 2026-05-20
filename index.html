@@ -485,6 +485,7 @@
 import { gid, td, relAge, GKUERZEL, GSLUG, gewerkKuerzel, gewerkSlug } from './src/utils.js';
 import { SB_URL, SB_KEY, sbGet, sbUpsert, sbDelete } from './src/supabase.js';
 import { KEY, PG, CC_KEY, CL_KEY_SB, MEDIUM_ICONS, TSTAT, TSCLS, STATUS } from './src/state.js';
+import { sbadge, roib, fdc, esc, toast } from './src/ui.js';
 
 async function syncCloud(silent) {
   if (syncInProgress) { if (!silent) toast('Sync läuft bereits…'); return; }
@@ -709,25 +710,6 @@ function load() {
 }
 function persist() { localStorage.setItem(KEY, JSON.stringify(contacts)); }
 
-function sbadge(s) {
-  const st = STATUS[s] || { cls: 'b-neu', label: s || 'Neu' };
-  return '<span class="badge ' + st.cls + '">' + st.label + '</span>';
-}
-function roib(n) {
-  if (!n) return '<span class="roi r0">—</span>';
-  const c = n >= 3 ? 'r3' : n >= 2 ? 'r2' : 'r1';
-  return '<span class="roi ' + c + '">' + n + '</span>';
-}
-function fdc(d) {
-  if (!d) return '<span style="color:#ccc;font-family:sans-serif;font-size:12px">—</span>';
-  const t = td();
-  if (d < t)  return '<span class="fd fdov">&#9888; ' + d + '</span>';
-  if (d === t) return '<span class="fd fdtd">&#128222; Heute</span>';
-  return '<span class="fd fdup">' + d + '</span>';
-}
-function esc(s) {
-  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
 
 function getList() {
   const q      = document.getElementById('srch').value.toLowerCase();
@@ -1368,14 +1350,6 @@ function exportCSV() {
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
-function toast(m) {
-  const el = document.getElementById('toast');
-  el.textContent = m;
-  el.classList.add('on');
-  clearTimeout(el._t);
-  el._t = setTimeout(function() { el.classList.remove('on'); }, 2600);
-}
-
 // ── Touch accordion ───────────────────────────────────────────────────────────
 function toggleAcc(el) {
   const tah = el.closest ? el : el;
