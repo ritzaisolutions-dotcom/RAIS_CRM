@@ -892,8 +892,12 @@ async function syncCloud(silent) {
     const LOCAL_WINS = ['status','followup','roi','notiz','kontakt','title','telefon',
       'email','touches','status_changed_at'];
 
-    // Identify unsynced locally added contacts so they aren't pruned/dropped
-    const unsyncedLocal = contacts.filter(function(c) { return !c.synced_at; });
+    // Identify unsynced locally added contacts so they aren't pruned/dropped.
+    // Exclude legacy numeric seed IDs (e.g. "1", "55", "156") which are never locally added unsynced contacts.
+    const unsyncedLocal = contacts.filter(function(c) {
+      const isLegacyId = /^\d+$/.test(c.id);
+      return !c.synced_at && !isLegacyId;
+    });
 
     // Rebuild contacts from remote — remote controls existence, local controls user fields
     const newContacts = remote.map(function(r) {
