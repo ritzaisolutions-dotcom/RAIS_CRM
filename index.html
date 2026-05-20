@@ -484,6 +484,7 @@
 <script type="module">
 import { gid, td, relAge, GKUERZEL, GSLUG, gewerkKuerzel, gewerkSlug } from './src/utils.js';
 import { SB_URL, SB_KEY, sbGet, sbUpsert, sbDelete } from './src/supabase.js';
+import { KEY, PG, CC_KEY, CL_KEY_SB, MEDIUM_ICONS, TSTAT, TSCLS, STATUS } from './src/state.js';
 
 async function syncCloud(silent) {
   if (syncInProgress) { if (!silent) toast('Sync läuft bereits…'); return; }
@@ -592,8 +593,7 @@ async function syncCloud(silent) {
   }
 }
 
-const KEY = 'rais_crm_v3';
-let contacts = [], flt = 'all', pg = 1, PG = 30, ibuf = [], dueMode = false, eid = null;
+let contacts = [], flt = 'all', pg = 1, ibuf = [], dueMode = false, eid = null;
 let sortStack = []; // [{col, dir}] — ordered multi-sort
 const colVis = {website: true, stadt: false, region: false, gewerk: false};
 let autoSyncTimer = null;
@@ -688,9 +688,6 @@ async function initRealtime() {
     console.warn('Realtime init failed:', e.message);
   }
 }
-const TSTAT = ['','Nicht kontaktiert','Nicht erreicht','Mailbox','Rückruf erbeten','Gatekeeper','Interessiert','Termin vereinbart','Angebot gesendet','Kein Interesse'];
-const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'ni','Rückruf erbeten':'fu','Gatekeeper':'gk','Interessiert':'in','Termin vereinbart':'te','Angebot gesendet':'ib','Kein Interesse':'ki'};
-
 function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
@@ -711,20 +708,6 @@ function load() {
   });
 }
 function persist() { localStorage.setItem(KEY, JSON.stringify(contacts)); }
-
-const STATUS = {
-  neu:            { cls: 'b-neu', label: 'Neu' },
-  kein_anschluss: { cls: 'b-ni',  label: 'Kein Anschluss' },
-  gatekeeper:     { cls: 'b-gk',  label: 'Gatekeeper' },
-  callback:       { cls: 'b-fu',  label: 'Callback' },
-  email_nurture:  { cls: 'b-ib',  label: 'Email Nurture' },
-  interessiert:   { cls: 'b-in',  label: 'Interessiert' },
-  demo_termin:    { cls: 'b-te',  label: 'Demo Termin' },
-  no_show:        { cls: 'b-ns',  label: 'No Show' },
-  disqualified:   { cls: 'b-ki',  label: 'Disqualified' },
-  gewonnen:       { cls: 'b-gw',  label: 'Gewonnen' },
-  archiviert:     { cls: 'b-ki',  label: 'Archiviert' },
-};
 
 function sbadge(s) {
   const st = STATUS[s] || { cls: 'b-neu', label: s || 'Neu' };
@@ -1078,7 +1061,6 @@ function saveQN() {
 }
 
 // ── Anruf-Counter ─────────────────────────────────────────────────────────────
-const CC_KEY = 'rais_crm_calls';
 function loadCalls() {
   try { return JSON.parse(localStorage.getItem(CC_KEY)) || {}; } catch(e) { return {}; }
 }
@@ -1854,8 +1836,6 @@ async function bulkEmail(num) {
 // ── Client CRM ───────────────────────────────────────────────────────────────
 let clClients = [];
 let clEid = null;
-const CL_KEY_SB = '/rest/v1/crm_clients';
-const MEDIUM_ICONS = { whatsapp:'📱', telegram:'✈️', email:'✉️', telefon:'📞', sonstiges:'💬' };
 
 async function loadClients() {
   try {
