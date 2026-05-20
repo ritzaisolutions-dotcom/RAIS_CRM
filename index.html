@@ -891,7 +891,7 @@ async function syncCloud(silent) {
     remote.forEach(function(r) { remoteById[r.id] = r; });
 
     const LOCAL_WINS = ['status','followup','roi','notiz','kontakt','title','telefon',
-      'email','touches','status_changed_at'];
+      'email','touches','status_changed_at','firma','website','gewerk','stadt','region'];
 
     const dirtyLocalById = {};
     contacts.filter(isDirtyContact).forEach(function(c) { dirtyLocalById[c.id] = c; });
@@ -944,6 +944,8 @@ async function syncCloud(silent) {
         stadt:        c.stadt        || null,
         region:       c.region       || null,
         notiz:        c.notiz        || null,
+        website:      c.website      || null,
+        gewerk:       c.gewerk       || null,
         touches:           c.touches           || [],
         status_changed_at: c.status_changed_at || null,
         synced_at:         now,
@@ -1742,7 +1744,8 @@ function saveTF(id, idx, field, val) {
   if (!c.touches) c.touches = [];
   while (c.touches.length <= idx) c.touches.push({status:'',datum:'',notiz:''});
   c.touches[idx][field] = val;
-  persist();
+  markDirty(c);
+  persist(); scheduleAutoSync();
   // Refresh header badge/date without closing the accordion
   const tah = document.getElementById('tah-' + idx);
   if (tah) {
@@ -1764,7 +1767,8 @@ function addTouch(id) {
   if (!c || (c.touches && c.touches.length >= 10)) return;
   if (!c.touches) c.touches = [];
   c.touches.push({status:'',datum:'',notiz:''});
-  persist();
+  markDirty(c);
+  persist(); scheduleAutoSync();
   openP(id);
   setTimeout(function() {
     const tah = document.getElementById('tah-' + (c.touches.length - 1));
@@ -1817,6 +1821,7 @@ document.addEventListener('keydown', function(e) {
 
 
 load();
+render();
 renderCalls();
 syncCloud(true);
 
