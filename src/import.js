@@ -39,12 +39,29 @@ function parseCSV(txt) {
   const lines = txt.replace(/\r/g, '').split('\n').filter(function(l) { return l.trim(); });
   if (lines.length < 2) { toast('CSV leer.'); return; }
   const heads = spl(lines[0]).map(function(h) { return h.trim().toLowerCase(); });
-  const ci = function(n) { return heads.findIndex(function(h) { return h.includes(n); }); };
-  const iF  = ci('firma');
-  const iK  = ci('ansprechpartner') >= 0 ? ci('ansprechpartner') : ci('kontakt');
-  const iT  = ci('telefon') >= 0 ? ci('telefon') : ci('tel');
-  const iS  = ci('status');
-  const iFu = ci('follow');
+  // Match first column whose header contains any of the given substrings
+  const ci = function() {
+    const names = Array.prototype.slice.call(arguments);
+    for (let n = 0; n < names.length; n++) {
+      const idx = heads.findIndex(function(h) { return h.includes(names[n]); });
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  };
+  const iF   = ci('firma', 'company_name', 'company');
+  const iK   = ci('ansprechpartner', 'person_name', 'kontakt');
+  const iT   = ci('telefon', 'phone', 'tel');
+  const iS   = ci('status');
+  const iFu  = ci('follow');
+  const iSt  = ci('stadt', 'city');
+  const iReg = ci('region');
+  const iEm  = ci('email');
+  const iWeb = ci('webseite', 'website', 'web');
+  const iHl  = ci('hauptleistung');
+  const iBes = ci('besonderheit');
+  const iTit = ci('title', 'titel');
+  const iGew = ci('gewerk');
+  const iRoi = ci('roi');
   if (iF < 0) { toast('Keine Firma-Spalte gefunden.'); return; }
   const sm2 = {
     'neu': 'neu',
@@ -56,16 +73,31 @@ function parseCSV(txt) {
     'gatekeeper': 'gatekeeper',
     'followup': 'callback', 'follow-up': 'callback',
   };
-  const iSt  = ci('stadt');
-  const iReg = ci('region');
+  // Strip Excel-quoting artifact (leading apostrophe) and "NA" placeholder
+  const clean = function(v) { return (v === 'NA' || v === 'na') ? '' : v; };
+  const cleanPhone = function(v) { return v.replace(/^['‘’\s]+/, '').trim(); };
   S.ibuf = lines.slice(1).map(function(l) {
     const c = spl(l);
-    const g = function(i) { return i >= 0 ? (c[i] || '').trim() : ''; };
+    const g = function(i) { return i >= 0 ? clean((c[i] || '').trim()) : ''; };
     const rs = g(iS).toLowerCase();
-    return { id: gid(), created: Date.now(), firma: g(iF), kontakt: g(iK),
-             telefon: g(iT), status: sm2[rs] || 'neu', followup: g(iFu),
-             stadt: g(iSt), region: g(iReg),
-             roi: 1, gewerk: '', touches:[{status:'',datum:'',notiz:''}] };
+    return {
+      id: gid(), created: Date.now(),
+      firma: g(iF),
+      kontakt: g(iK),
+      title: g(iTit),
+      telefon: cleanPhone(g(iT)),
+      email: g(iEm),
+      website: g(iWeb),
+      status: sm2[rs] || 'neu',
+      followup: g(iFu),
+      stadt: g(iSt),
+      region: g(iReg),
+      hauptleistung: g(iHl),
+      besonderheit: g(iBes),
+      gewerk: g(iGew),
+      roi: iRoi >= 0 ? (parseInt(g(iRoi), 10) || 1) : 1,
+      touches: [{status:'', datum:'', notiz:''}]
+    };
   }).filter(function(c) { return c.firma; });
   document.getElementById('ip').innerHTML =
     '<div style="font-family:sans-serif;font-size:13px;color:#789464;font-weight:600">' +
