@@ -70,6 +70,7 @@
   </g></svg>
     <div class="logo-text">RAIS <em>CRM</em></div>
   </a>
+  <div id="sph-widget" class="sph-widget" hidden></div>
   <div class="hact">
     <button class="btn bs" onclick="openImport()">CSV importieren</button>
     <button class="btn bs" onclick="exportCSV()">Exportieren</button>
@@ -172,9 +173,6 @@
     <div class="stat" id="s-gw"       onclick="setF('gewonnen')">     <span class="sn" id="c-gw">0</span>  <span class="sl">Gewonnen</span></div>
     <div class="stat" id="s-heute"    onclick="setF('heute')">        <span class="sn" id="c-heute">0</span><span class="sl">&#128197; Heute</span></div>
   </div>
-
-  <!-- Session Control Panel (populated by initSessionPanel) -->
-  <div id="session-panel-container"></div>
 
   <div class="tb">
     <input class="srch" id="srch" type="text" placeholder="Firma, Name, Notiz …" oninput="render()">
@@ -507,7 +505,7 @@ import { openEsPanel, openEsPop, closeEsPop, esGenerate, esSend, sendEmailBatch,
 import { runWF, loadLgPreview, lgImportToCRM } from './src/leadgen.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
 import { initSidebar } from './src/sidebar.js';
-import { initSessionPanel, initSessionsPage } from './src/sessions.js';
+import { initHeaderWidget, initSessionsPage } from './src/sessions.js';
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
@@ -524,7 +522,7 @@ document.addEventListener('keydown', function(e) {
 
 
 initSidebar();
-initSessionPanel(document.getElementById('session-panel-container'));
+initHeaderWidget(document.getElementById('sph-widget'));
 
 window.addEventListener('rais:page-change', function(e) {
   if (e.detail.page === 'sessions') initSessionsPage(document.getElementById('sessions-history-container'));

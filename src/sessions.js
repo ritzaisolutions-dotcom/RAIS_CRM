@@ -3,9 +3,9 @@ import { toast } from './ui.js';
 import { navigateTo } from './sidebar.js';
 
 // --- STATE ---
-// Lives in memory only. Reload ends the session implicitly.
 let activeSession = null;  // { id, startedTs, pausedAt, pausedSeconds, timerMode, targetSeconds, breakdown, leadsPlayed }
 let timerInterval = null;
+let _sessionsContainer = null; // ref for re-rendering sessions page after end/discard
 
 const STATUS_GROUPS = {
   positive: ['gewonnen', 'demo_termin', 'door_open', 'interessiert'],
@@ -35,71 +35,59 @@ function fmtTime(secs) {
     String(m).padStart(2,'0') + ':' + String(sc).padStart(2,'0');
 }
 
-// --- PANEL DOM HELPERS ---
-
-function panelEl(id) { return document.getElementById(id); }
-
-function setHidden(id, hidden) {
-  const el = panelEl(id);
-  if (el) el.hidden = hidden;
-}
-
 function setText(id, txt) {
-  const el = panelEl(id);
+  const el = document.getElementById(id);
   if (el) el.textContent = txt;
 }
 
-function renderBreakdown(elId) {
-  const el = panelEl(elId);
-  if (!el || !activeSession) return;
-  const bd = activeSession.breakdown;
-  const keys = Object.keys(bd).filter(function(k) { return bd[k] > 0; });
-  if (!keys.length) { el.innerHTML = ''; return; }
-  el.innerHTML = keys.map(function(k) {
-    return '<span class="sp-badge" style="background:' + statusColor(k) + '20;color:' + statusColor(k) + ';border:1px solid ' + statusColor(k) + '40">' +
-      k.replace(/_/g,' ') + ': <strong>' + bd[k] + '</strong></span>';
-  }).join('');
-}
+// --- HEADER WIDGET RENDER ---
 
-function renderPanel() {
+function renderWidget() {
+  const widget = document.getElementById('sph-widget');
+  if (!widget) return;
+
   if (!activeSession) {
-    setHidden('sp-idle', false);
-    setHidden('sp-running', true);
-    setHidden('sp-paused', true);
-    setHidden('sp-save-row', true);
+    widget.hidden = true;
     return;
   }
+
+  widget.hidden = false;
   const elapsed = elapsedSeconds();
-  if (activeSession.pausedAt) {
-    setHidden('sp-idle', true);
-    setHidden('sp-running', true);
-    setHidden('sp-paused', false);
-    setText('sp-timer-paused', fmtTime(elapsed) + ' ⏸');
-    setText('sp-lead-count-p', activeSession.leadsPlayed);
-    renderBreakdown('sp-breakdown-paused');
-  } else {
-    setHidden('sp-idle', true);
-    setHidden('sp-running', false);
-    setHidden('sp-paused', true);
-    if (activeSession.timerMode === 'countdown') {
-      const remaining = activeSession.targetSeconds - elapsed;
-      setText('sp-timer', fmtTime(remaining));
-      const pct = Math.min(100, Math.round((elapsed / activeSession.targetSeconds) * 100));
-      const bar = panelEl('sp-progress-bar');
-      if (bar) bar.style.width = pct + '%';
-      setHidden('sp-progress-wrap', false);
-      if (remaining <= 0) {
-        pauseSession();
-        toast('⏱ Countdown abgelaufen — Session pausiert.');
-        return;
-      }
-    } else {
-      setText('sp-timer', fmtTime(elapsed));
-      setHidden('sp-progress-wrap', true);
-    }
-    setText('sp-lead-count', activeSession.leadsPlayed);
-    renderBreakdown('sp-breakdown');
+  const isPaused = !!activeSession.pausedAt;
+
+  widget.classList.toggle('sph-paused', isPaused);
+
+  // Timer display
+  const timerEl = document.getElementById('sph-timer');
+  if (timerEl) {
+    timerEl.textContent = activeSession.timerMode === 'countdown'
+      ? fmtTime(Math.max(0, activeSession.targetSeconds - elapsed))
+      : fmtTime(elapsed);
   }
+  setText('sph-count', '· ' + activeSession.leadsPlayed + ' Leads');
+
+  const pauseBtn = document.getElementById('sph-pause-btn');
+  const resumeBtn = document.getElementById('sph-resume-btn');
+  if (pauseBtn) pauseBtn.hidden = isPaused;
+  if (resumeBtn) resumeBtn.hidden = !isPaused;
+
+  // Also tick the sessions-page live timer if visible
+  const pageTimer = document.getElementById('sp-page-timer');
+  if (pageTimer) {
+    pageTimer.textContent = activeSession.timerMode === 'countdown'
+      ? fmtTime(Math.max(0, activeSession.targetSeconds - elapsed))
+      : fmtTime(elapsed);
+  }
+
+  // Countdown auto-pause
+  if (activeSession.timerMode === 'countdown' && !isPaused && elapsed >= activeSession.targetSeconds) {
+    pauseSession();
+    toast('⏱ Countdown abgelaufen — Session pausiert.');
+  }
+}
+
+function _refreshSessionsPage() {
+  if (_sessionsContainer) initSessionsPage(_sessionsContainer);
 }
 
 // --- SESSION LIFECYCLE ---
@@ -108,13 +96,12 @@ export async function startSession(config) {
   const timerMode = config.timerMode || 'free';
   const targetSeconds = config.targetSeconds || null;
   try {
-    const rows = await sbUpsert('/rest/v1/crm_sessions', [{
+    await sbUpsert('/rest/v1/crm_sessions', [{
       timer_mode: timerMode,
       timer_target_seconds: targetSeconds,
       is_active: true,
       is_paused: false,
     }]);
-    // sbUpsert uses return=minimal, so fetch the new row
     const recent = await sbGet('/rest/v1/crm_sessions?is_active=eq.true&order=created_at.desc&limit=1');
     const id = recent && recent[0] ? recent[0].id : null;
     activeSession = {
@@ -127,8 +114,8 @@ export async function startSession(config) {
       breakdown: {},
       leadsPlayed: 0,
     };
-    timerInterval = setInterval(renderPanel, 1000);
-    renderPanel();
+    timerInterval = setInterval(renderWidget, 1000);
+    renderWidget();
     toast('▶ Session gestartet.');
   } catch(e) {
     toast('Session-Fehler: ' + e.message);
@@ -140,16 +127,18 @@ export function pauseSession() {
   activeSession.pausedAt = Date.now();
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   sbUpsert('/rest/v1/crm_sessions?id=eq.' + activeSession.id, [{ id: activeSession.id, is_paused: true }]);
-  renderPanel();
+  renderWidget();
+  _refreshSessionsPage();
 }
 
 export function resumeSession() {
   if (!activeSession || !activeSession.pausedAt) return;
   activeSession.pausedSeconds += Math.floor((Date.now() - activeSession.pausedAt) / 1000);
   activeSession.pausedAt = null;
-  timerInterval = setInterval(renderPanel, 1000);
+  timerInterval = setInterval(renderWidget, 1000);
   sbUpsert('/rest/v1/crm_sessions?id=eq.' + activeSession.id, [{ id: activeSession.id, is_paused: false }]);
-  renderPanel();
+  renderWidget();
+  _refreshSessionsPage();
 }
 
 export async function endSession(name) {
@@ -172,7 +161,8 @@ export async function endSession(name) {
     toast('Fehler beim Speichern: ' + e.message);
   }
   activeSession = null;
-  renderPanel();
+  renderWidget();
+  _refreshSessionsPage();
 }
 
 export async function discardSession() {
@@ -180,13 +170,14 @@ export async function discardSession() {
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   const id = activeSession.id;
   activeSession = null;
-  renderPanel();
+  renderWidget();
   try {
     await sbDelete('/rest/v1/crm_sessions?id=eq.' + id);
     toast('Session verworfen.');
   } catch(e) {
     toast('Fehler beim Verwerfen: ' + e.message);
   }
+  _refreshSessionsPage();
 }
 
 export function onStatusChanged(contactId, contactName, fromStatus, toStatus) {
@@ -201,116 +192,119 @@ export function onStatusChanged(contactId, contactName, fromStatus, toStatus) {
     status_from: fromStatus || null,
     status_to: toStatus,
   }]);
-  renderPanel();
+  renderWidget();
 }
 
 export function getActiveSession() { return activeSession; }
 
-// --- SESSION PANEL INIT ---
+// --- HEADER WIDGET INIT ---
 
-export function initSessionPanel(containerEl) {
+export function initHeaderWidget(containerEl) {
   containerEl.innerHTML =
-    '<div id="session-panel" class="session-panel">' +
+    '<span id="sph-timer" class="sph-timer">00:00</span>' +
+    '<span id="sph-count" class="sph-count"></span>' +
+    '<button id="sph-pause-btn" class="btn bg bsm sph-btn" title="Pause">⏸</button>' +
+    '<button id="sph-resume-btn" class="btn bg bsm sph-btn" title="Fortsetzen" hidden>▶</button>' +
+    '<button id="sph-end-btn" class="btn bg bsm sph-btn" title="Beenden">⏹</button>';
 
-    '<div id="sp-idle">' +
-      '<div class="sp-config">' +
-        '<label class="sp-radio"><input type="radio" name="sp-mode" value="free" checked> Frei</label>' +
-        '<label class="sp-radio"><input type="radio" name="sp-mode" value="countdown"> Countdown: ' +
-          '<input type="number" id="sp-countdown-min" value="90" min="1" max="480" style="width:52px"> min</label>' +
-      '</div>' +
-      '<button id="sp-start-btn" class="btn bp bsm">▶ Session starten</button>' +
-    '</div>' +
-
-    '<div id="sp-running" hidden>' +
-      '<div class="sp-row">' +
-        '<span id="sp-timer" class="sp-timer">00:00</span>' +
-        '<span class="sp-count">📞 <strong id="sp-lead-count">0</strong> gespielt</span>' +
-        '<button id="sp-pause-btn" class="btn bs bsm">⏸ Pause</button>' +
-        '<button id="sp-end-btn" class="btn bs bsm">⏹ Beenden</button>' +
-      '</div>' +
-      '<div id="sp-progress-wrap" hidden class="sp-progress-wrap"><div id="sp-progress-bar" class="sp-progress-bar"></div></div>' +
-      '<div id="sp-breakdown" class="sp-breakdown"></div>' +
-    '</div>' +
-
-    '<div id="sp-paused" hidden>' +
-      '<div class="sp-row">' +
-        '<span id="sp-timer-paused" class="sp-timer sp-timer--paused">00:00 ⏸</span>' +
-        '<span class="sp-count">📞 <strong id="sp-lead-count-p">0</strong> gespielt</span>' +
-        '<button id="sp-resume-btn" class="btn bp bsm">▶ Fortsetzen</button>' +
-        '<button id="sp-end-btn-paused" class="btn bs bsm">⏹ Beenden</button>' +
-      '</div>' +
-      '<div id="sp-breakdown-paused" class="sp-breakdown"></div>' +
-    '</div>' +
-
-    '<div id="sp-save-row" class="sp-save-row" hidden>' +
-      '<span style="font-family:sans-serif;font-size:13px;color:var(--st)">Speichern als:</span>' +
-      '<input type="text" id="sp-name-input" class="sp-name-input" placeholder="Session Name (optional)">' +
-      '<button id="sp-save-btn" class="btn bp bsm">Speichern</button>' +
-      '<button id="sp-save-noname-btn" class="btn bs bsm">Ohne Name</button>' +
-      '<button id="sp-discard-btn" class="btn bs bsm" style="color:var(--rd);margin-left:8px">Verwerfen</button>' +
-    '</div>' +
-
-    '</div>';
-
-  containerEl.querySelector('#sp-start-btn').addEventListener('click', function() {
-    const mode = containerEl.querySelector('input[name="sp-mode"]:checked').value;
-    const mins = parseInt(containerEl.querySelector('#sp-countdown-min').value) || 90;
-    startSession({ timerMode: mode, targetSeconds: mode === 'countdown' ? mins * 60 : null });
-  });
-
-  containerEl.querySelector('#sp-pause-btn').addEventListener('click', pauseSession);
-  containerEl.querySelector('#sp-resume-btn').addEventListener('click', resumeSession);
-
-  function showSaveRow() {
-    pauseSession();
-    setHidden('sp-running', true);
-    setHidden('sp-paused', true);
-    setHidden('sp-save-row', false);
-    const inp = panelEl('sp-name-input');
-    if (inp) { inp.value = ''; inp.focus(); }
-  }
-
-  containerEl.querySelector('#sp-end-btn').addEventListener('click', showSaveRow);
-  containerEl.querySelector('#sp-end-btn-paused').addEventListener('click', showSaveRow);
-
-  containerEl.querySelector('#sp-save-btn').addEventListener('click', function() {
-    const name = (panelEl('sp-name-input').value || '').trim();
-    endSession(name || null);
-    setHidden('sp-save-row', true);
-  });
-
-  containerEl.querySelector('#sp-save-noname-btn').addEventListener('click', function() {
-    endSession(null);
-    setHidden('sp-save-row', true);
-  });
-
-  containerEl.querySelector('#sp-discard-btn').addEventListener('click', function() {
-    discardSession();
-    setHidden('sp-save-row', true);
-  });
-
-  containerEl.querySelector('#sp-name-input') && containerEl.querySelector('#sp-name-input').addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') containerEl.querySelector('#sp-save-btn').click();
-    if (e.key === 'Escape') { discardSession(); setHidden('sp-save-row', true); }
+  containerEl.querySelector('#sph-pause-btn').addEventListener('click', pauseSession);
+  containerEl.querySelector('#sph-resume-btn').addEventListener('click', resumeSession);
+  containerEl.querySelector('#sph-end-btn').addEventListener('click', function() {
+    navigateTo('sessions');
   });
 }
 
-// --- SESSIONS HISTORY PAGE ---
+// --- SESSIONS PAGE ---
 
 export async function initSessionsPage(containerEl) {
+  _sessionsContainer = containerEl;
+
+  // Top section: start form OR active session controls
+  let topHtml = '';
+  if (activeSession) {
+    const elapsed = elapsedSeconds();
+    const isPaused = !!activeSession.pausedAt;
+    topHtml =
+      '<div class="session-panel sp-active-card">' +
+        '<div class="sp-active-head">' +
+          '<span class="sp-badge ' + (isPaused ? 'paused' : 'running') + '">' + (isPaused ? '⏸ Pausiert' : '▶ Läuft') + '</span>' +
+          '<span id="sp-page-timer" class="sp-timer">' + fmtTime(elapsed) + '</span>' +
+          '<span class="sp-count">📞 <strong>' + activeSession.leadsPlayed + '</strong> gespielt</span>' +
+        '</div>' +
+        '<div class="sp-active-actions">' +
+          (isPaused
+            ? '<button id="sp-page-resume-btn" class="btn bp bsm">▶ Fortsetzen</button>'
+            : '<button id="sp-page-pause-btn" class="btn bs bsm">⏸ Pause</button>') +
+          '<button id="sp-page-end-btn" class="btn bs bsm">⏹ Beenden</button>' +
+        '</div>' +
+        '<div id="sp-page-save-row" class="sp-save-row" hidden>' +
+          '<span style="font-family:sans-serif;font-size:13px;color:var(--st)">Speichern als:</span>' +
+          '<input type="text" id="sp-page-name-input" placeholder="Session Name (optional)">' +
+          '<button id="sp-page-save-btn" class="btn bp bsm">Speichern</button>' +
+          '<button id="sp-page-save-noname-btn" class="btn bs bsm">Ohne Name</button>' +
+          '<button id="sp-page-discard-btn" class="btn bs bsm" style="color:var(--rd)">Verwerfen</button>' +
+        '</div>' +
+      '</div>';
+  } else {
+    topHtml =
+      '<div class="session-panel" id="sp-start-form">' +
+        '<div class="sp-config">' +
+          '<label class="sp-radio"><input type="radio" name="sp-mode" value="free" checked> Frei</label>' +
+          '<label class="sp-radio"><input type="radio" name="sp-mode" value="countdown"> Countdown: ' +
+            '<input type="number" id="sp-countdown-min" value="90" min="1" max="480" style="width:52px"> min</label>' +
+        '</div>' +
+        '<button id="sp-start-btn" class="btn bp bsm">▶ Session starten</button>' +
+      '</div>';
+  }
+
   containerEl.innerHTML =
-    '<main style="padding:24px 28px">' +
-    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">' +
-      '<h2 style="font-size:20px;font-weight:700;color:var(--ch);margin:0">🏁 Sessions</h2>' +
-      '<button id="sp-new-session-btn" class="btn bp bsm">▶ Neue Session →</button>' +
-    '</div>' +
+    '<main style="padding:28px">' +
+    topHtml +
+    '<h2 style="font-size:20px;font-weight:700;color:var(--ch);margin:20px 0 16px">🏁 Sessions</h2>' +
     '<div id="sp-history-body"><div style="font-family:sans-serif;font-size:13px;color:var(--st)">Wird geladen…</div></div>' +
     '</main>';
 
-  containerEl.querySelector('#sp-new-session-btn').addEventListener('click', function() {
-    navigateTo('prospecting');
-  });
+  if (activeSession) {
+    const pauseBtn = containerEl.querySelector('#sp-page-pause-btn');
+    const resumeBtn = containerEl.querySelector('#sp-page-resume-btn');
+    const endBtn = containerEl.querySelector('#sp-page-end-btn');
+    const saveRow = containerEl.querySelector('#sp-page-save-row');
 
+    if (pauseBtn) pauseBtn.addEventListener('click', pauseSession);
+    if (resumeBtn) resumeBtn.addEventListener('click', resumeSession);
+
+    endBtn.addEventListener('click', function() {
+      pauseSession();
+      saveRow.hidden = false;
+      const inp = containerEl.querySelector('#sp-page-name-input');
+      if (inp) { inp.value = ''; inp.focus(); }
+    });
+
+    containerEl.querySelector('#sp-page-save-btn').addEventListener('click', function() {
+      const name = (containerEl.querySelector('#sp-page-name-input').value || '').trim();
+      endSession(name || null);
+    });
+    containerEl.querySelector('#sp-page-save-noname-btn').addEventListener('click', function() {
+      endSession(null);
+    });
+    containerEl.querySelector('#sp-page-discard-btn').addEventListener('click', function() {
+      discardSession();
+    });
+    const inp = containerEl.querySelector('#sp-page-name-input');
+    if (inp) inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') containerEl.querySelector('#sp-page-save-btn').click();
+      if (e.key === 'Escape') discardSession();
+    });
+  } else {
+    containerEl.querySelector('#sp-start-btn').addEventListener('click', async function() {
+      const mode = containerEl.querySelector('input[name="sp-mode"]:checked').value;
+      const mins = parseInt(containerEl.querySelector('#sp-countdown-min').value) || 90;
+      await startSession({ timerMode: mode, targetSeconds: mode === 'countdown' ? mins * 60 : null });
+      _refreshSessionsPage();
+    });
+  }
+
+  // Load history
   try {
     const rows = await sbGet('/rest/v1/crm_sessions?is_active=eq.false&order=started_at.desc&limit=20');
     const el = containerEl.querySelector('#sp-history-body');
@@ -323,8 +317,8 @@ export async function initSessionsPage(containerEl) {
       btn.addEventListener('click', function() { startRename(btn.dataset.id, el); });
     });
   } catch(e) {
-    containerEl.querySelector('#sp-history-body').innerHTML =
-      '<div style="font-family:sans-serif;font-size:13px;color:var(--rd)">Fehler: ' + e.message + '</div>';
+    const el = containerEl.querySelector('#sp-history-body');
+    if (el) el.innerHTML = '<div style="font-family:sans-serif;font-size:13px;color:var(--rd)">Fehler: ' + e.message + '</div>';
   }
 }
 
