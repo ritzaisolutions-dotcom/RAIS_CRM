@@ -3,6 +3,10 @@ import { sbGet, sbUpsert, sbDelete } from './supabase.js';
 import { esc, toast, ir } from './ui.js';
 import { td } from './utils.js';
 
+window.addEventListener('rais:page-change', function(e) {
+  if (e.detail.page === 'clients') loadClients();
+});
+
 export async function loadClients() {
   try {
     const rows = await sbGet(CL_KEY_SB + '?select=*&order=created.asc');

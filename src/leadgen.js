@@ -2,6 +2,7 @@ import { S } from './state.js';
 import { sbGet } from './supabase.js';
 import { sbadge, esc, toast } from './ui.js';
 import { syncCloud } from './sync.js';
+import { navigateTo } from './sidebar.js';
 
 export const WH_BASE  = 'https://n8n.ritz-ai.solutions/webhook/';
 export const WH_TOKEN = 'ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc';
@@ -20,25 +21,9 @@ export function whFetch(url, opts) {
   return fetch(url, opts);
 }
 
-export function switchTab(name) {
-  ['leadgen','prospecting','clients'].forEach(function(t) {
-    document.getElementById('sec-' + t).classList.toggle('active', t === name);
-  });
-  document.querySelectorAll('.tab-nav-btn').forEach(function(btn) {
-    btn.classList.toggle('active', btn.dataset.tab === name);
-  });
-  if (name === 'leadgen')  loadLgPreview();
-  if (name === 'clients')  window.loadClients && window.loadClients();
-  location.hash = name;
-}
-
-(function() {
-  const btns = document.querySelectorAll('.tab-nav-btn');
-  const tabs = ['leadgen','prospecting','clients'];
-  btns.forEach(function(btn, i) { if (tabs[i]) btn.dataset.tab = tabs[i]; });
-  const h = location.hash.replace('#','');
-  if (h === 'leadgen' || h === 'clients') switchTab(h);
-})();
+window.addEventListener('rais:page-change', function(e) {
+  if (e.detail.page === 'leadgen') loadLgPreview();
+});
 
 export async function runWF(num) {
   const stadt = document.getElementById('lgStadt').value.trim();
@@ -131,6 +116,6 @@ export async function loadLgPreview() {
 
 export async function lgImportToCRM() {
   await syncCloud();
-  switchTab('prospecting');
+  navigateTo('prospecting');
   toast('Leads übernommen — Prospecting CRM aktualisiert.');
 }
