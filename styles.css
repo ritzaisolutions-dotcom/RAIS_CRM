@@ -424,6 +424,19 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
 .sp-save-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
 .sp-save-row input[type=text] { flex: 1; min-width: 160px; padding: 5px 10px; border: 1px solid var(--bd); border-radius: 5px; font-size: 13px; }
 
+/* Prospecting-Seite Indikator wenn Session läuft */
+.session-active #page-prospecting .call-bar::before {
+  content: '🏁 Session';
+  font-family: sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--or);
+  margin-right: 12px;
+}
+.session-active #page-prospecting .call-bar {
+  border-color: var(--or);
+}
+
 /* Active session card on sessions page */
 .sp-active-card { border-color: var(--or); margin-bottom: 24px; }
 .sp-active-head { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -442,6 +455,14 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
 .sp-rename-input { font-size: 14px; font-weight: 600; color: var(--ch); border: 1px solid var(--bd); border-radius: 4px; padding: 2px 8px; width: 100%; max-width: 280px; }
 .sp-card-meta { font-size: 12px; color: var(--st); margin-bottom: 10px; }
 .sp-bars { display: flex; flex-direction: column; gap: 4px; }
+
+/* Session event list */
+.sp-events { margin-top: 10px; border-top: 1px solid var(--bd); padding-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+.sp-event-row { display: flex; gap: 8px; align-items: center; font-family: sans-serif; font-size: 12px; }
+.sp-event-time { color: var(--st); min-width: 38px; }
+.sp-event-name { color: var(--ch); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 200px; }
+.sp-event-arrow { color: var(--bd); }
+.sp-event-status { font-weight: 600; }
 
 /* Breakdown bar chart rows */
 .sbr { display: flex; align-items: center; gap: 8px; font-size: 12px; min-width: 200px; }

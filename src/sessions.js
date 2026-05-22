@@ -5,7 +5,9 @@ import { navigateTo } from './sidebar.js';
 // --- STATE ---
 let activeSession = null;  // { id, startedTs, pausedAt, pausedSeconds, timerMode, targetSeconds, breakdown, leadsPlayed }
 let timerInterval = null;
-let _sessionsContainer = null; // ref for re-rendering sessions page after end/discard
+let _sessionsContainer = null;
+
+const SESSION_KEY = 'rais_active_session';
 
 const STATUS_GROUPS = {
   positive: ['gewonnen', 'demo_termin', 'door_open', 'interessiert'],
@@ -40,9 +42,38 @@ function setText(id, txt) {
   if (el) el.textContent = txt;
 }
 
+// --- LOCALSTORAGE PERSISTENCE ---
+
+function _saveSession() {
+  if (activeSession) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(activeSession));
+  } else {
+    localStorage.removeItem(SESSION_KEY);
+  }
+}
+
+function _restoreSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (!s || !s.id) return;
+    // If it was running when the page reloaded, treat as paused so elapsed time freezes correctly
+    if (!s.pausedAt) s.pausedAt = Date.now();
+    activeSession = s;
+    renderWidget();
+    toast('Session wiederhergestellt — ▶ Fortsetzen um weiterzumachen.');
+  } catch(e) {
+    localStorage.removeItem(SESSION_KEY);
+  }
+}
+
 // --- HEADER WIDGET RENDER ---
 
 function renderWidget() {
+  // Toggle body class so CSS can style prospecting page indicator
+  document.body.classList.toggle('session-active', !!activeSession);
+
   const widget = document.getElementById('sph-widget');
   if (!widget) return;
 
@@ -57,7 +88,6 @@ function renderWidget() {
 
   widget.classList.toggle('sph-paused', isPaused);
 
-  // Timer display
   const timerEl = document.getElementById('sph-timer');
   if (timerEl) {
     timerEl.textContent = activeSession.timerMode === 'countdown'
@@ -71,7 +101,7 @@ function renderWidget() {
   if (pauseBtn) pauseBtn.hidden = isPaused;
   if (resumeBtn) resumeBtn.hidden = !isPaused;
 
-  // Also tick the sessions-page live timer if visible
+  // Also tick the sessions-page live timer if it's open
   const pageTimer = document.getElementById('sp-page-timer');
   if (pageTimer) {
     pageTimer.textContent = activeSession.timerMode === 'countdown'
@@ -84,6 +114,21 @@ function renderWidget() {
     pauseSession();
     toast('⏱ Countdown abgelaufen — Session pausiert.');
   }
+}
+
+// Update only the active card state on the sessions page (no Supabase fetch)
+function renderActiveCardState() {
+  if (!activeSession) return;
+  const isPaused = !!activeSession.pausedAt;
+  const badge = document.querySelector('.sp-active-card .sp-badge');
+  if (badge) {
+    badge.className = 'sp-badge ' + (isPaused ? 'paused' : 'running');
+    badge.textContent = isPaused ? '⏸ Pausiert' : '▶ Läuft';
+  }
+  const pauseBtn = document.getElementById('sp-page-pause-btn');
+  const resumeBtn = document.getElementById('sp-page-resume-btn');
+  if (pauseBtn) pauseBtn.hidden = isPaused;
+  if (resumeBtn) resumeBtn.hidden = !isPaused;
 }
 
 function _refreshSessionsPage() {
@@ -114,6 +159,7 @@ export async function startSession(config) {
       breakdown: {},
       leadsPlayed: 0,
     };
+    _saveSession();
     timerInterval = setInterval(renderWidget, 1000);
     renderWidget();
     toast('▶ Session gestartet.');
@@ -126,19 +172,21 @@ export function pauseSession() {
   if (!activeSession || activeSession.pausedAt) return;
   activeSession.pausedAt = Date.now();
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  _saveSession();
   sbUpsert('/rest/v1/crm_sessions?id=eq.' + activeSession.id, [{ id: activeSession.id, is_paused: true }]);
   renderWidget();
-  _refreshSessionsPage();
+  renderActiveCardState();
 }
 
 export function resumeSession() {
   if (!activeSession || !activeSession.pausedAt) return;
   activeSession.pausedSeconds += Math.floor((Date.now() - activeSession.pausedAt) / 1000);
   activeSession.pausedAt = null;
+  _saveSession();
   timerInterval = setInterval(renderWidget, 1000);
   sbUpsert('/rest/v1/crm_sessions?id=eq.' + activeSession.id, [{ id: activeSession.id, is_paused: false }]);
   renderWidget();
-  _refreshSessionsPage();
+  renderActiveCardState();
 }
 
 export async function endSession(name) {
@@ -161,6 +209,7 @@ export async function endSession(name) {
     toast('Fehler beim Speichern: ' + e.message);
   }
   activeSession = null;
+  _saveSession();
   renderWidget();
   _refreshSessionsPage();
 }
@@ -170,6 +219,7 @@ export async function discardSession() {
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   const id = activeSession.id;
   activeSession = null;
+  _saveSession();
   renderWidget();
   try {
     await sbDelete('/rest/v1/crm_sessions?id=eq.' + id);
@@ -185,6 +235,7 @@ export function onStatusChanged(contactId, contactName, fromStatus, toStatus) {
   if (toStatus === 'neu') return;
   activeSession.leadsPlayed += 1;
   activeSession.breakdown[toStatus] = (activeSession.breakdown[toStatus] || 0) + 1;
+  _saveSession();
   sbUpsert('/rest/v1/crm_session_events', [{
     session_id: activeSession.id,
     contact_id: String(contactId),
@@ -212,6 +263,8 @@ export function initHeaderWidget(containerEl) {
   containerEl.querySelector('#sph-end-btn').addEventListener('click', function() {
     navigateTo('sessions');
   });
+
+  _restoreSession();
 }
 
 // --- SESSIONS PAGE ---
@@ -219,7 +272,6 @@ export function initHeaderWidget(containerEl) {
 export async function initSessionsPage(containerEl) {
   _sessionsContainer = containerEl;
 
-  // Top section: start form OR active session controls
   let topHtml = '';
   if (activeSession) {
     const elapsed = elapsedSeconds();
@@ -232,9 +284,8 @@ export async function initSessionsPage(containerEl) {
           '<span class="sp-count">📞 <strong>' + activeSession.leadsPlayed + '</strong> gespielt</span>' +
         '</div>' +
         '<div class="sp-active-actions">' +
-          (isPaused
-            ? '<button id="sp-page-resume-btn" class="btn bp bsm">▶ Fortsetzen</button>'
-            : '<button id="sp-page-pause-btn" class="btn bs bsm">⏸ Pause</button>') +
+          '<button id="sp-page-pause-btn" class="btn bs bsm"' + (isPaused ? ' hidden' : '') + '>⏸ Pause</button>' +
+          '<button id="sp-page-resume-btn" class="btn bp bsm"' + (!isPaused ? ' hidden' : '') + '>▶ Fortsetzen</button>' +
           '<button id="sp-page-end-btn" class="btn bs bsm">⏹ Beenden</button>' +
         '</div>' +
         '<div id="sp-page-save-row" class="sp-save-row" hidden>' +
@@ -316,6 +367,9 @@ export async function initSessionsPage(containerEl) {
     el.querySelectorAll('.sp-rename-btn').forEach(function(btn) {
       btn.addEventListener('click', function() { startRename(btn.dataset.id, el); });
     });
+    el.querySelectorAll('.sp-events-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() { toggleSessionEvents(btn.dataset.id, btn); });
+    });
   } catch(e) {
     const el = containerEl.querySelector('#sp-history-body');
     if (el) el.innerHTML = '<div style="font-family:sans-serif;font-size:13px;color:var(--rd)">Fehler: ' + e.message + '</div>';
@@ -353,7 +407,42 @@ function renderSessionCard(s) {
     '</div>' +
     '<div class="sp-card-meta">📞 ' + (s.leads_played || 0) + ' Leads gespielt</div>' +
     (barsHtml ? '<div class="sp-bars">' + barsHtml + '</div>' : '') +
+    (s.leads_played > 0 ? '<button class="btn bg bsm sp-events-btn" data-id="' + s.id + '" style="margin-top:8px;font-size:11px">Details ▸</button><div class="sp-events" id="sp-events-' + s.id + '" hidden></div>' : '') +
   '</div>';
+}
+
+async function toggleSessionEvents(sessionId, btn) {
+  const container = document.getElementById('sp-events-' + sessionId);
+  if (!container) return;
+  if (!container.hidden) {
+    container.hidden = true;
+    btn.textContent = 'Details ▸';
+    return;
+  }
+  container.hidden = false;
+  btn.textContent = 'Details ▾';
+  if (container.dataset.loaded) return;
+  container.innerHTML = '<div class="sp-event-row" style="color:var(--st)">Lädt…</div>';
+  try {
+    const events = await sbGet('/rest/v1/crm_session_events?session_id=eq.' + sessionId + '&order=changed_at.asc');
+    container.dataset.loaded = '1';
+    if (!events || !events.length) {
+      container.innerHTML = '<div class="sp-event-row" style="color:var(--st)">Keine Events.</div>';
+      return;
+    }
+    container.innerHTML = events.map(function(ev) {
+      const t = ev.changed_at ? new Date(ev.changed_at).toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' }) : '';
+      const col = statusColor(ev.status_to);
+      return '<div class="sp-event-row">' +
+        '<span class="sp-event-time">' + t + '</span>' +
+        '<span class="sp-event-name">' + (ev.contact_name || '—') + '</span>' +
+        '<span class="sp-event-arrow">→</span>' +
+        '<span class="sp-event-status" style="color:' + col + '">' + (ev.status_to || '').replace(/_/g,' ') + '</span>' +
+      '</div>';
+    }).join('');
+  } catch(e) {
+    container.innerHTML = '<div class="sp-event-row" style="color:var(--rd)">Fehler: ' + e.message + '</div>';
+  }
 }
 
 function startRename(sessionId, containerEl) {
