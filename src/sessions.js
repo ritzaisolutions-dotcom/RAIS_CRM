@@ -1,5 +1,6 @@
 import { sbGet, sbUpsert } from './supabase.js';
 import { toast } from './ui.js';
+import { navigateTo } from './sidebar.js';
 
 // --- STATE ---
 // Lives in memory only. Reload ends the session implicitly.
@@ -287,8 +288,7 @@ export async function initSessionsPage(containerEl) {
     '</main>';
 
   containerEl.querySelector('#sp-new-session-btn').addEventListener('click', function() {
-    if (typeof navigateTo === 'function') navigateTo('prospecting');
-    else window.dispatchEvent(new CustomEvent('rais:page-change', { detail: { page: 'prospecting' } }));
+    navigateTo('prospecting');
   });
 
   try {
@@ -333,7 +333,7 @@ function renderSessionCard(s) {
     '<div class="sp-card-head">' +
       '<div>' +
         '<div class="sp-card-date">📅 ' + dateStr + (timeStr ? ' · ' + timeStr + (endStr ? '–' + endStr : '') : '') + (dur !== '—' ? ' · ' + dur : '') + '</div>' +
-        '<div class="sp-card-name" id="sp-name-' + s.id + '">' + (s.name ? '"' + s.name + '"' : '<span style="color:var(--st);font-style:italic">Unbenannt</span>') + '</div>' +
+        '<div class="sp-card-name" id="sp-name-' + s.id + '" data-name="' + (s.name || '') + '">' + (s.name ? '"' + s.name + '"' : '<span style="color:var(--st);font-style:italic">Unbenannt</span>') + '</div>' +
       '</div>' +
       '<button class="btn bg bsm sp-rename-btn" data-id="' + s.id + '" title="Umbenennen">✏</button>' +
     '</div>' +
