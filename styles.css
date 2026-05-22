@@ -74,6 +74,7 @@ td { padding: 9px 12px; vertical-align: middle; }
 .b-cb    { background: #E8F0FF;  color: #2048A8; }
 .b-en    { background: #F3E8FF;  color: #6B2FA8; }
 .b-dt    { background: #E8F8EE;  color: #1A7A40; border: 1px solid #A8D8B8; }
+.b-do    { background: #E0F4F8;  color: #0B6B7A; border: 1px solid #7ECFDE; }
 .b-ns    { background: #FFF0F0;  color: #C03030; }
 .b-dq    { background: #FFE8E8;  color: #A00000; font-style: italic; }
 .b-gw    { background: #D4F0DC;  color: #0A5C24; border: 1px solid #7DC896; font-weight: 800; }

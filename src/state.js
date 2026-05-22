@@ -35,6 +35,7 @@ export const STATUS = {
   email_nurture:  { cls: 'b-ib',  label: 'Email Nurture' },
   interessiert:   { cls: 'b-in',  label: 'Interessiert' },
   demo_termin:    { cls: 'b-te',  label: 'Demo Termin' },
+  door_open:      { cls: 'b-do',  label: 'Tür Offen' },
   no_show:        { cls: 'b-ns',  label: 'No Show' },
   disqualified:   { cls: 'b-ki',  label: 'Disqualified' },
   gewonnen:       { cls: 'b-gw',  label: 'Gewonnen' },

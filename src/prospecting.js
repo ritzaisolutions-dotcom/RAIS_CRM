@@ -61,7 +61,7 @@ export function setF(f) {
   document.querySelectorAll('.stat').forEach(function(el) { el.classList.remove('on'); });
   const map = {all:'s-all', neu:'s-neu', kein_anschluss:'s-ka', gatekeeper:'s-gk',
                callback:'s-cb', email_nurture:'s-en', demo_termin:'s-dt',
-               no_show:'s-ns', disqualified:'s-dq', gewonnen:'s-gw', heute:'s-heute'};
+               door_open:'s-do', no_show:'s-ns', disqualified:'s-dq', gewonnen:'s-gw', heute:'s-heute'};
   if (map[f]) document.getElementById(map[f]).classList.add('on');
   render();
 }
@@ -79,6 +79,7 @@ export function render() {
   document.getElementById('c-cb').textContent  = cnt.callback     || 0;
   document.getElementById('c-en').textContent  = cnt.email_nurture|| 0;
   document.getElementById('c-dt').textContent  = cnt.demo_termin  || 0;
+  document.getElementById('c-do').textContent  = cnt.door_open    || 0;
   document.getElementById('c-ns').textContent  = cnt.no_show      || 0;
   document.getElementById('c-dq').textContent  = cnt.disqualified || 0;
   document.getElementById('c-gw').textContent  = cnt.gewonnen     || 0;
@@ -152,6 +153,7 @@ export function render() {
           '<option value="callback"'      + (c.status==='callback'?      ' selected':'') + '>Callback</option>' +
           '<option value="email_nurture"' + (c.status==='email_nurture'? ' selected':'') + '>Email Nurture</option>' +
           '<option value="demo_termin"'   + (c.status==='demo_termin'?   ' selected':'') + '>Demo Termin</option>' +
+          '<option value="door_open"'     + (c.status==='door_open'?     ' selected':'') + '>Tür Offen</option>' +
           '<option value="no_show"'       + (c.status==='no_show'?       ' selected':'') + '>No Show</option>' +
           '<option value="disqualified"'  + (c.status==='disqualified'?  ' selected':'') + '>Disqualified</option>' +
           '<option value="gewonnen"'      + (c.status==='gewonnen'?      ' selected':'') + '>Gewonnen</option>' +
