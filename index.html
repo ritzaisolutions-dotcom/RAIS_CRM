@@ -173,6 +173,9 @@
     <div class="stat" id="s-heute"    onclick="setF('heute')">        <span class="sn" id="c-heute">0</span><span class="sl">&#128197; Heute</span></div>
   </div>
 
+  <!-- Session Control Panel (populated by initSessionPanel) -->
+  <div id="session-panel-container"></div>
+
   <div class="tb">
     <input class="srch" id="srch" type="text" placeholder="Firma, Name, Notiz …" oninput="render()">
     <select class="fs" id="roiF" onchange="render()">
@@ -274,8 +277,8 @@
 <!-- ── Page 4: Sessions ───────────────────────────────────────────────────── -->
 <div class="rais-page" id="page-sessions">
 <main style="padding:28px">
-  <h2 style="font-size:20px;font-weight:700;color:var(--ch);margin-bottom:8px">🏁 Sessions</h2>
-  <p style="font-family:sans-serif;font-size:14px;color:var(--st)">Session Tracker wird in Phase 2 implementiert.</p>
+  <!-- Session history (populated by initSessionsPage) -->
+  <div id="sessions-history-container"></div>
 </main>
 </div>
 
@@ -504,6 +507,7 @@ import { openEsPanel, openEsPop, closeEsPop, esGenerate, esSend, sendEmailBatch,
 import { runWF, loadLgPreview, lgImportToCRM } from './src/leadgen.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
 import { initSidebar } from './src/sidebar.js';
+import { initSessionPanel, initSessionsPage } from './src/sessions.js';
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
@@ -520,6 +524,11 @@ document.addEventListener('keydown', function(e) {
 
 
 initSidebar();
+initSessionPanel(document.getElementById('session-panel-container'));
+
+window.addEventListener('rais:page-change', function(e) {
+  if (e.detail.page === 'sessions') initSessionsPage(document.getElementById('sessions-history-container'));
+});
 
 await window._authReady;
 load();
