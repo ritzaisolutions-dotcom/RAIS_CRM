@@ -380,3 +380,60 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
 .cl-scope { font-family: sans-serif; font-size: 12px; color: var(--st); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Client Edit Modal */
 #clientModal { max-width: 580px; }
+
+/* ── Session Tracker ──────────────────────────────────────────────────────── */
+.session-panel { background: var(--sf); border: 1px solid var(--bd); border-radius: 8px; padding: 14px 18px; margin-bottom: 16px; font-family: sans-serif; }
+
+/* Idle state */
+.sp-idle-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sp-idle-row select, .sp-idle-row input[type=number] { padding: 5px 8px; border: 1px solid var(--bd); border-radius: 5px; font-size: 13px; background: #fff; color: var(--ch); }
+.sp-idle-row label { font-size: 12px; color: var(--st); }
+
+/* Session panel rows */
+.sp-config { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; font-family: sans-serif; font-size: 13px; }
+.sp-radio { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--ch); }
+.sp-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.sp-count { font-family: sans-serif; font-size: 13px; color: var(--st); }
+.sp-count strong { color: var(--ch); }
+
+/* Running / paused state */
+.sp-running { display: flex; flex-direction: column; gap: 6px; }
+.sp-timer { font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ch); letter-spacing: 1px; min-width: 90px; }
+.sp-timer.countdown-warn { color: var(--rd); }
+.sp-badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: .5px; }
+.sp-badge.running { background: #EEF3EA; color: var(--pn); }
+.sp-badge.paused  { background: #FEF8EC; color: var(--yw); }
+.sp-meta { font-size: 12px; color: var(--st); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.sp-meta strong { color: var(--ch); }
+
+/* Breakdown bar */
+.sp-breakdown { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 12px; margin-top: 8px; }
+.sp-breakdown-item { display: flex; align-items: center; gap: 3px; color: var(--st); }
+.sp-progress-wrap { height: 6px; border-radius: 3px; background: var(--bd); width: 120px; overflow: hidden; margin-top: 6px; }
+.sp-progress-bar { height: 100%; border-radius: 3px; background: var(--or); transition: width .4s ease; }
+
+/* Save row */
+.sp-save-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.sp-save-row input[type=text] { flex: 1; min-width: 160px; padding: 5px 10px; border: 1px solid var(--bd); border-radius: 5px; font-size: 13px; }
+
+/* ── Sessions History Page ────────────────────────────────────────────────── */
+.sp-history-header { display: flex; align-items: baseline; gap: 12px; margin-bottom: 20px; }
+.sp-history-header h2 { font-size: 20px; font-weight: 700; color: var(--ch); }
+.sp-history-header span { font-size: 13px; color: var(--st); font-family: sans-serif; }
+.sp-empty { font-family: sans-serif; font-size: 14px; color: var(--st); padding: 32px 0; }
+
+.sp-card { background: var(--sf); border: 1px solid var(--bd); border-radius: 8px; padding: 16px 20px; margin-bottom: 12px; font-family: sans-serif; }
+.sp-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.sp-card-date { font-size: 12px; color: var(--st); margin-bottom: 4px; }
+.sp-card-name { font-size: 15px; font-weight: 700; color: var(--ch); }
+.sp-rename-input { font-size: 14px; font-weight: 600; color: var(--ch); border: 1px solid var(--bd); border-radius: 4px; padding: 2px 8px; width: 100%; max-width: 280px; }
+.sp-card-meta { font-size: 12px; color: var(--st); margin-bottom: 10px; }
+.sp-bars { display: flex; flex-direction: column; gap: 4px; }
+
+/* Breakdown bar chart rows */
+.sbr { display: flex; align-items: center; gap: 8px; font-size: 12px; min-width: 200px; }
+.sbr-label { width: 90px; color: var(--st); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sbr-bar-wrap { flex: 1; height: 10px; background: var(--bd); border-radius: 5px; overflow: hidden; min-width: 60px; }
+.sbr-bar { height: 100%; border-radius: 5px; transition: width .3s; }
+.sbr-count { width: 24px; text-align: right; color: var(--ch); font-weight: 600; }
+.sbr-pct { width: 32px; text-align: right; color: var(--st); }

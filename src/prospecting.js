@@ -5,6 +5,7 @@ import { markDirty, persist, pushDirty } from './sync.js';
 import { sbDelete, sbUpsert } from './supabase.js';
 import { emailBadge, emailPanelHtml } from './email.js';
 import { renderCalls, bumpCall } from './calls.js';
+import { onStatusChanged } from './sessions.js';
 
 export function getList() {
   const q      = document.getElementById('srch').value.toLowerCase();
@@ -277,9 +278,11 @@ export function closeP() { document.getElementById('po').classList.remove('on');
 export function qs(id, s) {
   const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
+  const _prev = c.status;
   if (c.status !== s) { bumpCall(); c.status_changed_at = td(); }
   c.status = s; markDirty(c); persist(); render(); pushDirty(); closeP();
   toast('Status: ' + (STATUS[s] ? STATUS[s].label : s));
+  onStatusChanged(c.id, c.firma || c.company_name, _prev, s);
 }
 
 export function inlineFU(inp) {
@@ -372,6 +375,7 @@ export function inlineST(sel) {
   if (prev !== c.status) { bumpCall(); c.status_changed_at = td(); }
   markDirty(c);
   persist(); render(); pushDirty();
+  onStatusChanged(c.id, c.firma || c.company_name, prev, c.status);
 }
 
 export function openAdd() {
