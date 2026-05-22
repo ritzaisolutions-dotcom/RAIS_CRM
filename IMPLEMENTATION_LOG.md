@@ -142,3 +142,246 @@ Phase 2 (Sync-Lock + Realtime) kann danach sofort folgen.
 
 **Wichtig:** Der alte Ordner `supabase workflows/` existiert noch lokal (untracked).
 Kevin kann ihn manuell löschen oder wir lassen ihn stehen — Inhalt ist identisch mit `n8n-workflows/`.
+
+---
+
+## Audit — 2026-05-22 (Schritt 0.1/0.2 — Pre-Build Session Tracker)
+
+### Dateistruktur
+
+```
+src/auth.js          (45 Zeilen)
+src/calls.js         (33 Zeilen)
+src/clients.js      (157 Zeilen)
+src/email.js        (216 Zeilen)
+src/import.js       (141 Zeilen)
+src/leadgen.js      (136 Zeilen)
+src/prospecting.js  (541 Zeilen)
+src/realtime.js      (44 Zeilen)
+src/state.js         (43 Zeilen)
+src/supabase.js      (23 Zeilen)
+src/sync.js         (156 Zeilen)
+src/touch.js         (50 Zeilen)
+src/ui.js            (37 Zeilen)
+src/utils.js         (26 Zeilen)
+                   ─────────────
+Total:            1648 Zeilen
+
+index.html           (533+ Zeilen)
+styles.css
+scripts/validate-static.js
+supabase/migrations/2026-05-20_initial_schema.sql
+supabase/migrations/2026-05-20_enable_rls.sql
+supabase/migrations/2026-05-20_rollback_anon_policies.sql
+n8n-workflows/*.json (6 Workflow-JSONs)
+vercel.json          (nur {"version": 2})
+package.json         (nur validate-script + sharp dep)
+CLAUDE.md
+brand.md
+RAIS_CRM_session_tracker_plan.md
+```
+
+---
+
+### Navigations-System (IST-Zustand)
+
+**Wie werden Tabs gewechselt:**
+- Funktion: `switchTab(name)` in `src/leadgen.js:23`
+- Wird aufgerufen aus: `index.html` (onclick-Attribute auf den drei Tab-Buttons) + Keyboard-Shortcut-Logik (Hash-Init)
+
+**CSS-Klassen:**
+- Container: `<section class="tab-section" id="sec-{name}">` → `display: none`
+- Aktiv: `class="tab-section active"` → `display: block`
+- Buttons: `<button class="tab-nav-btn">` → `.tab-nav-btn.active` hebt aktiven Tab hervor
+- `<nav class="tab-nav">` — horizontal, sticky unter dem `<header>`, `background: var(--ch)` (Charcoal)
+
+**DOM-IDs der Seiten-Container:**
+| ID | Tab |
+|---|---|
+| `#sec-leadgen` | Lead Gen |
+| `#sec-prospecting` | Prospecting (default active) |
+| `#sec-clients` | Clients |
+
+**Was bei Tab-Switch passiert:**
+- `sec-{name}` bekommt `.active`, alle anderen verlieren sie
+- Tab-Button bekommt `.active` (per `btn.dataset.tab === name`)
+- `location.hash = name` wird gesetzt
+- Nur `leadgen` → ruft `loadLgPreview()` auf
+- Nur `clients` → ruft `window.loadClients && window.loadClients()` auf
+- Prospecting: kein Init-Call nötig (render() läuft beim Start)
+
+**URL-Hash-Routing:** Ja — `location.hash` wird gesetzt. Beim Start prüft `leadgen.js` `location.hash` und ruft `switchTab()` falls `#leadgen` oder `#clients`.
+
+**⚠️ Problem für Sidebar-Build:**
+`switchTab()` sitzt aktuell in `src/leadgen.js` — zusammen mit WF-Trigger-Logik. Das neue `src/sidebar.js` muss entweder (a) `switchTab` von leadgen importieren und wrappen, oder (b) die Navigation-Logik wird aus leadgen heraus in sidebar verschoben und leadgen importiert dann von sidebar. Option (b) ist sauberer, aber ein Eingriff in leadgen.js. Option (a) ist konservativer.
+
+---
+
+### Status-Werte (alle gefundenen)
+
+Definiert in `src/state.js:30–43`:
+
+| Wert | Label (DE) | Badge-CSS-Klasse | Kontext |
+|------|-----------|-----------------|---------|
+| `neu` | Neu | `b-neu` | crm_contacts |
+| `kein_anschluss` | Kein Anschluss | `b-ni` | crm_contacts |
+| `gatekeeper` | Gatekeeper | `b-gk` | crm_contacts |
+| `callback` | Callback | `b-fu` | crm_contacts |
+| `email_nurture` | Email Nurture | `b-ib` | crm_contacts |
+| `interessiert` | Interessiert | `b-in` | crm_contacts |
+| `demo_termin` | Demo Termin | `b-te` | crm_contacts |
+| `door_open` | Tür Offen | `b-do` | crm_contacts |
+| `no_show` | No Show | `b-ns` | crm_contacts |
+| `disqualified` | Disqualified | `b-ki` | crm_contacts |
+| `gewonnen` | Gewonnen | `b-gw` | crm_contacts |
+| `archiviert` | Archiviert | `b-ki` | crm_contacts |
+| `aktiv` | Aktiv | — | crm_clients only |
+| `pause` | Pause | — | crm_clients only |
+| `abgeschlossen` | Abgeschlossen | — | crm_clients only |
+| `verloren` | Verloren | — | crm_clients only |
+
+Touch-Status (in `TSTAT`-Array für das Touch-Accordion — separate Werteliste, unabhängig vom Kontakt-Status):
+`Nicht kontaktiert`, `Nicht erreicht`, `Mailbox`, `Rückruf erbeten`, `Gatekeeper`, `Interessiert`, `Termin vereinbart`, `Angebot gesendet`, `Kein Interesse`
+
+---
+
+### Status-Change-Funktionen
+
+**⚠️ ZWEI Funktionen ändern den Kontakt-Status — beide müssen gehooked werden:**
+
+#### 1. `qs(id, s)` — `src/prospecting.js:277`
+
+```javascript
+export function qs(id, s) {
+  const c = S.contacts.find(function(x) { return x.id === id; });
+  if (!c) return;
+  if (c.status !== s) { bumpCall(); c.status_changed_at = td(); }
+  c.status = s; markDirty(c); persist(); render(); pushDirty(); closeP();
+  toast('Status: ' + (STATUS[s] ? STATUS[s].label : s));
+}
+```
+
+- **Aufgerufen von:** Quick-Status-Buttons im Detail-Panel (`onclick="qs('...','')"` in prospecting.js:~280)
+- **Caller-Anzahl:** 1 (nur aus dem generierten Detail-Panel HTML)
+- **Old-Status:** lesbar als `c.status` VOR der Änderung — die `c.status !== s`-Prüfung zeigt das
+- **Hook-Punkt:** Nach `c.status = s;`, before oder after `markDirty(c)` — oldStatus war `c.status` vor der Überschreibung
+
+#### 2. `inlineST(sel)` — `src/prospecting.js:367`
+
+```javascript
+export function inlineST(sel) {
+  const c = S.contacts.find(function(x) { return x.id === sel.dataset.id; });
+  if (!c) return;
+  const prev = c.status;
+  c.status = sel.value;
+  if (prev !== c.status) { bumpCall(); c.status_changed_at = td(); }
+  markDirty(c);
+  persist(); render(); pushDirty();
+}
+```
+
+- **Aufgerufen von:** `<select onchange="inlineST(this)">` in der Tabellen-Zeile (prospecting.js:~149)
+- **Caller-Anzahl:** 1
+- **Old-Status:** bereits als `prev` vorhanden — kein neuer Parameter nötig
+- **Hook-Punkt:** Nach `if (prev !== c.status) { ... }` — `prev` und `c.status` (new) sind beide verfügbar
+
+**Kein circular import:** `sessions.js` wird von `prospecting.js` importiert, nicht umgekehrt. ✓
+
+---
+
+### Modul-Übersicht
+
+| Datei | Hauptverantwortung | Zeilen |
+|-------|-------------------|--------|
+| `auth.js` | Login-Wall, Supabase Auth Session, `doLogin()` | 45 |
+| `calls.js` | Tages-/Wochen-Anrufzähler in localStorage | 33 |
+| `clients.js` | Clients-Tab CRUD, `loadClients`, `renderClients` | 157 |
+| `email.js` | 3-Step Email-Sequence, Send-Popup, Bulk | 216 |
+| `import.js` | CSV Import (flexibler Column-Matcher), CSV Export | 141 |
+| `leadgen.js` | n8n-Webhooks WF1–WF3, **tab-Routing (`switchTab`)**, WF-Polling | 136 |
+| `prospecting.js` | Kontaktliste, Filter, Sort, Pagination, Detail-Panel, Edit/Add/Delete | 541 |
+| `realtime.js` | Supabase Realtime Subscription (`crm_contacts`) | 44 |
+| `state.js` | Globaler State `S`, alle Konstanten | 43 |
+| `supabase.js` | `sbGet`, `sbUpsert`, `sbDelete`, Auth-Token-Management | 23 |
+| `sync.js` | `localStorage` + Supabase Sync, `pushDirty`, `load`, `persist` | 156 |
+| `touch.js` | Touch-Accordion in Detail-Panel | 50 |
+| `ui.js` | `sbadge`, `roib`, `fdc`, `esc`, `ir`, `toast` | 37 |
+| `utils.js` | `gid`, `td`, `relAge`, `gewerkKuerzel`, `gewerkSlug` | 26 |
+
+---
+
+### Supabase-Tabellen
+
+| Tabelle | Zweck | Wichtige Spalten |
+|---------|-------|-----------------|
+| `crm_contacts` | Haupt-Leads-Tabelle | `id` (text/nanoid), `status`, `touches` (jsonb), `synced_at`, `status_changed_at` |
+| `crm_clients` | Gewonnene Kunden | `id` (uuid), `status` (aktiv/pause/...), `naechste_datum` |
+| `wf_runs` | n8n Lauf-Status-Tracking | `wf`, `status` (running/done/error), `count` |
+| `roi_leads` | ROI-Kalkulator Inbound | `email`, `estimated_roi`, `consent` |
+| `inbound_leads` | Kontaktformular Inbound | `name`, `email`, `biggest_challenge` |
+
+---
+
+### localStorage Keys
+
+| Key | Konstante | Inhalt |
+|-----|-----------|--------|
+| `rais_crm_v3` | `KEY` in state.js | contacts-Array (vollständig) |
+| `rais_crm_calls` | `CC_KEY` in state.js | `{ "2026-05-22": 5, "w:2026-W21": 12 }` |
+| `rais_crm_colvis` | hardcoded string in sync.js | `{ website, stadt, region, gewerk }` Sichtbarkeit |
+| `rais_sidebar_collapsed` | (neu in Phase 1) | boolean |
+
+---
+
+### CSS-Variablen (bestehend — muss Sidebar anpassen)
+
+```css
+:root {
+  --or: #EC6A37;   /* Orange (Primär-Akzent) */
+  --orh: #F37A48;  /* Orange Hover */
+  --bg: #F5F2EC;   /* Hintergrund Cloud */
+  --sf: #FBF8F3;   /* Surface Warm Linen */
+  --sg: #789464;   /* Sage */
+  --pn: #3C5A2A;   /* Dark Pistachio */
+  --ch: #2F2A24;   /* Charcoal (Text, Header-BG) */
+  --st: #7B746B;   /* Stone (Muted Text) */
+  --bd: #D9D1C7;   /* Border */
+  --rd: #C0392B;   /* Rot */
+  --yw: #A06800;   /* Gelb */
+  --bl: #2C5F8A;   /* Blau */
+}
+```
+
+Der bestehende Header hat `background: var(--ch)` — Sidebar sollte dasselbe oder ein dunkleres Dunkelton nutzen, kein völlig fremdes Blau.
+
+---
+
+### Bekannte technische Schulden / Probleme
+
+1. **`switchTab()` ist in `leadgen.js`** — falsche Verantwortung. Die Funktion mischt Navigation (generisch) mit leadgen-spezifischem Init-Aufruf (`loadLgPreview()`). Lösung für Sidebar: entweder leadgen importiert von sidebar, oder sidebar übernimmt die Funktion vollständig und leadgen registriert einen Listener auf `rais:page-change`.
+
+2. **`window`-Globals-Masse** — `Object.assign(window, {...})` am Ende von `index.html` mit ~45 Einträgen. Jede neue Funktion die aus HTML-`onclick` aufrufbar sein muss, muss dort eingetragen werden. Kein Selbstheilungsmechanismus.
+
+3. **`rais_crm_colvis` ist eine hardcoded String-Konstante** (nicht in state.js exportiert). Nur in sync.js verwendet — kein echtes Problem, aber inkonsistent.
+
+4. **Kein `supabase/migrations/`-Ordner im `.gitignore`** — alle Migrations werden committet, das ist korrekt.
+
+5. **`interessiert` fehlt im Inline-Status-Dropdown** (prospecting.js:149–159) — der Wert existiert in `state.js:STATUS` aber ist nicht als `<option>` in der Tabellen-Dropdown-Liste. Sieht aus wie Absicht (nur per Detail-Panel setzbar), aber nicht dokumentiert.
+
+---
+
+### Risiken für diesen Build
+
+| Risiko | Wahrscheinlichkeit | Mitigation |
+|--------|--------------------|------------|
+| `switchTab` Refactor bricht Tab-Init-Logik für leadgen/clients | Mittel | leadgen registriert `rais:page-change` Event Listener statt direkt aufgerufen zu werden |
+| Sticky Header + neue Sidebar kollidieren im Layout | Mittel | Header muss `margin-left` oder `padding-left` anpassen wenn Sidebar aktiv |
+| `window.Object.assign` vergessen für neue Sidebar-Funktionen | Niedrig | Checkliste im Akzeptanzkriterium |
+| `onStatusChanged` Hook fehlt für `qs()` oder `inlineST()` | Niedrig | Beide Funktionen sind bekannt und einzeilig zu hooken |
+| Supabase `crm_sessions`-Migration kollidiert mit bestehendem Schema | Sehr niedrig | Nur neue Tabellen, kein ALTER auf bestehende |
+| `interessiert`-Status-Gap verursacht Session-Breakdown-Lücke | Niedrig | Sessions tracken alle Status — egal welche; kein Problem |
+
+---
+
+**Schritt 0.4 — STOP.**
+Audit abgeschlossen. Warte auf explizite Freigabe von Kevin bevor Code geschrieben wird.
