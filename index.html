@@ -37,6 +37,9 @@
 
 <script type="module" src="./src/auth.js"></script>
 
+<nav id="rais-sidebar"></nav>
+<div id="rais-content">
+
 <header>
   <a class="logo" href="#">
     <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg"><defs>
@@ -76,14 +79,8 @@
   </div>
 </header>
 
-<nav class="tab-nav">
-  <button class="tab-nav-btn" id="tab-lg"   onclick="switchTab('leadgen')">⚡ Lead Gen</button>
-  <button class="tab-nav-btn active" id="tab-pr" onclick="switchTab('prospecting')">👥 Prospecting</button>
-  <button class="tab-nav-btn" id="tab-cl"   onclick="switchTab('clients')">🏢 Clients</button>
-</nav>
-
-<!-- ── Tab 1: Lead Gen ───────────────────────────────────────────────────── -->
-<section class="tab-section" id="sec-leadgen">
+<!-- ── Page 1: Lead Gen ──────────────────────────────────────────────────── -->
+<div class="rais-page" id="page-leadgen">
 <main>
   <div style="margin-bottom:16px">
     <div class="lg-layout">
@@ -142,10 +139,10 @@
     </div>
   </div>
 </main>
-</section>
+</div>
 
-<!-- ── Tab 2: Prospecting CRM ────────────────────────────────────────────── -->
-<section class="tab-section active" id="sec-prospecting">
+<!-- ── Page 2: Prospecting CRM ───────────────────────────────────────────── -->
+<div class="rais-page" id="page-prospecting">
 <main>
   <div id="banner" class="banner">
     <span>&#128222;</span>
@@ -236,12 +233,10 @@
     <div class="tf"><span id="rc"></span><div class="pb" id="pb"></div></div>
   </div>
 </main>
+</div>
 
-</main>
-</section>
-
-<!-- ── Tab 3: Clients CRM ────────────────────────────────────────────────── -->
-<section class="tab-section" id="sec-clients">
+<!-- ── Page 3: Clients CRM ───────────────────────────────────────────────── -->
+<div class="rais-page" id="page-clients">
 <main>
   <div class="tb">
     <input class="srch" id="clSrch" type="text" placeholder="Firma, Kontakt …" oninput="renderClients()">
@@ -274,7 +269,17 @@
     </div>
   </div>
 </main>
-</section>
+</div>
+
+<!-- ── Page 4: Sessions ───────────────────────────────────────────────────── -->
+<div class="rais-page" id="page-sessions">
+<main style="padding:28px">
+  <h2 style="font-size:20px;font-weight:700;color:var(--ch);margin-bottom:8px">🏁 Sessions</h2>
+  <p style="font-family:sans-serif;font-size:14px;color:var(--st)">Session Tracker wird in Phase 2 implementiert.</p>
+</main>
+</div>
+
+</div><!-- #rais-content -->
 
 <!-- Client Edit Modal -->
 <div class="ovl" id="clientModal">
@@ -496,8 +501,9 @@ import { renderCalls, resetCallCount } from './src/calls.js';
 import { addTouch, toggleAcc, saveTF } from './src/touch.js';
 import { openImport, closeI, dzOv, dzLv, dzDr, rdCSV, doImport, exportCSV } from './src/import.js';
 import { openEsPanel, openEsPop, closeEsPop, esGenerate, esSend, sendEmailBatch, markReply, markUnsub, bulkEmail } from './src/email.js';
-import { switchTab, runWF, loadLgPreview, lgImportToCRM } from './src/leadgen.js';
+import { runWF, loadLgPreview, lgImportToCRM } from './src/leadgen.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
+import { initSidebar } from './src/sidebar.js';
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
@@ -512,6 +518,8 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'e') { e.preventDefault(); kbEdit(); }
 });
 
+
+initSidebar();
 
 await window._authReady;
 load();
@@ -530,7 +538,7 @@ Object.assign(window, {
   openClPanel, openE, openEsPanel, openEsPop, openImport, openP, openPurgeDq,
   openQN, purgeDq, qs, rdCSV, render, renderClients, resetCallCount, runWF,
   save, saveClient, saveNotiz, saveQN, saveTF, sendEmailBatch, setF, shiftFU,
-  switchTab, syncCloud, toggleAcc, toggleCol, toggleColMenu,
+  syncCloud, toggleAcc, toggleCol, toggleColMenu,
 });
 
 </script>
