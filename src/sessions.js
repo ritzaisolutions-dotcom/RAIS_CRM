@@ -1,4 +1,4 @@
-import { sbGet, sbUpsert } from './supabase.js';
+import { sbGet, sbUpsert, sbDelete } from './supabase.js';
 import { toast } from './ui.js';
 import { navigateTo } from './sidebar.js';
 
@@ -175,6 +175,20 @@ export async function endSession(name) {
   renderPanel();
 }
 
+export async function discardSession() {
+  if (!activeSession) return;
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  const id = activeSession.id;
+  activeSession = null;
+  renderPanel();
+  try {
+    await sbDelete('/rest/v1/crm_sessions?id=eq.' + id);
+    toast('Session verworfen.');
+  } catch(e) {
+    toast('Fehler beim Verwerfen: ' + e.message);
+  }
+}
+
 export function onStatusChanged(contactId, contactName, fromStatus, toStatus) {
   if (!activeSession) return;
   if (toStatus === 'neu') return;
@@ -233,6 +247,7 @@ export function initSessionPanel(containerEl) {
       '<input type="text" id="sp-name-input" class="sp-name-input" placeholder="Session Name (optional)">' +
       '<button id="sp-save-btn" class="btn bp bsm">Speichern</button>' +
       '<button id="sp-save-noname-btn" class="btn bs bsm">Ohne Name</button>' +
+      '<button id="sp-discard-btn" class="btn bs bsm" style="color:var(--rd);margin-left:8px">Verwerfen</button>' +
     '</div>' +
 
     '</div>';
@@ -269,9 +284,14 @@ export function initSessionPanel(containerEl) {
     setHidden('sp-save-row', true);
   });
 
+  containerEl.querySelector('#sp-discard-btn').addEventListener('click', function() {
+    discardSession();
+    setHidden('sp-save-row', true);
+  });
+
   containerEl.querySelector('#sp-name-input') && containerEl.querySelector('#sp-name-input').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') containerEl.querySelector('#sp-save-btn').click();
-    if (e.key === 'Escape') { endSession(null); setHidden('sp-save-row', true); }
+    if (e.key === 'Escape') { discardSession(); setHidden('sp-save-row', true); }
   });
 }
 
