@@ -2,7 +2,19 @@ import { S } from './state.js';
 import { markDirty, persist, pushDirty, syncCloud } from './sync.js';
 import { esc, toast } from './ui.js';
 import { td } from './utils.js';
-import { WH, whFetch } from './leadgen.js';
+
+const WH_BASE  = 'https://n8n.ritz-ai.solutions/webhook/';
+const WH_TOKEN = 'ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc';
+const WH = {
+  email1: WH_BASE + 'wf4-email1',
+  email2: WH_BASE + 'wf5-email2',
+  email3: WH_BASE + 'wf6-email3',
+};
+function whFetch(url, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({ 'Content-Type': 'application/json', 'X-RAIS-Token': WH_TOKEN }, opts.headers || {});
+  return fetch(url, opts);
+}
 
 export function emailBadge(c) {
   if (c.unsubscribed)    return '<span class="em-badge em-unsub" title="Abgemeldet" onclick="event.stopPropagation();openEsPanel(\'' + c.id + '\')">🚫</span>';

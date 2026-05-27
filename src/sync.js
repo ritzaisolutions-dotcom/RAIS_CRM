@@ -69,8 +69,12 @@ export async function syncCloud(silent) {
 
     S.contacts = newContacts.concat(unsyncedLocal);
 
+    const uploadIds = new Set(
+      Object.keys(dirtyLocalById).concat(unsyncedLocal.map(function(c) { return c.id; }))
+    );
+
     const now = new Date().toISOString();
-    const rows = S.contacts.filter(function(c) { return !!remoteById[c.id] || !c.synced_at; }).map(function(c) {
+    const rows = S.contacts.filter(function(c) { return uploadIds.has(c.id); }).map(function(c) {
       c.synced_at = now;
       const row = {
         id: c.id, created: c.created, firma: c.firma || '',
