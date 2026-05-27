@@ -74,73 +74,20 @@
   <div class="hact">
     <button class="btn bs" onclick="openImport()">CSV importieren</button>
     <button class="btn bs" onclick="exportCSV()">Exportieren</button>
+    <button class="btn bs" onclick="openQuickTodo()" title="Schnelltodo im Tracker anlegen">&#128203; Todo</button>
     <button class="btn bs" id="syncBtn" onclick="syncCloud()" title="Daten mit Supabase synchronisieren">&#9729; Sync</button>
     <button class="btn bs" id="purgeBtn" onclick="openPurgeDq()" title="Disqualified Leads bereinigen" style="color:#A00000;border-color:#F5CCBB">&#128465; DQ</button>
     <button class="btn bp" onclick="openAdd()">+ Kontakt</button>
+    <button class="btn bg" id="mobileMenuBtn" onclick="toggleMobileMenu()" style="font-size:20px;padding:4px 12px;min-height:44px" aria-label="Mehr Aktionen">&#8943;</button>
   </div>
 </header>
-
-<!-- ── Page 1: Lead Gen ──────────────────────────────────────────────────── -->
-<div class="rais-page" id="page-leadgen">
-<main>
-  <div style="margin-bottom:16px">
-    <div class="lg-layout">
-      <div class="lg-card">
-        <div class="lg-title">🔍 Lead-Suche</div>
-        <div class="lg-field">
-          <label>Gewerk / Query</label>
-          <select id="lgGewerk">
-            <option value="Fliesenleger">Fliesenleger</option>
-            <option value="Elektriker">Elektriker</option>
-            <option value="Sanitär">Sanitär</option>
-            <option value="Heizung">Heizung</option>
-            <option value="Maler">Maler</option>
-            <option value="Zimmerer">Zimmerer</option>
-            <option value="Dachdecker">Dachdecker</option>
-            <option value="Schreiner">Schreiner</option>
-            <option value="Schlosser">Schlosser</option>
-            <option value="Gerüstbauer">Gerüstbauer</option>
-            <option value="Gartenbau">Gartenbau</option>
-            <option value="Reinigung">Reinigung</option>
-          </select>
-        </div>
-        <div class="lg-field">
-          <label>Stadt</label>
-          <input type="text" id="lgStadt" placeholder="z.B. München">
-        </div>
-        <div class="lg-field">
-          <label>Radius: <span id="lgRadiusLbl">10 km</span></label>
-          <input type="range" id="lgRadius" min="5" max="50" step="5" value="10" oninput="document.getElementById('lgRadiusLbl').textContent=this.value+' km'" style="width:100%;accent-color:var(--or)">
-        </div>
-        <div class="wf-steps">
-          <div class="wf-step">
-            <button class="wf-step-btn" id="wfBtn1" onclick="runWF(1)">1. Discover ▶ <small style="opacity:.6">Google Maps</small></button>
-            <span class="wf-status" id="wfSt1">—</span>
-          </div>
-          <div class="wf-step">
-            <button class="wf-step-btn" id="wfBtn2" onclick="runWF(2)" disabled>2. Qualify ▶ <small style="opacity:.6">Score + Filter</small></button>
-            <span class="wf-status" id="wfSt2">—</span>
-          </div>
-          <div class="wf-step">
-            <button class="wf-step-btn" id="wfBtn3" onclick="runWF(3)" disabled>3. Enrich ▶ <small style="opacity:.6">Gemini Research</small></button>
-            <span class="wf-status" id="wfSt3">—</span>
-          </div>
-        </div>
-        <button class="btn bp" id="lgImportBtn" onclick="lgImportToCRM()" disabled style="width:100%;justify-content:center;margin-top:8px">→ Ins Prospecting CRM übernehmen</button>
-      </div>
-      <div class="lg-preview">
-        <div class="lg-preview-head">
-          <span>Ergebnisse <span id="lgPreviewCount" style="color:#A0988F;font-weight:400"></span></span>
-          <button class="btn bg bsm" onclick="loadLgPreview()" style="color:#A0988F">⟳ Aktualisieren</button>
-        </div>
-        <div id="lgPreviewBody">
-          <div class="lg-empty">Noch keine Ergebnisse.<br>Stadt eingeben und WF1 starten.</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</main>
+<div id="mobile-action-menu">
+  <button class="mam-item" onclick="openImport();toggleMobileMenu()">&#128194; CSV importieren</button>
+  <button class="mam-item" onclick="exportCSV();toggleMobileMenu()">&#128196; Exportieren</button>
+  <button class="mam-item" onclick="openPurgeDq();toggleMobileMenu()" style="color:#A00000">&#128465; DQ bereinigen</button>
+  <button class="mam-item" onclick="openAdd();toggleMobileMenu()">+ Kontakt</button>
 </div>
+
 
 <!-- ── Page 2: Prospecting CRM ───────────────────────────────────────────── -->
 <div class="rais-page" id="page-prospecting">
@@ -161,17 +108,24 @@
 
   <div class="stats">
     <div class="stat on" id="s-all"   onclick="setF('all')">          <span class="sn" id="c-all">0</span>  <span class="sl">Gesamt</span></div>
-    <div class="stat" id="s-neu"      onclick="setF('neu')">          <span class="sn" id="c-neu">0</span>  <span class="sl">Neu</span></div>
-    <div class="stat" id="s-ka"       onclick="setF('kein_anschluss')"><span class="sn" id="c-ka">0</span>  <span class="sl">Kein Anschluss</span></div>
-    <div class="stat" id="s-gk"       onclick="setF('gatekeeper')">   <span class="sn" id="c-gk">0</span>  <span class="sl">Gatekeeper</span></div>
-    <div class="stat" id="s-cb"       onclick="setF('callback')">     <span class="sn" id="c-cb">0</span>  <span class="sl">Callback</span></div>
-    <div class="stat" id="s-en"       onclick="setF('email_nurture')"><span class="sn" id="c-en">0</span>  <span class="sl">Email Nurture</span></div>
-    <div class="stat" id="s-dt"       onclick="setF('demo_termin')">  <span class="sn" id="c-dt">0</span>  <span class="sl">Demo Termin</span></div>
-    <div class="stat" id="s-do"       onclick="setF('door_open')">    <span class="sn" id="c-do">0</span>  <span class="sl">Tür Offen</span></div>
-    <div class="stat" id="s-ns"       onclick="setF('no_show')">      <span class="sn" id="c-ns">0</span>  <span class="sl">No Show</span></div>
-    <div class="stat" id="s-dq"       onclick="setF('disqualified')"> <span class="sn" id="c-dq">0</span>  <span class="sl">Disqualified</span></div>
-    <div class="stat" id="s-gw"       onclick="setF('gewonnen')">     <span class="sn" id="c-gw">0</span>  <span class="sl">Gewonnen</span></div>
     <div class="stat" id="s-heute"    onclick="setF('heute')">        <span class="sn" id="c-heute">0</span><span class="sl">&#128197; Heute</span></div>
+    <div class="stat-group stat-group-neutral">
+      <div class="stat" id="s-neu"    onclick="setF('neu')">          <span class="sn" id="c-neu">0</span>  <span class="sl">Neu</span></div>
+      <div class="stat" id="s-ka"     onclick="setF('kein_anschluss')"><span class="sn" id="c-ka">0</span>  <span class="sl">Kein Anschluss</span></div>
+      <div class="stat" id="s-gk"     onclick="setF('gatekeeper')">   <span class="sn" id="c-gk">0</span>  <span class="sl">Gatekeeper</span></div>
+      <div class="stat" id="s-cb"     onclick="setF('callback')">     <span class="sn" id="c-cb">0</span>  <span class="sl">Callback</span></div>
+      <div class="stat" id="s-ns"     onclick="setF('no_show')">      <span class="sn" id="c-ns">0</span>  <span class="sl">No Show</span></div>
+      <div class="stat" id="s-en"     onclick="setF('email_nurture')"><span class="sn" id="c-en">0</span>  <span class="sl">Email Nurture</span></div>
+    </div>
+    <div class="stat-group stat-group-positive">
+      <div class="stat" id="s-int"    onclick="setF('interessiert')"> <span class="sn" id="c-int">0</span> <span class="sl">Interessiert</span></div>
+      <div class="stat" id="s-do"     onclick="setF('door_open')">    <span class="sn" id="c-do">0</span>  <span class="sl">Tür Offen</span></div>
+      <div class="stat" id="s-dt"     onclick="setF('demo_termin')">  <span class="sn" id="c-dt">0</span>  <span class="sl">Demo Termin</span></div>
+      <div class="stat" id="s-gw"     onclick="setF('gewonnen')">     <span class="sn" id="c-gw">0</span>  <span class="sl">Gewonnen</span></div>
+    </div>
+    <div class="stat-group stat-group-closed">
+      <div class="stat" id="s-dq"     onclick="setF('disqualified')"> <span class="sn" id="c-dq">0</span>  <span class="sl">Disqualified</span></div>
+    </div>
   </div>
 
   <div class="tb">
@@ -233,6 +187,7 @@
     </div>
     <div class="tf"><span id="rc"></span><div class="pb" id="pb"></div></div>
   </div>
+  <div id="mlist"></div>
 </main>
 </div>
 
@@ -272,7 +227,12 @@
 </main>
 </div>
 
-<!-- ── Page 4: Sessions ───────────────────────────────────────────────────── -->
+<!-- ── Page 4: Marco Chat ─────────────────────────────────────────────────── -->
+<div class="rais-page" id="page-marco">
+  <div id="marco-container" style="height:100%"></div>
+</div>
+
+<!-- ── Page 5: Sessions ───────────────────────────────────────────────────── -->
 <div class="rais-page" id="page-sessions">
 <main style="padding:28px">
   <!-- Session history (populated by initSessionsPage) -->
@@ -432,6 +392,65 @@
 
 <div id="toast" class="toast"></div>
 
+<!-- Demo Termin Todo-Popup -->
+<div class="ovl" id="demotodo-pop">
+  <div class="modal" style="max-width:480px">
+    <div class="mh"><h2>&#128203; Todos im Tracker anlegen</h2><button class="btn bg" onclick="closeDemoTodoPop()">&#10005;</button></div>
+    <div class="mb">
+      <p style="font-family:sans-serif;font-size:13px;color:var(--st);margin:0 0 14px">Zwei Todos werden direkt im RAIS Performance Tracker gespeichert.</p>
+      <div class="fr2">
+        <div><label>Todo 1 – Sales Call</label><input type="text" id="dt-title1"></div>
+        <div><label>Datum</label><input type="date" id="dt-date1"></div>
+      </div>
+      <div class="fr"><label>Uhrzeit (optional)</label><input type="time" id="dt-time1"></div>
+      <div class="fr2" style="margin-top:10px">
+        <div><label>Todo 2 – Demo vorbereiten</label><input type="text" id="dt-title2"></div>
+        <div><label>Datum</label><input type="date" id="dt-date2"></div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bs bsm" onclick="closeDemoTodoPop()">&#220;berspringen</button>
+      <button class="btn bp bsm" onclick="saveDemoTodos()">Im Tracker speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schnelltodo Popup -->
+<div class="ovl" id="quicktodo-pop">
+  <div class="modal" style="max-width:400px">
+    <div class="mh"><h2>&#128203; Schnelltodo</h2><button class="btn bg" onclick="closeQuickTodo()">&#10005;</button></div>
+    <div class="mb">
+      <div class="fr"><label>Titel *</label><input type="text" id="qt-title" placeholder="Was ist zu tun?"></div>
+      <div class="fr2">
+        <div><label>Datum</label><input type="date" id="qt-date"></div>
+        <div><label>Uhrzeit</label><input type="time" id="qt-time"></div>
+      </div>
+      <div class="fr2">
+        <div><label>Priorit&#228;t</label>
+          <select class="fs2" id="qt-rel">
+            <option value="high">Hoch</option>
+            <option value="medium">Mittel</option>
+            <option value="low">Niedrig</option>
+          </select>
+        </div>
+        <div><label>Kategorie</label>
+          <select class="fs2" id="qt-cat">
+            <option value="business">Business</option>
+            <option value="content">Content</option>
+            <option value="privat">Privat</option>
+            <option value="gesundheit">Gesundheit</option>
+            <option value="andere">Andere</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="mf">
+      <button class="btn bs bsm" onclick="closeQuickTodo()">Abbrechen</button>
+      <button class="btn bp bsm" onclick="saveQuickTodo()">Speichern</button>
+    </div>
+  </div>
+</div>
+
 <!-- Schnellnotiz Mini-Popup -->
 <div id="qnPop" class="qn-pop">
   <div class="qn-inner">
@@ -491,6 +510,25 @@
   </div>
 </div>
 
+<nav id="mobile-nav" role="navigation" aria-label="Hauptnavigation">
+  <button class="mn-tab active" data-page="prospecting">
+    <span class="mn-tab-icon">&#128203;</span>
+    <span class="mn-tab-label">Prospecting</span>
+  </button>
+  <button class="mn-tab" data-page="clients">
+    <span class="mn-tab-icon">&#128101;</span>
+    <span class="mn-tab-label">Clients</span>
+  </button>
+  <button class="mn-tab" data-page="sessions">
+    <span class="mn-tab-icon">&#127937;</span>
+    <span class="mn-tab-label">Sessions</span>
+  </button>
+  <button class="mn-tab" data-page="marco">
+    <span class="mn-tab-icon">&#129302;</span>
+    <span class="mn-tab-label">Marco</span>
+  </button>
+</nav>
+
 <script type="module">
 import { load, syncCloud } from './src/sync.js';
 import { initRealtime } from './src/realtime.js';
@@ -502,14 +540,15 @@ import { renderCalls, resetCallCount } from './src/calls.js';
 import { addTouch, toggleAcc, saveTF } from './src/touch.js';
 import { openImport, closeI, dzOv, dzLv, dzDr, rdCSV, doImport, exportCSV } from './src/import.js';
 import { openEsPanel, openEsPop, closeEsPop, esGenerate, esSend, sendEmailBatch, markReply, markUnsub, bulkEmail } from './src/email.js';
-import { runWF, loadLgPreview, lgImportToCRM } from './src/leadgen.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
+import { showDemoTodoPopup, saveDemoTodos, closeDemoTodoPop, openQuickTodo, saveQuickTodo, closeQuickTodo } from './src/todopop.js';
+import { initMarcoPage } from './src/chat.js';
 import { initSidebar } from './src/sidebar.js';
 import { initHeaderWidget, initSessionsPage } from './src/sessions.js';
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeClPanel(); closeEsPop(); }
+  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeClPanel(); closeEsPop(); closeDemoTodoPop(); closeQuickTodo(); }
   const tag = document.activeElement.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (inInput) return;
@@ -526,6 +565,7 @@ initHeaderWidget(document.getElementById('sph-widget'));
 
 window.addEventListener('rais:page-change', function(e) {
   if (e.detail.page === 'sessions') initSessionsPage(document.getElementById('sessions-history-container'));
+  if (e.detail.page === 'marco') initMarcoPage(document.getElementById('marco-container'));
 });
 
 await window._authReady;
@@ -536,16 +576,26 @@ syncCloud(true);
 initRealtime();
 
 // ── Expose functions needed by inline HTML event handlers ─────────────────────
+function toggleMobileMenu() {
+  document.getElementById('mobile-action-menu').classList.toggle('on');
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#mobileMenuBtn') && !e.target.closest('#mobile-action-menu')) {
+    document.getElementById('mobile-action-menu').classList.remove('on');
+  }
+});
+
 Object.assign(window, {
-  addTouch, bulkEmail, closeClientModal, closeClPanel, closeE, closeEsPop,
-  closeI, closeP, closePurgeDq, closeQN, del, delClient, doImport, doSort,
+  addTouch, bulkEmail, closeClientModal, closeClPanel, closeDemoTodoPop, closeE, closeEsPop,
+  closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, del, delClient, doImport, doSort,
   dzDr, dzLv, dzOv, esGenerate, esSend, exportCSV, filterDue, goPg,
-  inlineFU, inlineROI, inlineST, lgImportToCRM, loadLgPreview,
+  inlineFU, inlineROI, inlineST,
   markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit,
   openClPanel, openE, openEsPanel, openEsPop, openImport, openP, openPurgeDq,
-  openQN, purgeDq, qs, rdCSV, render, renderClients, resetCallCount, runWF,
-  save, saveClient, saveNotiz, saveQN, saveTF, sendEmailBatch, setF, shiftFU,
-  syncCloud, toggleAcc, toggleCol, toggleColMenu,
+  openQN, openQuickTodo, purgeDq, qs, rdCSV, render, renderClients, resetCallCount,
+  save, saveClient, saveDemoTodos, saveNotiz, saveQN, saveQuickTodo, saveTF,
+  sendEmailBatch, setF, shiftFU,
+  syncCloud, toggleAcc, toggleCol, toggleColMenu, toggleMobileMenu,
 });
 
 </script>

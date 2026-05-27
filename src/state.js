@@ -28,16 +28,19 @@ export const TSTAT = ['','Nicht kontaktiert','Nicht erreicht','Mailbox','Rückru
 export const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'ni','Rückruf erbeten':'fu','Gatekeeper':'gk','Interessiert':'in','Termin vereinbart':'te','Angebot gesendet':'ib','Kein Interesse':'ki'};
 
 export const STATUS = {
-  neu:            { cls: 'b-neu', label: 'Neu' },
-  kein_anschluss: { cls: 'b-ni',  label: 'Kein Anschluss' },
-  gatekeeper:     { cls: 'b-gk',  label: 'Gatekeeper' },
-  callback:       { cls: 'b-fu',  label: 'Callback' },
-  email_nurture:  { cls: 'b-ib',  label: 'Email Nurture' },
-  interessiert:   { cls: 'b-in',  label: 'Interessiert' },
-  demo_termin:    { cls: 'b-te',  label: 'Demo Termin' },
-  door_open:      { cls: 'b-do',  label: 'Tür Offen' },
-  no_show:        { cls: 'b-ns',  label: 'No Show' },
-  disqualified:   { cls: 'b-ki',  label: 'Disqualified' },
-  gewonnen:       { cls: 'b-gw',  label: 'Gewonnen' },
-  archiviert:     { cls: 'b-ki',  label: 'Archiviert' },
+  // ── Aktiv / Neutral ──
+  neu:            { cls: 'b-neu', label: 'Neu',            group: 'neutral' },
+  kein_anschluss: { cls: 'b-ni',  label: 'Kein Anschluss', group: 'neutral' },
+  gatekeeper:     { cls: 'b-gk',  label: 'Gatekeeper',     group: 'neutral' },
+  callback:       { cls: 'b-fu',  label: 'Callback',        group: 'neutral' },
+  no_show:        { cls: 'b-ns',  label: 'No Show',         group: 'neutral' },
+  email_nurture:  { cls: 'b-ib',  label: 'Email Nurture',   group: 'neutral' },
+  // ── Positiv ──
+  interessiert:   { cls: 'b-in',  label: 'Interessiert',    group: 'positive' },
+  door_open:      { cls: 'b-do',  label: 'Tür Offen',       group: 'positive' },
+  demo_termin:    { cls: 'b-te',  label: 'Demo Termin',      group: 'positive' },
+  gewonnen:       { cls: 'b-gw',  label: 'Gewonnen',         group: 'positive' },
+  // ── Geschlossen ──
+  disqualified:   { cls: 'b-ki',  label: 'Disqualified',    group: 'closed' },
+  archiviert:     { cls: 'b-ki',  label: 'Archiviert',      group: 'closed' },
 };

@@ -3,6 +3,7 @@ export const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmF
 
 let _token = SB_KEY;
 export function setAuthToken(t) { _token = t; }
+export function getAuthToken() { return _token; }
 
 function hdrGet()    { return { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + _token }; }
 function hdrUpsert() { return { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + _token, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' }; }

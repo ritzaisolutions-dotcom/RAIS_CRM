@@ -6,6 +6,8 @@ import { sbDelete, sbUpsert } from './supabase.js';
 import { emailBadge, emailPanelHtml } from './email.js';
 import { renderCalls, bumpCall } from './calls.js';
 import { onStatusChanged } from './sessions.js';
+import { promptAutoClient } from './clients.js';
+import { showDemoTodoPopup } from './todopop.js';
 
 export function getList() {
   const q      = document.getElementById('srch').value.toLowerCase();
@@ -21,7 +23,7 @@ export function getList() {
     if (S.dueMode) { const t = td(); return c.followup && c.followup <= t; }
     if (q) {
       const t1 = (c.touches && c.touches[0]) || {};
-      const hay = [c.firma, c.kontakt, c.hauptleistung, t1.status, t1.notiz, c.besonderheit, c.notiz, c.stadt, c.region, c.gewerk].join(' ').toLowerCase();
+      const hay = [c.firma, c.kontakt, c.telefon, c.hauptleistung, t1.status, t1.notiz, c.besonderheit, c.notiz, c.stadt, c.region, c.gewerk].join(' ').toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
@@ -61,7 +63,7 @@ export function setF(f) {
   S.flt = f; S.pg = 1; S.dueMode = false;
   document.querySelectorAll('.stat').forEach(function(el) { el.classList.remove('on'); });
   const map = {all:'s-all', neu:'s-neu', kein_anschluss:'s-ka', gatekeeper:'s-gk',
-               callback:'s-cb', email_nurture:'s-en', demo_termin:'s-dt',
+               callback:'s-cb', email_nurture:'s-en', interessiert:'s-int', demo_termin:'s-dt',
                door_open:'s-do', no_show:'s-ns', disqualified:'s-dq', gewonnen:'s-gw', heute:'s-heute'};
   if (map[f]) document.getElementById(map[f]).classList.add('on');
   render();
@@ -69,7 +71,62 @@ export function setF(f) {
 
 export function filterDue() { S.dueMode = true; S.pg = 1; render(); }
 
+function renderMobileCards(slice) {
+  const mlist = document.getElementById('mlist');
+  if (!mlist) return;
+  const t = td();
+  if (!slice.length) {
+    mlist.innerHTML = '<div class="empty"><div style="font-size:32px;margin-bottom:10px">&#128203;</div><h3>Keine Einträge</h3><p>Filter anpassen oder + Kontakt klicken.</p></div>';
+    return;
+  }
+  mlist.innerHTML = slice.map(function(c) {
+    const st = STATUS[c.status] || { cls: 'b-neu', label: 'Neu' };
+    const badge = '<span class="badge ' + st.cls + '">' + esc(st.label) + '</span>';
+    const roi = roib(c.roi);
+    const gwBadge = c.gewerk
+      ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>'
+      : '';
+    const stadtStr = c.stadt
+      ? '<span style="font-family:sans-serif;font-size:12px;color:var(--st)">' + esc(c.stadt) + '</span>'
+      : '';
+    let fuPill = '';
+    if (c.followup) {
+      const isOverdue = c.followup < t;
+      const isToday   = c.followup === t;
+      fuPill = '<span class="mc-fu' + (isOverdue ? ' overdue' : '') + '">' +
+        (isOverdue ? '&#9888; ' : isToday ? '&#128222; ' : '') + esc(c.followup) + '</span>';
+    }
+    const touchCount = (c.touches || []).filter(function(tx) { return tx.status || tx.datum; }).length;
+    const touchPill = touchCount > 0 ? '<span class="mc-touch">T' + touchCount + '</span>' : '';
+    const note = (c.notiz || c.besonderheit || '').trim();
+    const phoneBtn = c.telefon
+      ? '<a class="mc-call-btn" href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()">&#128222; ' + esc(c.telefon) + '</a>'
+      : '';
+    return (
+      '<div class="mc" onclick="openP(\'' + c.id + '\')">' +
+        '<div class="mc-top">' +
+          '<div class="mc-firma">' + esc(c.firma) + '</div>' +
+          '<div class="mc-right">' + badge + roi + '</div>' +
+        '</div>' +
+        '<div class="mc-mid">' + gwBadge + stadtStr + fuPill + touchPill + '</div>' +
+        (note ? '<div class="mc-note">' + esc(note) + '</div>' : '') +
+        phoneBtn +
+      '</div>'
+    );
+  }).join('');
+}
+
+function populateGewerkFilter() {
+  const sel = document.getElementById('gewerkF');
+  if (!sel) return;
+  const unique = [...new Set(S.contacts.map(function(c) { return c.gewerk; }).filter(Boolean))].sort();
+  const current = sel.value;
+  sel.innerHTML = '<option value="">Gewerk: Alle</option>' +
+    unique.map(function(g) { return '<option value="' + g + '"' + (g === current ? ' selected' : '') + '>' + g + '</option>'; }).join('');
+}
+
 export function render() {
+  populateGewerkFilter();
   const t = td();
   const cnt = {all: S.contacts.length};
   Object.keys(STATUS).forEach(function(k) { cnt[k] = S.contacts.filter(function(c) { return c.status === k; }).length; });
@@ -79,6 +136,7 @@ export function render() {
   document.getElementById('c-gk').textContent  = cnt.gatekeeper   || 0;
   document.getElementById('c-cb').textContent  = cnt.callback     || 0;
   document.getElementById('c-en').textContent  = cnt.email_nurture|| 0;
+  document.getElementById('c-int').textContent = cnt.interessiert || 0;
   document.getElementById('c-dt').textContent  = cnt.demo_termin  || 0;
   document.getElementById('c-do').textContent  = cnt.door_open    || 0;
   document.getElementById('c-ns').textContent  = cnt.no_show      || 0;
@@ -148,16 +206,24 @@ export function render() {
           '<option value="3"' + (c.roi==3?' selected':'') + '>③ Hoch</option>' +
         '</select></td>' +
         '<td onclick="event.stopPropagation()"><select class="idd st-dd st-' + (c.status||'neu') + '" data-id="' + c.id + '" onchange="inlineST(this)">' +
+          '<optgroup label="── Aktiv ──">' +
           '<option value="neu"'           + (c.status==='neu'?           ' selected':'') + '>Neu</option>' +
           '<option value="kein_anschluss"'+ (c.status==='kein_anschluss'? ' selected':'') + '>Kein Anschluss</option>' +
           '<option value="gatekeeper"'    + (c.status==='gatekeeper'?    ' selected':'') + '>Gatekeeper</option>' +
           '<option value="callback"'      + (c.status==='callback'?      ' selected':'') + '>Callback</option>' +
-          '<option value="email_nurture"' + (c.status==='email_nurture'? ' selected':'') + '>Email Nurture</option>' +
-          '<option value="demo_termin"'   + (c.status==='demo_termin'?   ' selected':'') + '>Demo Termin</option>' +
-          '<option value="door_open"'     + (c.status==='door_open'?     ' selected':'') + '>Tür Offen</option>' +
           '<option value="no_show"'       + (c.status==='no_show'?       ' selected':'') + '>No Show</option>' +
-          '<option value="disqualified"'  + (c.status==='disqualified'?  ' selected':'') + '>Disqualified</option>' +
+          '<option value="email_nurture"' + (c.status==='email_nurture'? ' selected':'') + '>Email Nurture</option>' +
+          '</optgroup>' +
+          '<optgroup label="── Positiv ──">' +
+          '<option value="interessiert"'  + (c.status==='interessiert'?  ' selected':'') + '>Interessiert</option>' +
+          '<option value="door_open"'     + (c.status==='door_open'?     ' selected':'') + '>Tür Offen</option>' +
+          '<option value="demo_termin"'   + (c.status==='demo_termin'?   ' selected':'') + '>Demo Termin</option>' +
           '<option value="gewonnen"'      + (c.status==='gewonnen'?      ' selected':'') + '>Gewonnen</option>' +
+          '</optgroup>' +
+          '<optgroup label="── Geschlossen ──">' +
+          '<option value="disqualified"'  + (c.status==='disqualified'?  ' selected':'') + '>Disqualified</option>' +
+          '<option value="archiviert"'    + (c.status==='archiviert'?    ' selected':'') + '>Archiviert</option>' +
+          '</optgroup>' +
         '</select></td>' +
         '<td onclick="event.stopPropagation()" class="fu-cell"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onchange="inlineFU(this)" title="Follow-up Datum"></td>' +
         '<td class="notiz-cell" onclick="event.stopPropagation()">' +
@@ -170,7 +236,7 @@ export function render() {
         (S.colVis.region  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.region || '—') + '</td>' : '') +
         (S.colVis.gewerk  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.gewerk || '—') + '</td>' : '') +
         '<td onclick="event.stopPropagation()" style="white-space:nowrap">' + emailBadge(c) + '</td>' +
-        '<td onclick="event.stopPropagation()"><div class="ra">' +
+        '<td class="ra-cell" onclick="event.stopPropagation()"><div class="ra">' +
           '<button class="btn bg bsm" onclick="openQN(\'' + c.id + '\')" title="Schnellnotiz">&#128221;</button>' +
           '<button class="btn bg bsm" onclick="openE(\'' + c.id + '\')" title="Bearbeiten">&#9998;</button>' +
           '<button class="btn bg bsm" onclick="del(\'' + c.id + '\')" title="Löschen">&#128465;</button>' +
@@ -178,6 +244,8 @@ export function render() {
       '</tr>';
     }).join('');
   }
+
+  renderMobileCards(sl);
 
   document.getElementById('rc').textContent = tot === S.contacts.length
     ? tot + ' Einträge' : tot + ' von ' + S.contacts.length;
@@ -240,6 +308,7 @@ export function openP(id) {
   }
 
   b.innerHTML =
+    (c.telefon ? '<a class="panel-call-btn" href="tel:' + esc(c.telefon) + '">&#128222; ' + esc(c.telefon) + '</a>' : '') +
     '<div class="sh">Kontakt</div>' +
     ir('Telefon', c.telefon ? '<a href="tel:' + esc(c.telefon) + '">' + esc(c.telefon) + '</a>' : '—') +
     ir('E-Mail',  c.email   ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '—') +
@@ -264,11 +333,17 @@ export function openP(id) {
     emailPanelHtml(c);
 
   document.getElementById('pFoot').innerHTML =
-    '<button class="btn bp bsm" onclick="openE(\'' + id + '\');closeP()">&#9998; Stammdaten</button>' +
-    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'kein_anschluss\')">Kein Anschluss</button>' +
-    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'callback\')">Callback</button>' +
-    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'demo_termin\')" style="color:#1A7A40;border-color:#A8D8B8">Demo Termin</button>' +
-    '<button class="btn bs bsm" onclick="qs(\'' + id + '\',\'disqualified\')" style="color:#A00000">Disqualified</button>';
+    '<div class="pf-status-row">' +
+      '<button class="qs-chip" onclick="qs(\'' + id + '\',\'kein_anschluss\')">Kein Anschluss</button>' +
+      '<button class="qs-chip" onclick="qs(\'' + id + '\',\'gatekeeper\')">Gatekeeper</button>' +
+      '<button class="qs-chip qs-chip-dt" onclick="qs(\'' + id + '\',\'callback\')">Callback</button>' +
+      '<button class="qs-chip qs-chip-dt" onclick="qs(\'' + id + '\',\'demo_termin\')">Demo Termin</button>' +
+      '<button class="qs-chip qs-chip-dq" onclick="qs(\'' + id + '\',\'disqualified\')">Disqualified</button>' +
+    '</div>' +
+    '<div class="pf-actions">' +
+      '<button class="btn bp bsm" onclick="openE(\'' + id + '\');closeP()">&#9998; Bearbeiten</button>' +
+      '<button class="btn bs bsm" onclick="addTouch(\'' + id + '\')">+ Touch</button>' +
+    '</div>';
 
   document.getElementById('po').classList.add('on');
 }
@@ -279,10 +354,20 @@ export function qs(id, s) {
   const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   const _prev = c.status;
-  if (c.status !== s) { bumpCall(); c.status_changed_at = td(); }
-  c.status = s; markDirty(c); persist(); render(); pushDirty(); closeP();
+  if (c.status !== s) c.status_changed_at = td();
+  c.status = s;
+  bumpCall();
+  if (!c.touches) c.touches = [];
+  const TOUCH_MAP = { kein_anschluss:'Nicht erreicht', gatekeeper:'Gatekeeper',
+    callback:'Rückruf erbeten', demo_termin:'Termin vereinbart', disqualified:'Kein Interesse' };
+  c.touches.push({ status: TOUCH_MAP[s] || (STATUS[s] ? STATUS[s].label : s), datum: td(), notiz: '' });
+  markDirty(c); persist(); render(); pushDirty(); closeP();
   toast('Status: ' + (STATUS[s] ? STATUS[s].label : s));
   onStatusChanged(c.id, c.firma || c.company_name, _prev, s);
+  if (s === 'demo_termin' || s === 'gewonnen') {
+    promptAutoClient(c, s);
+    showDemoTodoPopup(c);
+  }
 }
 
 export function inlineFU(inp) {
@@ -376,6 +461,10 @@ export function inlineST(sel) {
   markDirty(c);
   persist(); render(); pushDirty();
   onStatusChanged(c.id, c.firma || c.company_name, prev, c.status);
+  if (c.status === 'demo_termin' || c.status === 'gewonnen') {
+    promptAutoClient(c, c.status);
+    showDemoTodoPopup(c);
+  }
 }
 
 export function openAdd() {

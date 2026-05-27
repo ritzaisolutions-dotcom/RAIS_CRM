@@ -1,10 +1,10 @@
 const SIDEBAR_KEY = 'rais_sidebar_collapsed';
 
 const PAGES = [
-  { id: 'prospecting', icon: '📋', label: 'Prospecting'     },
-  { id: 'leadgen',     icon: '⚡', label: 'Lead Generation' },
-  { id: 'clients',     icon: '👥', label: 'Clients'         },
-  { id: 'sessions',    icon: '🏁', label: 'Sessions'        },
+  { id: 'prospecting', icon: '📋', label: 'Prospecting' },
+  { id: 'clients',     icon: '👥', label: 'Clients'     },
+  { id: 'sessions',    icon: '🏁', label: 'Sessions'    },
+  { id: 'marco',       icon: '🤖', label: 'Marco'       },
 ];
 
 let _currentPage = 'prospecting';
@@ -19,6 +19,14 @@ export function navigateTo(pageId) {
   document.querySelectorAll('.rais-nav-item').forEach(function(el) {
     el.classList.toggle('active', el.dataset.page === pageId);
   });
+
+  // Sync mobile bottom nav active state
+  const mobileNav = document.getElementById('mobile-nav');
+  if (mobileNav) {
+    mobileNav.querySelectorAll('.mn-tab').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.page === pageId);
+    });
+  }
 
   _currentPage = pageId;
   location.hash = pageId;
@@ -55,6 +63,14 @@ export function initSidebar() {
   document.querySelectorAll('.rais-nav-item').forEach(function(el) {
     el.addEventListener('click', function() { navigateTo(el.dataset.page); });
   });
+
+  // Wire mobile bottom nav tabs
+  const mobileNav = document.getElementById('mobile-nav');
+  if (mobileNav) {
+    mobileNav.querySelectorAll('.mn-tab').forEach(function(btn) {
+      btn.addEventListener('click', function() { navigateTo(btn.dataset.page); });
+    });
+  }
 
   const wasCollapsed = localStorage.getItem(SIDEBAR_KEY);
   const isMobile = window.innerWidth <= 768;

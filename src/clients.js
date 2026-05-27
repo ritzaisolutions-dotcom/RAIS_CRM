@@ -62,7 +62,7 @@ export function openClientAdd() {
   document.getElementById('clMedium').value = 'whatsapp';
   document.getElementById('clStatus').value = 'aktiv';
   document.getElementById('clDatum').value = '';
-  document.getElementById('S.clEid').value = '';
+  document.getElementById('clEid').value = '';
   document.getElementById('clientModal').classList.add('on');
 }
 
@@ -159,3 +159,27 @@ export function openClPanel(id) {
 }
 
 export function closeClPanel() { document.getElementById('clPo').classList.remove('on'); }
+
+export async function promptAutoClient(contact, status) {
+  const already = S.clClients.find(function(c) {
+    return c.firma && contact.firma && c.firma.toLowerCase() === contact.firma.toLowerCase();
+  });
+  if (already) return;
+  const row = {
+    firma:           contact.firma || '',
+    kontakt:         contact.kontakt || null,
+    telefon:         contact.telefon || null,
+    email:           contact.email   || null,
+    website:         contact.website || null,
+    status:          status === 'gewonnen' ? 'aktiv' : 'demo',
+    naechste_action: status === 'demo_termin' ? 'Sales Call vorbereiten' : 'Onboarding starten',
+    synced_at:       new Date().toISOString(),
+  };
+  try {
+    await sbUpsert(CL_KEY_SB, [row]);
+    await loadClients();
+    toast('&#9989; ' + (contact.firma || 'Kontakt') + ' in Clients Tab eingetragen.');
+  } catch(e) {
+    toast('Clients-Eintrag fehlgeschlagen: ' + e.message);
+  }
+}
