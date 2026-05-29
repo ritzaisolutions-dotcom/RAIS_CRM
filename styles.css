@@ -99,8 +99,8 @@ td { padding: 9px 12px; vertical-align: middle; }
 }
 .tw thead th.col-sticky-firma { background: var(--ch); color: #fff; z-index: 2; }
 .fc { font-weight: 600; color: var(--ch); }
-.st-cell-badge { cursor: pointer; white-space: nowrap; }
-.st-cell-badge:hover .badge { outline: 1px solid var(--or); }
+.st-cell { padding: 4px 6px !important; white-space: nowrap; }
+.st-cell .st-dd { min-width: 118px; max-width: 150px; font-size: 10px; text-transform: none; letter-spacing: 0; }
 .ctpreset { border-top: 1px solid var(--bd); margin-top: 4px; padding-top: 6px; }
 .ctpreset-btn {
   display: block; width: 100%; text-align: left;

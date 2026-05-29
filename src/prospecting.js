@@ -18,6 +18,27 @@ export function isVersicherungsLead(c) {
   return /versicherung|versicherungsmakler|versicherungsagentur|versicherungsbüro|versicherungsberatung/.test(hay);
 }
 
+const STATUS_SELECT_GROUPS = [
+  { label: '── Aktiv ──', keys: ['neu', 'kein_anschluss', 'kein_anschluss_2', 'gatekeeper', 'callback', 'no_show', 'email_nurture'] },
+  { label: '── Positiv ──', keys: ['interessiert', 'door_open', 'demo_termin', 'gewonnen'] },
+  { label: '── Geschlossen ──', keys: ['disqualified', 'archiviert', 'ghost'] },
+];
+
+function statusSelectHtml(c) {
+  const cur = c.status || 'neu';
+  let html = '<select class="idd st-dd st-' + cur + '" data-id="' + c.id + '" onchange="inlineST(this)" onclick="event.stopPropagation()" title="Status direkt ändern">';
+  STATUS_SELECT_GROUPS.forEach(function(g) {
+    html += '<optgroup label="' + g.label + '">';
+    g.keys.forEach(function(k) {
+      if (!STATUS[k]) return;
+      html += '<option value="' + k + '"' + (cur === k ? ' selected' : '') + '>' + esc(STATUS[k].label) + '</option>';
+    });
+    html += '</optgroup>';
+  });
+  html += '</select>';
+  return html;
+}
+
 export function getList() {
   const q      = document.getElementById('srch').value.toLowerCase();
   const roi    = document.getElementById('roiF').value;
@@ -132,8 +153,6 @@ function renderMobileCards(slice) {
     return;
   }
   mlist.innerHTML = slice.map(function(c) {
-    const st = STATUS[c.status] || { cls: 'b-neu', label: 'Neu' };
-    const badge = '<span class="badge ' + st.cls + '">' + esc(st.label) + '</span>';
     const roi = roib(c.roi);
     const gwBadge = c.gewerk
       ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>'
@@ -158,7 +177,7 @@ function renderMobileCards(slice) {
       '<div class="mc" onclick="openP(\'' + c.id + '\')">' +
         '<div class="mc-top">' +
           '<div class="mc-firma">' + esc(c.firma) + '</div>' +
-          '<div class="mc-right">' + badge + roi + '</div>' +
+          '<div class="mc-right" onclick="event.stopPropagation()">' + statusSelectHtml(c) + roi + '</div>' +
         '</div>' +
         '<div class="mc-mid">' + gwBadge + stadtStr + fuPill + touchPill + '</div>' +
         (note ? '<div class="mc-note">' + esc(note) + '</div>' : '') +
@@ -264,7 +283,7 @@ export function render() {
           '<option value="2"' + (c.roi==2?' selected':'') + '>② Mittel</option>' +
           '<option value="3"' + (c.roi==3?' selected':'') + '>③ Hoch</option>' +
         '</select></td>' +
-        '<td class="st-cell-badge" onclick="event.stopPropagation();openP(\'' + c.id + '\')" title="Status im Panel ändern">' + sbadge(c.status) + '</td>' +
+        '<td class="st-cell" onclick="event.stopPropagation()">' + statusSelectHtml(c) + '</td>' +
         '<td onclick="event.stopPropagation()" class="fu-cell"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onchange="inlineFU(this)" title="Follow-up Datum"></td>' +
         '<td class="notiz-cell" onclick="event.stopPropagation()">' +
           '<textarea class="notiz-ta" data-id="' + c.id + '" rows="2" placeholder="Notiz…" onblur="saveNotiz(this)" onkeydown="notizKey(event,this)">' + esc(c.notiz || '') + '</textarea>' +
@@ -509,9 +528,12 @@ export function inlineST(sel) {
   if (!c) return;
   const prev = c.status;
   c.status = sel.value;
-  if (prev !== c.status) { bumpCall(); c.status_changed_at = td(); }
+  if (prev === c.status) return;
+  bumpCall();
+  c.status_changed_at = td();
   markDirty(c);
   persist(); render(); pushDirty();
+  toast('Status: ' + (STATUS[c.status] ? STATUS[c.status].label : c.status));
   onStatusChanged(c.id, c.firma || c.company_name, prev, c.status);
   if (c.status === 'demo_termin' || c.status === 'gewonnen') {
     promptAutoClient(c, c.status);
