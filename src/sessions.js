@@ -1,6 +1,8 @@
 import { sbGet, sbUpsert, sbDelete } from './supabase.js';
 import { toast } from './ui.js';
 import { navigateTo } from './sidebar.js';
+import { applyColPreset } from './prospecting.js';
+import { STATUS } from './state.js';
 
 // --- STATE ---
 let activeSession = null;  // { id, startedTs, pausedAt, pausedSeconds, timerMode, targetSeconds, breakdown, leadsPlayed }
@@ -11,14 +13,18 @@ const SESSION_KEY = 'rais_active_session';
 
 const STATUS_GROUPS = {
   positive: ['gewonnen', 'demo_termin', 'door_open', 'interessiert'],
-  negative: ['disqualified', 'archiviert'],
-  neutral:  ['kein_anschluss', 'gatekeeper', 'callback', 'no_show', 'email_nurture'],
+  negative: ['disqualified', 'archiviert', 'ghost'],
+  neutral:  ['kein_anschluss', 'kein_anschluss_2', 'gatekeeper', 'callback', 'no_show', 'email_nurture'],
 };
 
 function statusColor(s) {
   if (STATUS_GROUPS.positive.includes(s)) return 'var(--sg)';
   if (STATUS_GROUPS.negative.includes(s)) return 'var(--rd)';
   return 'var(--yw)';
+}
+
+function statusLabel(s) {
+  return (STATUS[s] && STATUS[s].label) || String(s || '').replace(/_/g, ' ');
 }
 
 function elapsedSeconds() {
@@ -87,6 +93,8 @@ function renderWidget() {
   const isPaused = !!activeSession.pausedAt;
 
   widget.classList.toggle('sph-paused', isPaused);
+  const dot = document.getElementById('sph-dot');
+  if (dot) dot.classList.toggle('paused', isPaused);
 
   const timerEl = document.getElementById('sph-timer');
   if (timerEl) {
@@ -163,6 +171,14 @@ export async function startSession(config) {
     timerInterval = setInterval(renderWidget, 1000);
     renderWidget();
     toast('▶ Session gestartet.');
+    
+    // Automatischer Fokus-Preset: Zu kompaktem 'Telefonier'-Preset wechseln (kognitiver Ballast reduzieren)
+    try {
+      applyColPreset('calling', true);
+      toast('▶ Session gestartet. "Telefonieren" Spalten-Preset automatisch aktiviert!');
+    } catch(e) {
+      console.warn('Could not apply calling preset automatically:', e);
+    }
   } catch(e) {
     toast('Session-Fehler: ' + e.message);
   }
@@ -193,6 +209,8 @@ export async function endSession(name) {
   if (!activeSession) return;
   if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   const elapsed = elapsedSeconds();
+  const leads = activeSession.leadsPlayed;
+  const bd = activeSession.breakdown;
   try {
     await sbUpsert('/rest/v1/crm_sessions?id=eq.' + activeSession.id, [{
       id: activeSession.id,
@@ -200,11 +218,13 @@ export async function endSession(name) {
       is_paused: false,
       ended_at: new Date().toISOString(),
       duration_seconds: elapsed,
-      leads_played: activeSession.leadsPlayed,
-      status_breakdown: activeSession.breakdown,
+      leads_played: leads,
+      status_breakdown: bd,
       name: name || null,
     }]);
-    toast('✅ Session gespeichert' + (name ? ': ' + name : '') + '.');
+    
+    // Celebration Summary Popups mit kognitivem Belohnungsmuster triggeren
+    showCelebrationModal(elapsed, leads, bd, name);
   } catch(e) {
     toast('Fehler beim Speichern: ' + e.message);
   }
@@ -212,6 +232,50 @@ export async function endSession(name) {
   _saveSession();
   renderWidget();
   _refreshSessionsPage();
+}
+
+function showCelebrationModal(elapsed, leads, breakdown, name) {
+  const pop = document.getElementById('sessionCelebrationPop');
+  if (!pop) return;
+  
+  const headlineEl = document.getElementById('sc-headline');
+  const textEl = document.getElementById('sc-text');
+  const durEl = document.getElementById('sc-duration');
+  const leadsEl = document.getElementById('sc-leads');
+  const breakdownEl = document.getElementById('sc-breakdown');
+  
+  durEl.textContent = fmtTime(elapsed);
+  leadsEl.textContent = leads;
+  
+  // Dynamische Motivationstexte basierend auf der Leistung (Gamification)
+  if (leads === 0) {
+    headlineEl.textContent = 'Session beendet!';
+    textEl.textContent = 'Jeder Schritt zählt. Auch ohne Anruf hast du wertvolle Vorbereitung geleistet!';
+  } else if (leads < 5) {
+    headlineEl.textContent = 'Guter Start!';
+    textEl.textContent = 'Du hast den Anfang gemacht. Dranbleiben sichert den langfristigen Erfolg!';
+  } else if (leads < 12) {
+    headlineEl.textContent = 'Starke Leistung!';
+    textEl.textContent = 'Ein produktiver Calling-Block! Dein Fleiß füllt die Pipeline.';
+  } else {
+    headlineEl.textContent = 'Absolute Spitzenklasse! 🚀';
+    textEl.textContent = 'Hervorragender Rhythmus und fantastische Ausdauer! Du bist unaufhaltbar!';
+  }
+  
+  // Breakdown-Pills rendern
+  const bdKeys = Object.keys(breakdown).filter(function(k) { return breakdown[k] > 0; });
+  if (bdKeys.length > 0) {
+    breakdownEl.innerHTML = bdKeys.map(function(k) {
+      const col = statusColor(k);
+      return '<span class="badge" style="background-color:rgba(120,110,100,0.06); color:' + col + '; border:1px solid ' + col + '; font-size:10px; margin:2px">' +
+        statusLabel(k) + ': ' + breakdown[k] +
+      '</span>';
+    }).join('');
+  } else {
+    breakdownEl.innerHTML = '<span style="font-family:sans-serif; font-size:11px; color:var(--st); font-style:italic">Keine Statusänderungen aufgezeichnet.</span>';
+  }
+  
+  pop.classList.add('on');
 }
 
 export async function discardSession() {
@@ -246,12 +310,29 @@ export function onStatusChanged(contactId, contactName, fromStatus, toStatus) {
   renderWidget();
 }
 
+export function onOutreachRecorded(contactId, contactName, statusFrom, statusTo) {
+  if (!activeSession) return;
+  const key = statusTo || 'kein_anschluss_2';
+  activeSession.leadsPlayed += 1;
+  activeSession.breakdown[key] = (activeSession.breakdown[key] || 0) + 1;
+  _saveSession();
+  sbUpsert('/rest/v1/crm_session_events', [{
+    session_id: activeSession.id,
+    contact_id: String(contactId),
+    contact_name: contactName || null,
+    status_from: statusFrom || null,
+    status_to: key,
+  }]);
+  renderWidget();
+}
+
 export function getActiveSession() { return activeSession; }
 
 // --- HEADER WIDGET INIT ---
 
 export function initHeaderWidget(containerEl) {
   containerEl.innerHTML =
+    '<span class="sph-live-dot" id="sph-dot"></span>' +
     '<span id="sph-timer" class="sph-timer">00:00</span>' +
     '<span id="sph-count" class="sph-count"></span>' +
     '<button id="sph-pause-btn" class="btn bg bsm sph-btn" title="Pause">⏸</button>' +
@@ -390,7 +471,7 @@ function renderSessionCard(s) {
     const pct = total ? Math.round((bd[k] / total) * 100) : 0;
     const col = statusColor(k);
     return '<div class="sbr">' +
-      '<span class="sbr-label">' + k.replace(/_/g,' ') + '</span>' +
+      '<span class="sbr-label">' + statusLabel(k) + '</span>' +
       '<div class="sbr-bar-wrap"><div class="sbr-bar" style="width:' + pct + '%;background:' + col + '"></div></div>' +
       '<span class="sbr-count">' + bd[k] + '</span>' +
       '<span class="sbr-pct">' + pct + '%</span>' +
@@ -437,7 +518,7 @@ async function toggleSessionEvents(sessionId, btn) {
         '<span class="sp-event-time">' + t + '</span>' +
         '<span class="sp-event-name">' + (ev.contact_name || '—') + '</span>' +
         '<span class="sp-event-arrow">→</span>' +
-        '<span class="sp-event-status" style="color:' + col + '">' + (ev.status_to || '').replace(/_/g,' ') + '</span>' +
+        '<span class="sp-event-status" style="color:' + col + '">' + statusLabel(ev.status_to) + '</span>' +
       '</div>';
     }).join('');
   } catch(e) {

@@ -69,7 +69,9 @@ function parseCSV(txt) {
     'demo_termin': 'demo_termin', 'termin': 'demo_termin',
     'email_nurture': 'email_nurture', 'nurture': 'email_nurture', 'interessiert': 'email_nurture',
     'kein_anschluss': 'kein_anschluss', 'nicht erreicht': 'kein_anschluss', 'nicht_erreicht': 'kein_anschluss', 'no show': 'kein_anschluss',
+    'kein_anschluss_2': 'kein_anschluss_2', 'kein anschluss 2': 'kein_anschluss_2', 'ka2': 'kein_anschluss_2',
     'nicht_interessiert': 'disqualified', 'kein interesse': 'disqualified', 'kein_interesse': 'disqualified', 'disqualified': 'disqualified',
+    'ghost': 'ghost',
     'gatekeeper': 'gatekeeper',
     'followup': 'callback', 'follow-up': 'callback',
   };

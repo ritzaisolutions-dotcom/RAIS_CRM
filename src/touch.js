@@ -1,6 +1,7 @@
 import { S, TSCLS } from './state.js';
 import { markDirty, persist, pushDirty } from './sync.js';
 import { esc, toast } from './ui.js';
+import { openP } from './prospecting.js';
 
 export function toggleAcc(el) {
   const tah = el.closest ? el : el;

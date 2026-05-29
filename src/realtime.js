@@ -1,6 +1,7 @@
 import { S } from './state.js';
 import { SB_URL, SB_KEY } from './supabase.js';
 import { isDirtyContact, persist } from './sync.js';
+import { render } from './prospecting.js';
 
 export function handleRealtimeChange(payload) {
   if (S.syncInProgress) return;

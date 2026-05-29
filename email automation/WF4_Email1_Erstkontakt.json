@@ -1,0 +1,623 @@
+{
+  "name": "4. EMAIL 1 — Erstkontakt",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1376,
+        208
+      ],
+      "id": "f6509450-3486-4c6d-8a35-9f0f6c8652ed",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1376,
+        400
+      ],
+      "id": "c48fbc7c-70e4-4afa-b415-e050060e57a0",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-001",
+              "name": "document_id",
+              "value": "1M7Z8drWDotyYNTJ1jaf4pg8eY_0gHc22T3DTDTLwwgQ",
+              "type": "string"
+            },
+            {
+              "id": "cfg-002",
+              "name": "sheet_name",
+              "value": "leads-details",
+              "type": "string"
+            },
+            {
+              "id": "cfg-003",
+              "name": "daily_limit",
+              "value": 40,
+              "type": "number"
+            },
+            {
+              "id": "cfg-004",
+              "name": "sender_name",
+              "value": "Kevin Ritz",
+              "type": "string"
+            },
+            {
+              "id": "cfg-005",
+              "name": "sender_email",
+              "value": "kevin@ritz-ai.solutions",
+              "type": "string"
+            },
+            {
+              "id": "cfg-006",
+              "name": "demo_url",
+              "value": "https://fliesen-weber.vercel.app/",
+              "type": "string"
+            },
+            {
+              "id": "cfg-007",
+              "name": "my_email",
+              "value": "ritzaisolutions@gmail.com",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1136,
+        304
+      ],
+      "id": "db67de52-a316-4f29-8f4f-50702d009490",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.document_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $json.sheet_name }}",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -896,
+        304
+      ],
+      "id": "1de4ff8f-5776-455d-8653-8f0a9f7d8322",
+      "name": "Read TB2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iLNL1R2zb9ub2JWA",
+          "name": "Google Sheets RAIS"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter: hat Email, email_1_sent ist leer, nicht unsubscribed\nconst filtered = [];\n\nfor (const item of $input.all()) {\n  const email = (item.json.email || '').trim();\n  const sent = (item.json.email_1_sent || '').trim();\n  const unsub = (item.json.unsubscribed || '').trim().toLowerCase();\n  const reply = (item.json.reply_received || '').trim().toLowerCase();\n  \n  if (\n    email && \n    email !== 'NA' && \n    email !== 'na' && \n    email.includes('@') &&\n    !sent &&\n    unsub !== 'ja' &&\n    reply !== 'ja'\n  ) {\n    filtered.push(item);\n  }\n}\n\nif (filtered.length === 0) {\n  return [{ json: { _empty: true, message: 'Keine neuen Leads für Email 1' } }];\n}\n\nreturn filtered;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -672,
+        304
+      ],
+      "id": "639f599e-89fc-4a5e-9527-796ce824cfb8",
+      "name": "Filter Ready Leads"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "chk-empty",
+              "leftValue": "={{ $json._empty }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "notTrue"
+              }
+            },
+            {
+              "id": "c70143eb-8e6d-441c-8138-4e81e8b511cc",
+              "leftValue": "={{ $json._empty }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -400,
+        464
+      ],
+      "id": "7cc3ff75-4a4f-4de4-9977-2ede0cc15f20",
+      "name": "Has Leads?"
+    },
+    {
+      "parameters": {
+        "maxItems": "={{ $('Config').item.json.daily_limit }}"
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        240
+      ],
+      "id": "792964f0-1539-4258-9b07-6272634593be",
+      "name": "Daily Limit"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        32,
+        240
+      ],
+      "id": "60da4b2c-9bc8-479a-a43f-f8a55297d93d",
+      "name": "Loop"
+    },
+    {
+      "parameters": {
+        "amount": 45
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        368
+      ],
+      "id": "57cde874-3fbd-4722-b701-9b056797b812",
+      "name": "Wait 45s",
+      "webhookId": "wf4-wait-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\nconst person = item.person_name || item.person || 'Inhaber';\nconst besonderheit = item.besonderheit || item.Besonderheit || '';\nconst website_vorhanden = String(item.website_vorhanden || '');\nconst hat_kostenrechner = String(item.hat_kostenrechner || '');\nconst website_alter = item.website_alter || '';\nconst hauptleistung = item.hauptleistung || '';\nconst website = item.website || item.Website || 'nicht verfügbar';\n\nconst prompt = `###ROLE\nDu bist ein deutscher Cold-Email-Spezialist für lokale Fliesenleger-Betriebe.\n\n###TASK\nSchreibe NUR diese 3 Felder für eine Cold Email:\n1. subject: Betreffzeile (micro-yes, max 8 Wörter, kein Marketing-Speak)\n2. observation: 1 Satz — öffentlich sichtbares UX Problem auf ihrer Website, kein Vorwurf\n3. mechanics: 1 Satz — nachvollziehbare Konsequenz für einen zahlbereiten Kunden\n\n###REGELN\n- Alles in einem Klick öffentlich verifizierbar\n- Kein internes Wissen, keine Zahlen, keine Annahmen über Performance\n- Kein Marketing-Speak, keine Floskeln\n- Sprache: Deutsch, Sie-Form\n- KEINE Anrede in observation oder mechanics\n- Starte observation NICHT mit \"Ich\" oder dem Firmennamen\n\n###LOGIC\nWenn website_vorhanden = false: observation = keine eigene Website vorhanden\nWenn hat_kostenrechner = false: observation = keine Online-Anfragemöglichkeit\nWenn website_alter enthält veraltet: observation = eingeschränkte Nutzbarkeit der Website\n\n###INPUT\n- Website: ${website}\n- Besonderheit: ${besonderheit}\n- Hauptleistung: ${hauptleistung}\n- Hat Kostenrechner: ${hat_kostenrechner}\n- Website vorhanden: ${website_vorhanden}\n- Website Alter: ${website_alter}\n\n###OUTPUT — NUR gültiges JSON, kein Markdown, keine Erklärung:\n{\"subject\": \"...\", \"observation\": \"...\", \"mechanics\": \"...\"}`;\n\nconst body = {\n  model: 'claude-haiku-4-5-20251001',\n  max_tokens: 300,\n  messages: [{ role: 'user', content: prompt }]\n};\n\nreturn [{ json: { ...item, claude_request_body: JSON.stringify(body) } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        368
+      ],
+      "id": "ae87c862-6a4c-487c-96d0-0de75a98c50e",
+      "name": "Build Claude Prompt"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $('Build Claude Prompt').first().json;\nconst rawResponse = $input.first().json;\nconst claudeResponse = Array.isArray(rawResponse) ? rawResponse[0] : rawResponse;\n\nlet claudeJson = {\n  subject: 'Kundenanfragen außerhalb Ihrer Erreichbarkeit',\n  observation: 'Auf Ihrer Website ist Telefon die einzige Möglichkeit, Sie zu kontaktieren.',\n  mechanics: 'Kunden die außerhalb Ihrer Erreichbarkeit anrufen und niemanden erreichen, gehen zur Konkurrenz.'\n};\n\ntry {\n  const rawText = claudeResponse.content[0].text.trim()\n    .replace(/```json|```/g, '').trim();\n  claudeJson = JSON.parse(rawText);\n} catch (e) {\n  // fallback bleibt bestehen\n}\n\nconst person = item.person_name || item.person || '';\nconst firma = item.company_name || item.Name || 'Ihr Betrieb';\nconst email = item.email || '';\nconst row = item.row_number || '';\n\nconst nachname = (person && person !== 'NA' && person !== 'na')\n  ? person.split(' ').slice(-1)[0]\n  : null;\n\nconst anrede = nachname\n  ? `Sehr geehrter Herr ${nachname}`\n  : 'Sehr geehrte Damen und Herren';\n\nconst subject = claudeJson.subject || 'Kundenanfragen außerhalb Ihrer Erreichbarkeit';\n\nconst body = `${anrede},\n\n${claudeJson.observation}\n\n${claudeJson.mechanics}\n\nIch würde Ihnen gerne eine Demo vorbereiten — eine Version Ihrer Website mit Kostenrechner und Terminbuchung, damit Kunden auch dann anfragen können, wenn Sie auf der Baustelle sind.\n\nDemo ansehen: fliesen-weber.vercel.app\n\nWäre das einen kurzen Blick wert, ja oder nein?\n\nFalls nicht passend, ignorieren Sie diese Email.\n\nBeste Grüße\nKevin Ritz\nRitz AI Solutions\nritz-ai.solutions | +49 151 2975 5134 | kevin@ritz-ai.solutions`;\n\nreturn [{\n  json: {\n    email_to: email,\n    email_subject: subject,\n    email_body: body,\n    row_number: row,\n    firma: firma,\n    person: person\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        368
+      ],
+      "id": "f8cb0e5a-e96c-4b57-be74-ddac022aa395",
+      "name": "Build Email"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $('Config').item.json.document_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $('Config').item.json.sheet_name }}",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email_1_sent": "={{ new Date().toISOString().split('T')[0] }}",
+            "email_1_subject": "={{ $('Build Email').item.json.email_subject }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_1_sent",
+              "displayName": "email_1_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            },
+            {
+              "id": "email_1_subject",
+              "displayName": "email_1_subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1328,
+        368
+      ],
+      "id": "01b4be64-6d03-4434-bdb7-582e7e76ff85",
+      "name": "Mark Email 1 Sent",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iLNL1R2zb9ub2JWA",
+          "name": "Google Sheets RAIS"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Config').item.json.my_email }}",
+        "subject": "WF4 EMAIL 1 *** DONE ***",
+        "message": "Email Kampagne Email 1 abgeschlossen.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d8a53b3f-d2c7-43cd-a063-c86733d3cf0c",
+      "name": "Notify Done",
+      "webhookId": "ceb397a7-b2de-456e-a0f2-ff550f398a8b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FDojDyEfOMl97Vmb",
+          "name": "ritzaisolutions@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Config').item.json.my_email }}",
+        "subject": "WF4 EMAIL 1 — Keine Leads",
+        "message": "Keine Leads für Email 1 gefunden. Alle bereits gesendet oder keine gültigen Emails.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -176,
+        576
+      ],
+      "id": "28549345-1fe2-4234-a306-dd0f07e661ec",
+      "name": "Notify Empty",
+      "webhookId": "a51a785e-b6fa-49f9-9ad6-0f872aa0db84",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FDojDyEfOMl97Vmb",
+          "name": "ritzaisolutions@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "kevin@ritz-ai.solutions",
+        "toEmail": "={{ $json.email_to }}",
+        "subject": "={{ $json.email_subject }}",
+        "html": "={{ $json.email_body }}",
+        "options": {
+          "replyTo": "kevin@ritz-ai.solutions"
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1104,
+        368
+      ],
+      "id": "2db2822a-5bb9-44c0-99d6-edb7216882f6",
+      "name": "Send an Email",
+      "webhookId": "d6e9e1bf-8132-4baa-8ee0-4f7e5ba48d0c",
+      "credentials": {
+        "smtp": {
+          "id": "jr5t6ZjMqqqydzQg",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.claude_request_body }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        672,
+        368
+      ],
+      "id": "b2c3e914-4b89-458c-9edb-12a9a1259c3b",
+      "name": "Claude Haiku API",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "078Xmif1japW9J1a",
+          "name": "RAIS anthropic api key"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Read TB2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read TB2": {
+      "main": [
+        [
+          {
+            "node": "Filter Ready Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Ready Leads": {
+      "main": [
+        [
+          {
+            "node": "Has Leads?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Leads?": {
+      "main": [
+        [
+          {
+            "node": "Daily Limit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Notify Empty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Limit": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop": {
+      "main": [
+        [
+          {
+            "node": "Notify Done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 45s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 45s": {
+      "main": [
+        [
+          {
+            "node": "Build Claude Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Claude Prompt": {
+      "main": [
+        [
+          {
+            "node": "Claude Haiku API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Email 1 Sent": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send an Email": {
+      "main": [
+        [
+          {
+            "node": "Mark Email 1 Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude Haiku API": {
+      "main": [
+        [
+          {
+            "node": "Build Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3b16a757-15c1-49a5-8503-49a85e98a935",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6140dcd1eeef56988d97baa4d030a839e61618e52e7b6b6368007789e07414e1"
+  },
+  "id": "8k9LPwfNsfyEGxlI",
+  "tags": []
+}

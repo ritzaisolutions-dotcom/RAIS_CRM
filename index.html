@@ -78,6 +78,7 @@
     <button class="btn bs" onclick="openQuickTodo()" title="Schnelltodo im Tracker anlegen">&#128203; Todo</button>
     <button class="btn bs" id="syncBtn" onclick="syncCloud()" title="Daten mit Supabase synchronisieren">&#9729; Sync</button>
     <button class="btn bs" id="purgeBtn" onclick="openPurgeDq()" title="Disqualified Leads bereinigen" style="color:#A00000;border-color:#F5CCBB">&#128465; DQ</button>
+    <button class="btn bs" id="purgeVersBtn" onclick="openPurgeVersicherung()" title="Versicherungsmakler-Leads löschen" style="color:#A00000;border-color:#F5CCBB">&#128465; VM</button>
     <button class="btn bp" onclick="openAdd()">+ Kontakt</button>
     <button class="btn bg" id="mobileMenuBtn" onclick="toggleMobileMenu()" style="font-size:20px;padding:4px 12px;min-height:44px" aria-label="Mehr Aktionen">&#8943;</button>
   </div>
@@ -86,6 +87,7 @@
   <button class="mam-item" onclick="openImport();toggleMobileMenu()">&#128194; CSV importieren</button>
   <button class="mam-item" onclick="exportCSV();toggleMobileMenu()">&#128196; Exportieren</button>
   <button class="mam-item" onclick="openPurgeDq();toggleMobileMenu()" style="color:#A00000">&#128465; DQ bereinigen</button>
+  <button class="mam-item" onclick="openPurgeVersicherung();toggleMobileMenu()" style="color:#A00000">&#128465; Versicherungsmakler</button>
   <button class="mam-item" onclick="openAdd();toggleMobileMenu()">+ Kontakt</button>
 </div>
 
@@ -113,6 +115,7 @@
     <div class="stat-group stat-group-neutral">
       <div class="stat" id="s-neu"    onclick="setF('neu')">          <span class="sn" id="c-neu">0</span>  <span class="sl">Neu</span></div>
       <div class="stat" id="s-ka"     onclick="setF('kein_anschluss')"><span class="sn" id="c-ka">0</span>  <span class="sl">Kein Anschluss</span></div>
+      <div class="stat" id="s-ka2"    onclick="setF('kein_anschluss_2')"><span class="sn" id="c-ka2">0</span><span class="sl">KA 2</span></div>
       <div class="stat" id="s-gk"     onclick="setF('gatekeeper')">   <span class="sn" id="c-gk">0</span>  <span class="sl">Gatekeeper</span></div>
       <div class="stat" id="s-cb"     onclick="setF('callback')">     <span class="sn" id="c-cb">0</span>  <span class="sl">Callback</span></div>
       <div class="stat" id="s-ns"     onclick="setF('no_show')">      <span class="sn" id="c-ns">0</span>  <span class="sl">No Show</span></div>
@@ -126,6 +129,7 @@
     </div>
     <div class="stat-group stat-group-closed">
       <div class="stat" id="s-dq"     onclick="setF('disqualified')"> <span class="sn" id="c-dq">0</span>  <span class="sl">Disqualified</span></div>
+      <div class="stat" id="s-gh"     onclick="setF('ghost')">        <span class="sn" id="c-gh">0</span>  <span class="sl">Ghost</span></div>
     </div>
   </div>
 
@@ -172,6 +176,10 @@
         <label class="ctrow"><input type="checkbox" id="cv-stadt" onchange="toggleCol('stadt')"> Stadt</label>
         <label class="ctrow"><input type="checkbox" id="cv-region" onchange="toggleCol('region')"> Region</label>
         <label class="ctrow"><input type="checkbox" id="cv-gewerk" onchange="toggleCol('gewerk')"> Gewerk</label>
+        <div class="ctpreset">
+          <button type="button" class="ctpreset-btn" onclick="applyColPreset('calling')">Preset: Telefonieren</button>
+          <button type="button" class="ctpreset-btn" onclick="applyColPreset('full')">Preset: Alle Spalten</button>
+        </div>
       </div>
     </div>
   </div>
@@ -315,12 +323,14 @@
         <div><label>Status</label><select class="fs2" id="es">
           <option value="neu">Neu</option>
           <option value="kein_anschluss">Kein Anschluss</option>
+          <option value="kein_anschluss_2">Kein Anschluss 2</option>
           <option value="gatekeeper">Gatekeeper</option>
           <option value="callback">Callback</option>
           <option value="email_nurture">Email Nurture</option>
           <option value="demo_termin">Demo Termin</option>
           <option value="no_show">No Show</option>
           <option value="disqualified">Disqualified</option>
+          <option value="ghost">Ghost</option>
           <option value="gewonnen">Gewonnen</option>
         </select></div>
         <div><label>Follow-up Datum</label><input type="date" id="efu"><div class="fu-shortcuts"><button type="button" onclick="shiftFU(1)">+1d</button><button type="button" onclick="shiftFU(3)">+3d</button><button type="button" onclick="shiftFU(7)">+7d</button><button type="button" onclick="shiftFU(14)">+14d</button></div></div>
@@ -348,7 +358,27 @@
       </select></div><div></div></div>
       <div class="fr"><label>Interne Notiz</label><textarea id="en"></textarea></div>
     </div>
-    <div class="mf"><button class="btn bs" onclick="closeE()">Abbrechen</button><button class="btn bp" onclick="save()">Speichern</button></div>
+    <div class="mf">
+      <button class="btn bs" onclick="del()" id="deleteContactBtn" style="color:var(--rd); border-color:#F5CCBB; margin-right:auto; display:none">Löschen</button>
+      <button class="btn bs" onclick="closeE()">Abbrechen</button>
+      <button class="btn bp" onclick="save()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Purge Versicherungsmakler modal -->
+<div class="ovl" id="purgeVersicherungModal">
+  <div class="modal" style="max-width:420px">
+    <div class="mh"><h2>Versicherungsmakler bereinigen</h2><button class="btn bg" onclick="closePurgeVersicherung()">&#10005;</button></div>
+    <div style="padding:0 22px 22px">
+      <p style="font-family:sans-serif;font-size:14px;color:var(--st);margin-bottom:16px">
+        <span id="purge-vers-count" style="font-weight:700;color:#A00000">0</span> Leads mit Versicherungs-/Makler-Bezug gefunden (Firma, Gewerk, Notiz).
+      </p>
+      <button class="btn bs" onclick="purgeVersicherungsmakler()" style="justify-content:flex-start;gap:10px;padding:12px 16px;border-color:#F5CCBB;width:100%">
+        <span style="font-size:16px">&#128465;</span>
+        <span style="text-align:left"><strong style="display:block;color:#A00000">Alle löschen</strong><small style="color:var(--st);font-weight:400">Unwiderruflich aus CRM und Supabase entfernen</small></span>
+      </button>
+    </div>
   </div>
 </div>
 
@@ -391,7 +421,38 @@
   </div>
 </div>
 
+<!-- Toast -->
 <div id="toast" class="toast"></div>
+
+<!-- Session Celebration Popup -->
+<div class="ovl" id="sessionCelebrationPop">
+  <div class="modal" style="max-width:440px; text-align:center">
+    <div class="mh" style="justify-content:center; border-bottom:none; padding-bottom:0">
+      <h2 style="font-size:24px">🎉 Session beendet!</h2>
+    </div>
+    <div class="mb" style="padding:15px 24px 24px">
+      <div style="font-size:48px; margin-bottom:15px">🏆</div>
+      <p style="font-family:sans-serif; font-size:15px; font-weight:600; color:var(--ch); margin-bottom:12px" id="sc-headline">Spitzenleistung!</p>
+      <p style="font-family:sans-serif; font-size:13px; color:var(--st); margin-bottom:20px" id="sc-text"></p>
+      
+      <div style="background:var(--bg); border:1px solid var(--bd); border-radius:8px; padding:15px; margin-bottom:20px; display:grid; grid-template-columns:1fr 1fr; gap:10px" id="sc-stats">
+        <div style="border-right:1px solid var(--bd)">
+          <span style="font-size:10px; text-transform:uppercase; color:var(--st); display:block; letter-spacing:0.5px">Zeit</span>
+          <strong style="font-size:18px; color:var(--ch)" id="sc-duration">--:--</strong>
+        </div>
+        <div>
+          <span style="font-size:10px; text-transform:uppercase; color:var(--st); display:block; letter-spacing:0.5px">Leads Kontaktiert</span>
+          <strong style="font-size:18px; color:var(--ch)" id="sc-leads">0</strong>
+        </div>
+      </div>
+      
+      <div id="sc-breakdown" style="display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-bottom:10px"></div>
+    </div>
+    <div class="mf" style="justify-content:center; border-top:none; padding-top:0">
+      <button class="btn bp" onclick="closeSessionCelebration()" style="width:100%; justify-content:center; padding:10px">Großartig!</button>
+    </div>
+  </div>
+</div>
 
 <!-- Demo Termin Todo-Popup -->
 <div class="ovl" id="demotodo-pop">
@@ -536,7 +597,9 @@ import { initRealtime } from './src/realtime.js';
 import { render, setF, filterDue, goPg, openP, closeP, qs, openQN, closeQN, saveQN,
          inlineFU, shiftFU, saveNotiz, notizKey, inlineROI, inlineST,
          kbMove, kbOpen, kbEdit, openAdd, openE, closeE, save, del,
-         openPurgeDq, closePurgeDq, purgeDq, doSort, toggleColMenu, toggleCol } from './src/prospecting.js';
+         openPurgeDq, closePurgeDq, purgeDq,
+         openPurgeVersicherung, closePurgeVersicherung, purgeVersicherungsmakler,
+         doSort, toggleColMenu, toggleCol, applyColPreset, closeSessionCelebration } from './src/prospecting.js';
 import { renderCalls, resetCallCount } from './src/calls.js';
 import { addTouch, toggleAcc, saveTF } from './src/touch.js';
 import { openImport, closeI, dzOv, dzLv, dzDr, rdCSV, doImport, exportCSV } from './src/import.js';
@@ -549,7 +612,7 @@ import { initHeaderWidget, initSessionsPage } from './src/sessions.js';
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeClPanel(); closeEsPop(); closeDemoTodoPop(); closeQuickTodo(); }
+  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeClPanel(); closeEsPop(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); }
   const tag = document.activeElement.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (inInput) return;
@@ -592,11 +655,11 @@ Object.assign(window, {
   dzDr, dzLv, dzOv, esGenerate, esSend, exportCSV, filterDue, goPg,
   inlineFU, inlineROI, inlineST,
   markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit,
-  openClPanel, openE, openEsPanel, openEsPop, openImport, openP, openPurgeDq,
-  openQN, openQuickTodo, purgeDq, qs, rdCSV, render, renderClients, resetCallCount,
+  openClPanel, openE, openEsPanel, openEsPop, openImport, openP, openPurgeDq, openPurgeVersicherung,
+  openQN, openQuickTodo, applyColPreset, purgeDq, purgeVersicherungsmakler, qs, rdCSV, render, renderClients, resetCallCount,
   save, saveClient, saveDemoTodos, saveNotiz, saveQN, saveQuickTodo, saveTF,
   sendEmailBatch, setF, shiftFU,
-  syncCloud, toggleAcc, toggleCol, toggleColMenu, toggleMobileMenu,
+  syncCloud, toggleAcc, toggleCol, toggleColMenu, toggleMobileMenu, closePurgeVersicherung, closeSessionCelebration,
 });
 
 </script>

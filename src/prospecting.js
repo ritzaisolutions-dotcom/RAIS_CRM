@@ -5,9 +5,18 @@ import { markDirty, persist, pushDirty } from './sync.js';
 import { sbDelete, sbUpsert } from './supabase.js';
 import { emailBadge, emailPanelHtml } from './email.js';
 import { renderCalls, bumpCall } from './calls.js';
-import { onStatusChanged } from './sessions.js';
+import { onStatusChanged, onOutreachRecorded, getActiveSession } from './sessions.js';
 import { promptAutoClient } from './clients.js';
 import { showDemoTodoPopup } from './todopop.js';
+
+export function isVersicherungsLead(c) {
+  if (!c) return false;
+  const hay = [
+    c.gewerk, c.firma, c.besonderheit, c.notiz,
+    c.hauptleistung, c.extra && c.extra.hauptleistung,
+  ].filter(Boolean).join(' ').toLowerCase();
+  return /versicherung|versicherungsmakler|versicherungsagentur|versicherungsbüro|versicherungsberatung/.test(hay);
+}
 
 export function getList() {
   const q      = document.getElementById('srch').value.toLowerCase();
@@ -62,14 +71,57 @@ export function getList() {
 export function setF(f) {
   S.flt = f; S.pg = 1; S.dueMode = false;
   document.querySelectorAll('.stat').forEach(function(el) { el.classList.remove('on'); });
-  const map = {all:'s-all', neu:'s-neu', kein_anschluss:'s-ka', gatekeeper:'s-gk',
+  const map = {all:'s-all', neu:'s-neu', kein_anschluss:'s-ka', kein_anschluss_2:'s-ka2', gatekeeper:'s-gk',
                callback:'s-cb', email_nurture:'s-en', interessiert:'s-int', demo_termin:'s-dt',
-               door_open:'s-do', no_show:'s-ns', disqualified:'s-dq', gewonnen:'s-gw', heute:'s-heute'};
+               door_open:'s-do', no_show:'s-ns', disqualified:'s-dq', ghost:'s-gh',
+               gewonnen:'s-gw', heute:'s-heute'};
   if (map[f]) document.getElementById(map[f]).classList.add('on');
   render();
 }
 
 export function filterDue() { S.dueMode = true; S.pg = 1; render(); }
+
+const OUTREACH_PROTECTED = ['gewonnen', 'demo_termin', 'door_open', 'interessiert', 'disqualified', 'archiviert', 'ghost'];
+
+export function recordOutreachOnFollowupChange(c, prevFollowup, newFollowup, opts) {
+  opts = opts || {};
+  if (!c || prevFollowup === newFollowup) return false;
+  if (!getActiveSession()) return false;
+
+  if (!c.touches) c.touches = [];
+  const touchN = c.touches.length + 1;
+  const prevLabel = prevFollowup || '—';
+  c.touches.push({
+    status: 'Nicht erreicht (2)',
+    datum: td(),
+    notiz: 'Outreach #' + touchN + ' · FU: ' + prevLabel + ' → ' + (newFollowup || '—'),
+  });
+
+  const prevStatus = opts.prevStatus != null ? opts.prevStatus : c.status;
+  const statusFromForm = opts.statusFromForm;
+  const userChangedStatus = statusFromForm != null && statusFromForm !== prevStatus;
+
+  if (!userChangedStatus && !OUTREACH_PROTECTED.includes(c.status)) {
+    c.status = 'kein_anschluss_2';
+  } else if (statusFromForm != null) {
+    c.status = statusFromForm;
+  }
+
+  bumpCall();
+  markDirty(c);
+
+  const name = c.firma || c.company_name || '';
+  if (userChangedStatus) {
+    onStatusChanged(c.id, name, prevStatus, c.status);
+  } else if (prevStatus === 'kein_anschluss_2' && c.status === 'kein_anschluss_2') {
+    onOutreachRecorded(c.id, name, prevStatus, 'kein_anschluss_2');
+  } else if (prevStatus !== c.status) {
+    onStatusChanged(c.id, name, prevStatus, c.status);
+  } else {
+    onOutreachRecorded(c.id, name, prevStatus, c.status);
+  }
+  return true;
+}
 
 function renderMobileCards(slice) {
   const mlist = document.getElementById('mlist');
@@ -133,6 +185,8 @@ export function render() {
   document.getElementById('c-all').textContent = cnt.all;
   document.getElementById('c-neu').textContent = cnt.neu          || 0;
   document.getElementById('c-ka').textContent  = cnt.kein_anschluss || 0;
+  const ka2El = document.getElementById('c-ka2');
+  if (ka2El) ka2El.textContent = cnt.kein_anschluss_2 || 0;
   document.getElementById('c-gk').textContent  = cnt.gatekeeper   || 0;
   document.getElementById('c-cb').textContent  = cnt.callback     || 0;
   document.getElementById('c-en').textContent  = cnt.email_nurture|| 0;
@@ -141,6 +195,8 @@ export function render() {
   document.getElementById('c-do').textContent  = cnt.door_open    || 0;
   document.getElementById('c-ns').textContent  = cnt.no_show      || 0;
   document.getElementById('c-dq').textContent  = cnt.disqualified || 0;
+  const ghEl = document.getElementById('c-gh');
+  if (ghEl) ghEl.textContent = cnt.ghost || 0;
   document.getElementById('c-gw').textContent  = cnt.gewonnen     || 0;
 
   const due = S.contacts.filter(function(c) { return c.followup && c.followup <= t; }).length;
@@ -149,18 +205,21 @@ export function render() {
   document.getElementById('bannerC').textContent = due;
   renderCalls();
 
-  function thS(col, lbl) {
+  function thS(col, lbl, cls) {
     const idx = S.sortStack.findIndex(function(s) { return s.col === col; });
     const act = idx !== -1;
     const dir = act ? S.sortStack[idx].dir : 0;
     const arr = !act ? '&#8645;' : (dir === 1 ? '&#8593;' : '&#8595;');
     const badge = (act && S.sortStack.length > 1) ? '<span class="sort-badge">' + (idx + 1) + '</span>' : '';
-    return '<th class="sortable' + (act ? ' sa' : '') + '" onclick="doSort(\'' + col + '\')">' + lbl + '<span class="si">' + arr + '</span>' + badge + '</th>';
+    return '<th class="sortable' + (act ? ' sa' : '') + (cls ? ' ' + cls : '') + '" onclick="doSort(\'' + col + '\')">' + lbl + '<span class="si">' + arr + '</span>' + badge + '</th>';
   }
-  function thF(lbl, sty) { return '<th' + (sty ? ' style="' + sty + '"' : '') + '>' + lbl + '</th>'; }
+  function thF(lbl, sty, cls) {
+    return '<th' + (cls ? ' class="' + cls + '"' : '') + (sty ? ' style="' + sty + '"' : '') + '>' + lbl + '</th>';
+  }
   document.getElementById('thead').innerHTML = '<tr>' +
-    thF('#','width:36px;text-align:right;color:#B0A898;font-size:10px') +
-    thS('firma','Firma') + thF('Ansprechpartner') + thF('Telefon') +
+    thF('#','width:36px;text-align:right;color:#B0A898;font-size:10px','col-sticky-num') +
+    thS('firma','Firma','col-sticky-firma') +
+    thF('Ansprechpartner') + thF('Telefon') +
     thS('roi','ROI') + thS('status','Status') + thS('followup','Follow-up') +
     thF('T1 / Notiz') + thS('reviews','Reviews') +
     (S.colVis.website ? thF('&#127760;','width:36px;text-align:center') : '') +
@@ -168,7 +227,7 @@ export function render() {
     (S.colVis.region  ? thS('region','Region') : '') +
     (S.colVis.gewerk  ? thS('gewerk','Gewerk') : '') +
     thF('Email','width:44px;text-align:center') +
-    thF('','width:64px') +
+    thF('','width:48px') +
   '</tr>';
 
   const list = getList();
@@ -195,8 +254,8 @@ export function render() {
       const ageCls = lastTAge === null ? '' : (lastTAge <= 3 ? 'age-fresh' : lastTAge <= 7 ? 'age-warn' : 'age-old');
       const ageStr = lastTDatum ? relAge(lastTDatum) : (c.created ? relAge(new Date(c.created).toISOString().slice(0,10)) : null);
       return '<tr class="' + ovr + '" onclick="openP(\'' + c.id + '\')">' +
-        '<td style="text-align:right;font-family:sans-serif;font-size:11px;color:#B0A898;padding-right:10px;user-select:none">' + (pageOffset + i + 1) + '</td>' +
-        '<td class="fc">' + esc(c.firma) + (c.gewerk ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>' : '') + '</td>' +
+        '<td class="col-sticky-num" style="text-align:right;font-family:sans-serif;font-size:11px;color:#B0A898;padding-right:10px;user-select:none">' + (pageOffset + i + 1) + '</td>' +
+        '<td class="fc col-sticky-firma">' + esc(c.firma) + (c.gewerk ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>' : '') + '</td>' +
         '<td>' + esc(c.kontakt || '—') + '</td>' +
         '<td><a href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()" style="color:#2C5F8A;text-decoration:none;font-family:monospace;font-size:12.5px">' + esc(c.telefon || '—') + '</a></td>' +
         '<td onclick="event.stopPropagation()"><select class="idd roi-dd roi-' + (c.roi||0) + '" data-id="' + c.id + '" onchange="inlineROI(this)">' +
@@ -205,26 +264,7 @@ export function render() {
           '<option value="2"' + (c.roi==2?' selected':'') + '>② Mittel</option>' +
           '<option value="3"' + (c.roi==3?' selected':'') + '>③ Hoch</option>' +
         '</select></td>' +
-        '<td onclick="event.stopPropagation()"><select class="idd st-dd st-' + (c.status||'neu') + '" data-id="' + c.id + '" onchange="inlineST(this)">' +
-          '<optgroup label="── Aktiv ──">' +
-          '<option value="neu"'           + (c.status==='neu'?           ' selected':'') + '>Neu</option>' +
-          '<option value="kein_anschluss"'+ (c.status==='kein_anschluss'? ' selected':'') + '>Kein Anschluss</option>' +
-          '<option value="gatekeeper"'    + (c.status==='gatekeeper'?    ' selected':'') + '>Gatekeeper</option>' +
-          '<option value="callback"'      + (c.status==='callback'?      ' selected':'') + '>Callback</option>' +
-          '<option value="no_show"'       + (c.status==='no_show'?       ' selected':'') + '>No Show</option>' +
-          '<option value="email_nurture"' + (c.status==='email_nurture'? ' selected':'') + '>Email Nurture</option>' +
-          '</optgroup>' +
-          '<optgroup label="── Positiv ──">' +
-          '<option value="interessiert"'  + (c.status==='interessiert'?  ' selected':'') + '>Interessiert</option>' +
-          '<option value="door_open"'     + (c.status==='door_open'?     ' selected':'') + '>Tür Offen</option>' +
-          '<option value="demo_termin"'   + (c.status==='demo_termin'?   ' selected':'') + '>Demo Termin</option>' +
-          '<option value="gewonnen"'      + (c.status==='gewonnen'?      ' selected':'') + '>Gewonnen</option>' +
-          '</optgroup>' +
-          '<optgroup label="── Geschlossen ──">' +
-          '<option value="disqualified"'  + (c.status==='disqualified'?  ' selected':'') + '>Disqualified</option>' +
-          '<option value="archiviert"'    + (c.status==='archiviert'?    ' selected':'') + '>Archiviert</option>' +
-          '</optgroup>' +
-        '</select></td>' +
+        '<td class="st-cell-badge" onclick="event.stopPropagation();openP(\'' + c.id + '\')" title="Status im Panel ändern">' + sbadge(c.status) + '</td>' +
         '<td onclick="event.stopPropagation()" class="fu-cell"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onchange="inlineFU(this)" title="Follow-up Datum"></td>' +
         '<td class="notiz-cell" onclick="event.stopPropagation()">' +
           '<textarea class="notiz-ta" data-id="' + c.id + '" rows="2" placeholder="Notiz…" onblur="saveNotiz(this)" onkeydown="notizKey(event,this)">' + esc(c.notiz || '') + '</textarea>' +
@@ -239,7 +279,6 @@ export function render() {
         '<td class="ra-cell" onclick="event.stopPropagation()"><div class="ra">' +
           '<button class="btn bg bsm" onclick="openQN(\'' + c.id + '\')" title="Schnellnotiz">&#128221;</button>' +
           '<button class="btn bg bsm" onclick="openE(\'' + c.id + '\')" title="Bearbeiten">&#9998;</button>' +
-          '<button class="btn bg bsm" onclick="del(\'' + c.id + '\')" title="Löschen">&#128465;</button>' +
         '</div></td>' +
       '</tr>';
     }).join('');
@@ -335,10 +374,12 @@ export function openP(id) {
   document.getElementById('pFoot').innerHTML =
     '<div class="pf-status-row">' +
       '<button class="qs-chip" onclick="qs(\'' + id + '\',\'kein_anschluss\')">Kein Anschluss</button>' +
+      '<button class="qs-chip" onclick="qs(\'' + id + '\',\'kein_anschluss_2\')">Kein Anschluss 2</button>' +
       '<button class="qs-chip" onclick="qs(\'' + id + '\',\'gatekeeper\')">Gatekeeper</button>' +
       '<button class="qs-chip qs-chip-dt" onclick="qs(\'' + id + '\',\'callback\')">Callback</button>' +
       '<button class="qs-chip qs-chip-dt" onclick="qs(\'' + id + '\',\'demo_termin\')">Demo Termin</button>' +
       '<button class="qs-chip qs-chip-dq" onclick="qs(\'' + id + '\',\'disqualified\')">Disqualified</button>' +
+      '<button class="qs-chip qs-chip-dq" onclick="qs(\'' + id + '\',\'ghost\')">Ghost</button>' +
     '</div>' +
     '<div class="pf-actions">' +
       '<button class="btn bp bsm" onclick="openE(\'' + id + '\');closeP()">&#9998; Bearbeiten</button>' +
@@ -358,8 +399,9 @@ export function qs(id, s) {
   c.status = s;
   bumpCall();
   if (!c.touches) c.touches = [];
-  const TOUCH_MAP = { kein_anschluss:'Nicht erreicht', gatekeeper:'Gatekeeper',
-    callback:'Rückruf erbeten', demo_termin:'Termin vereinbart', disqualified:'Kein Interesse' };
+  const TOUCH_MAP = { kein_anschluss:'Nicht erreicht', kein_anschluss_2:'Nicht erreicht (2)',
+    gatekeeper:'Gatekeeper', callback:'Rückruf erbeten', demo_termin:'Termin vereinbart',
+    disqualified:'Kein Interesse', ghost:'Ghost' };
   c.touches.push({ status: TOUCH_MAP[s] || (STATUS[s] ? STATUS[s].label : s), datum: td(), notiz: '' });
   markDirty(c); persist(); render(); pushDirty(); closeP();
   toast('Status: ' + (STATUS[s] ? STATUS[s].label : s));
@@ -373,9 +415,13 @@ export function qs(id, s) {
 export function inlineFU(inp) {
   const c = S.contacts.find(function(x) { return x.id === inp.dataset.id; });
   if (!c) return;
+  const prev = c.followup || '';
   c.followup = inp.value;
   markDirty(c);
-  persist(); render(); pushDirty();
+  recordOutreachOnFollowupChange(c, prev, c.followup);
+  persist();
+  pushDirty();
+  render();
 }
 
 export function shiftFU(days) {
@@ -393,6 +439,12 @@ export function saveNotiz(ta) {
   c.notiz = val; c.besonderheit = val;
   markDirty(c);
   persist(); pushDirty();
+  
+  // Visuelles Autosave-Feedback
+  ta.classList.add('autosaved');
+  setTimeout(function() {
+    ta.classList.remove('autosaved');
+  }, 1400);
 }
 
 export function notizKey(e, ta) {
@@ -470,6 +522,8 @@ export function inlineST(sel) {
 export function openAdd() {
   S.eid = null;
   document.getElementById('mt').textContent = 'Kontakt hinzufügen';
+  const delBtn = document.getElementById('deleteContactBtn');
+  if (delBtn) delBtn.style.display = 'none';
   clrF();
   const tm = new Date(); tm.setDate(tm.getDate() + 1);
   document.getElementById('efu').value = tm.toISOString().slice(0,10);
@@ -481,6 +535,8 @@ export function openE(id) {
   if (!c) return;
   S.eid = id;
   document.getElementById('mt').textContent    = 'Kontakt bearbeiten';
+  const delBtn = document.getElementById('deleteContactBtn');
+  if (delBtn) delBtn.style.display = 'inline-flex';
   document.getElementById('ef').value          = c.firma        || '';
   document.getElementById('ek').value          = c.kontakt      || '';
   document.getElementById('etit').value        = c.title        || '';
@@ -532,8 +588,16 @@ export function save() {
   if (S.eid) {
     const i = S.contacts.findIndex(function(c) { return c.id === S.eid; });
     if (i >= 0) {
+      const prevFu = S.contacts[i].followup || '';
+      const prevStatus = S.contacts[i].status;
       if (S.contacts[i].status !== d.status) d.status_changed_at = td();
       S.contacts[i] = Object.assign({}, S.contacts[i], d, { synced_at: null });
+      if ((d.followup || '') !== prevFu) {
+        recordOutreachOnFollowupChange(S.contacts[i], prevFu, d.followup || '', {
+          statusFromForm: d.status,
+          prevStatus: prevStatus,
+        });
+      }
     }
   } else {
     S.contacts.push(Object.assign({id: gid(), created: Date.now(), touches:[{status:'',datum:'',notiz:''}], synced_at: null}, d));
@@ -543,6 +607,8 @@ export function save() {
 }
 
 export async function del(id) {
+  id = id || S.eid;
+  if (!id) { toast('Kein Kontakt zum Löschen.'); return; }
   if (!confirm('Kontakt wirklich löschen?')) return;
   if (S.syncInProgress) { toast('Sync läuft — bitte kurz warten.'); return; }
   try {
@@ -552,7 +618,7 @@ export async function del(id) {
     return;
   }
   S.contacts = S.contacts.filter(function(c) { return c.id !== id; });
-  persist(); render(); toast('Gelöscht.');
+  persist(); closeE(); render(); toast('Gelöscht.');
 }
 
 export function openPurgeDq() {
@@ -623,7 +689,68 @@ export function toggleColMenu(e) {
 export function toggleCol(col) {
   S.colVis[col] = !S.colVis[col];
   localStorage.setItem('rais_crm_colvis', JSON.stringify(S.colVis));
+  const cb = document.getElementById('cv-' + col);
+  if (cb) cb.checked = !!S.colVis[col];
   render();
+}
+
+export function applyColPreset(preset, silent) {
+  if (preset === 'calling') {
+    S.colVis = { website: false, stadt: false, region: false, gewerk: false };
+  } else if (preset === 'full') {
+    S.colVis = { website: true, stadt: true, region: true, gewerk: true };
+  }
+  localStorage.setItem('rais_crm_colvis', JSON.stringify(S.colVis));
+  ['website','stadt','region','gewerk'].forEach(function(k) {
+    const cb = document.getElementById('cv-' + k);
+    if (cb) cb.checked = !!S.colVis[k];
+  });
+  const drop = document.getElementById('ctdrop');
+  if (drop) drop.classList.remove('on');
+  render();
+  if (!silent) toast('Spalten-Preset angewendet.');
+}
+
+export function openPurgeVersicherung() {
+  const hits = S.contacts.filter(isVersicherungsLead);
+  document.getElementById('purge-vers-count').textContent = hits.length;
+  document.getElementById('purgeVersicherungModal').classList.add('on');
+}
+
+export function closePurgeVersicherung() {
+  document.getElementById('purgeVersicherungModal').classList.remove('on');
+}
+
+export function closeSessionCelebration() {
+  document.getElementById('sessionCelebrationPop').classList.remove('on');
+}
+
+export async function purgeVersicherungsmakler() {
+  const hits = S.contacts.filter(isVersicherungsLead);
+  if (!hits.length) { closePurgeVersicherung(); return; }
+  if (!confirm(hits.length + ' Versicherungs-Leads unwiderruflich löschen?')) return;
+  if (S.syncInProgress) { toast('Sync läuft — bitte kurz warten.'); closePurgeVersicherung(); return; }
+
+  const btn = document.getElementById('purgeVersBtn');
+  if (btn) btn.disabled = true;
+  closePurgeVersicherung();
+
+  try {
+    const ids = hits.map(function(c) { return c.id; });
+    for (let i = 0; i < ids.length; i += 50) {
+      const batch = ids.slice(i, i + 50);
+      const idList = batch.map(function(id) { return 'id.eq.' + id; }).join(',');
+      await sbDelete('/rest/v1/crm_contacts?or=(' + idList + ')');
+    }
+    const remove = new Set(ids);
+    S.contacts = S.contacts.filter(function(c) { return !remove.has(c.id); });
+    persist(); render();
+    toast(ids.length + ' Versicherungs-Leads gelöscht.');
+  } catch(e) {
+    toast('Fehler: ' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 document.addEventListener('click', function(e) {

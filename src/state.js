@@ -8,7 +8,7 @@ export const S = {
   dueMode:       false,
   eid:           null,
   sortStack:     [],
-  colVis:        { website: true, stadt: false, region: false, gewerk: false },
+  colVis:        { website: false, stadt: false, region: false, gewerk: false },
   autoSyncTimer: null,
   syncInProgress: false,
   qnId:          null,
@@ -30,7 +30,8 @@ export const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'
 export const STATUS = {
   // ── Aktiv / Neutral ──
   neu:            { cls: 'b-neu', label: 'Neu',            group: 'neutral' },
-  kein_anschluss: { cls: 'b-ni',  label: 'Kein Anschluss', group: 'neutral' },
+  kein_anschluss:   { cls: 'b-ni',  label: 'Kein Anschluss',   group: 'neutral' },
+  kein_anschluss_2: { cls: 'b-ka2', label: 'Kein Anschluss 2', group: 'neutral' },
   gatekeeper:     { cls: 'b-gk',  label: 'Gatekeeper',     group: 'neutral' },
   callback:       { cls: 'b-fu',  label: 'Callback',        group: 'neutral' },
   no_show:        { cls: 'b-ns',  label: 'No Show',         group: 'neutral' },
@@ -43,4 +44,5 @@ export const STATUS = {
   // ── Geschlossen ──
   disqualified:   { cls: 'b-ki',  label: 'Disqualified',    group: 'closed' },
   archiviert:     { cls: 'b-ki',  label: 'Archiviert',      group: 'closed' },
+  ghost:          { cls: 'b-gh',  label: 'Ghost',           group: 'closed' },
 };

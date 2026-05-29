@@ -1,0 +1,439 @@
+{
+  "name": "5. EMAIL 2 — Follow Up Demo (Tag 3)",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1376,
+        208
+      ],
+      "id": "270f3696-72a4-4911-b546-7b94399c8011",
+      "name": "Manual Trigger"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1376,
+        400
+      ],
+      "id": "b1437ee6-7520-4cbe-b5a7-ae391f949277",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-001",
+              "name": "document_id",
+              "value": "1M7Z8drWDotyYNTJ1jaf4pg8eY_0gHc22T3DTDTLwwgQ",
+              "type": "string"
+            },
+            {
+              "id": "cfg-002",
+              "name": "sheet_name",
+              "value": "leads-details",
+              "type": "string"
+            },
+            {
+              "id": "cfg-003",
+              "name": "daily_limit",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "cfg-004",
+              "name": "demo_url",
+              "value": "https://fliesen-weber.vercel.app/",
+              "type": "string"
+            },
+            {
+              "id": "cfg-005",
+              "name": "my_email",
+              "value": "ritzaisolutions@gmail.com",
+              "type": "string"
+            },
+            {
+              "id": "cfg-006",
+              "name": "min_days_since_email1",
+              "value": 3,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1136,
+        304
+      ],
+      "id": "8e32918a-2d03-462f-847f-f67e9456ab6d",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "jsCode": "const minDays = $('Config').first().json.min_days_since_email1;\nconst now = new Date();\nconst filtered = [];\n\nfor (const item of $input.all()) {\n  const email1Sent = (item.json.email_1_sent || '').trim();\n  const email2Sent = (item.json.email_2_sent || '').trim();\n  const unsub = (item.json.unsubscribed || '').trim().toLowerCase();\n  const reply = (item.json.reply_received || '').trim().toLowerCase();\n  const email = (item.json.email || '').trim();\n\n  // Muss: email_1 gesendet, email_2 noch nicht, nicht unsubscribed, nicht geantwortet\n  if (\n    email1Sent &&\n    !email2Sent &&\n    unsub !== 'ja' &&\n    reply !== 'ja' &&\n    email &&\n    email !== 'NA' &&\n    email.includes('@')\n  ) {\n    const sentDate = new Date(email1Sent);\n    const daysSince = Math.floor((now - sentDate) / (1000 * 60 * 60 * 24));\n    \n    if (daysSince >= minDays) {\n      filtered.push(item);\n    }\n  }\n}\n\nif (filtered.length === 0) {\n  return [{ json: { _empty: true, message: 'Keine Leads für Follow Up 1' } }];\n}\n\nreturn filtered;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -656,
+        304
+      ],
+      "id": "70323a8a-80a3-4146-8cc8-9a13755a59b9",
+      "name": "Filter Day 3+ Leads"
+    },
+    {
+      "parameters": {
+        "maxItems": "={{ $('Config').item.json.daily_limit }}"
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        240
+      ],
+      "id": "3850cbc2-13db-44fe-8360-50c5e8dc22fc",
+      "name": "Daily Limit"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        0,
+        240
+      ],
+      "id": "6cdf32ea-46d5-45cf-8613-92da9505bf7a",
+      "name": "Loop"
+    },
+    {
+      "parameters": {
+        "amount": 50
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        224,
+        368
+      ],
+      "id": "b461d71a-a819-44bd-ac15-f921857eed2a",
+      "name": "Wait 50s",
+      "webhookId": "wf5-wait-001"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\nconst person = item.person_name || item.person || '';\nconst nachname = (person && person !== 'NA' && person !== 'na')\n  ? person.split(' ').slice(-1)[0]\n  : null;\n\nconst anrede = nachname\n  ? `Sehr geehrter Herr ${nachname}`\n  : 'Sehr geehrte Damen und Herren';\n\nconst firma = item.company_name || 'Ihr Betrieb';\nconst email = item.email || '';\nconst row = item.row_number;\nconst email1Subject = (item.email_1_subject || '').trim();\n\n// Re: gleicher Thread\nconst subject = email1Subject ? `Re: ${email1Subject}` : 'Re: Anfragen auch nach Feierabend?';\n\nconst body = `${anrede},\n\nkurze Nachfrage — hatten Sie Zeit in die Demo reinzuschauen?\n\nFalls nicht: hier nochmal der Link — https://fliesen-weber.vercel.app/\n\nDer Kostenrechner lässt sich komplett auf Ihre Preise anpassen. Kein Abo, keine monatlichen Kosten — einmaliges Festpreis-Projekt.\n\nWäre einen kurzen Call wert?\n\nBeste Grüße\nKevin Ritz\nRitz AI Solutions\nritz-ai.solutions | +49 151 2975 5134 | kevin@ritz-ai.solutions`;\n\nreturn [{\n  json: {\n    email_to: email,\n    email_subject: subject,\n    email_body: body,\n    row_number: row\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        368
+      ],
+      "id": "669c4447-266a-49f7-8b2b-be223db5e32b",
+      "name": "Build Email 2"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1M7Z8drWDotyYNTJ1jaf4pg8eY_0gHc22T3DTDTLwwgQ",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "leads-details",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "email_2_sent": "={{ new Date().toISOString().split('T')[0] }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "email_2_sent",
+              "displayName": "email_2_sent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        880,
+        368
+      ],
+      "id": "e9f4b622-5634-4e0b-a35e-72bbd4238ce3",
+      "name": "Mark Email 2 Sent",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iLNL1R2zb9ub2JWA",
+          "name": "Google Sheets RAIS"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Config').item.json.my_email }}",
+        "subject": "WF5 FOLLOW UP 1 *** DONE ***",
+        "message": "Follow Up 1 Kampagne abgeschlossen.",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "2dcae692-3e0d-4375-b852-99538298d11f",
+      "name": "Notify Done",
+      "webhookId": "b56f71e2-a69e-4c97-8c73-be49b40030db",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "FDojDyEfOMl97Vmb",
+          "name": "ritzaisolutions@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {},
+        "fromEmail": "kevin@ritz-ai.solutions",
+        "fromName": "Kevin Ritz — Ritz AI Solutions",
+        "toEmail": "={{ $json.email_to }}",
+        "subject": "={{ $json.email_subject }}",
+        "text": "={{ $json.email_body }}"
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        656,
+        368
+      ],
+      "id": "34fcde9d-95d1-4478-99eb-fe0d65128f9e",
+      "name": "Send an Email",
+      "webhookId": "d93bb21e-277b-4edf-94f4-a19569247f70",
+      "credentials": {
+        "smtp": {
+          "id": "jr5t6ZjMqqqydzQg",
+          "name": "kevin@ritz-ai.solutions"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "={{ $json.document_id }}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "={{ $json.sheet_name }}",
+          "mode": "name"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -896,
+        304
+      ],
+      "id": "29946d06-c8d6-44b9-adbb-2fb43ceae087",
+      "name": "Read CRM",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "iLNL1R2zb9ub2JWA",
+          "name": "Google Sheets RAIS"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Read CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Day 3+ Leads": {
+      "main": [
+        [
+          {
+            "node": "Daily Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Limit": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop": {
+      "main": [
+        [
+          {
+            "node": "Notify Done",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 50s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 50s": {
+      "main": [
+        [
+          {
+            "node": "Build Email 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Email 2": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Email 2 Sent": {
+      "main": [
+        [
+          {
+            "node": "Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send an Email": {
+      "main": [
+        [
+          {
+            "node": "Mark Email 2 Sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read CRM": {
+      "main": [
+        [
+          {
+            "node": "Filter Day 3+ Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9294644e-24f3-4927-8875-8e5443589f38",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6140dcd1eeef56988d97baa4d030a839e61618e52e7b6b6368007789e07414e1"
+  },
+  "id": "rFqq960MbzFRPwq8",
+  "tags": []
+}

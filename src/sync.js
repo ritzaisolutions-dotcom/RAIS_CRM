@@ -6,6 +6,47 @@ export function isDirtyContact(c) { return !!(c && !c.synced_at); }
 export function markDirty(c) { if (c) c.synced_at = null; }
 export function persist() { localStorage.setItem(KEY, JSON.stringify(S.contacts)); }
 
+const EXTRA_KEYS = [
+  'hauptleistung', 'webseite_alter', 'webseite_vorhanden', 'hat_kalkulator',
+  'facebook', 'instagram', 'lead_score', 'score_reasons', 'qualified', 'enriched',
+  'rating', 'place_id', 'adresse',
+];
+
+function buildExtra(c) {
+  const extra = Object.assign({}, c.extra || {});
+  EXTRA_KEYS.forEach(function(k) {
+    if (c[k] != null && c[k] !== '') extra[k] = c[k];
+  });
+  return Object.keys(extra).length ? extra : null;
+}
+
+function contactToRow(c, now) {
+  const row = {
+    id: c.id, created: c.created, firma: c.firma || '',
+    kontakt: c.kontakt || null, title: c.title || null,
+    telefon: c.telefon || null, email: c.email || null,
+    status: c.status || 'neu', followup: c.followup || null,
+    roi: c.roi || null, stadt: c.stadt || null,
+    region: c.region || null, notiz: c.notiz || null,
+    website: c.website || null, gewerk: c.gewerk || null,
+    touches: c.touches || [],
+    status_changed_at: c.status_changed_at || null,
+    synced_at: now,
+  };
+  const extra = buildExtra(c);
+  if (extra) row.extra = extra;
+  if (c.reviews)           row.reviews = c.reviews;
+  if (c.besonderheit)      row.besonderheit = c.besonderheit;
+  if (c.email_1_sent)      row.email_1_sent = c.email_1_sent;
+  if (c.email_1_subject)   row.email_1_subject = c.email_1_subject;
+  if (c.email_2_sent)      row.email_2_sent = c.email_2_sent;
+  if (c.followup_sent)     row.followup_sent = c.followup_sent;
+  if (c.email_status)      row.email_status = c.email_status;
+  if (c.unsubscribed)      row.unsubscribed = true;
+  if (c.reply_received)    row.reply_received = true;
+  return row;
+}
+
 export function load() {
   try {
     const s = JSON.parse(localStorage.getItem(KEY));
@@ -76,26 +117,7 @@ export async function syncCloud(silent) {
     const now = new Date().toISOString();
     const rows = S.contacts.filter(function(c) { return uploadIds.has(c.id); }).map(function(c) {
       c.synced_at = now;
-      const row = {
-        id: c.id, created: c.created, firma: c.firma || '',
-        kontakt: c.kontakt || null, title: c.title || null,
-        telefon: c.telefon || null, email: c.email || null,
-        status: c.status || 'neu', followup: c.followup || null,
-        roi: c.roi || null, stadt: c.stadt || null,
-        region: c.region || null, notiz: c.notiz || null,
-        website: c.website || null, gewerk: c.gewerk || null,
-        touches: c.touches || [],
-        status_changed_at: c.status_changed_at || null,
-        synced_at: now,
-      };
-      if (c.email_1_sent)    row.email_1_sent    = c.email_1_sent;
-      if (c.email_1_subject) row.email_1_subject = c.email_1_subject;
-      if (c.email_2_sent)    row.email_2_sent    = c.email_2_sent;
-      if (c.followup_sent)   row.followup_sent   = c.followup_sent;
-      if (c.email_status)    row.email_status    = c.email_status;
-      if (c.unsubscribed)    row.unsubscribed    = true;
-      if (c.reply_received)  row.reply_received  = true;
-      return row;
+      return contactToRow(c, now);
     });
     for (let i = 0; i < rows.length; i += 50) {
       await sbUpsert('/rest/v1/crm_contacts', rows.slice(i, i + 50));
@@ -126,26 +148,7 @@ export async function pushDirty() {
     const now = new Date().toISOString();
     const rows = dirty.map(function(c) {
       c.synced_at = now;
-      const row = {
-        id: c.id, created: c.created, firma: c.firma || '',
-        kontakt: c.kontakt || null, title: c.title || null,
-        telefon: c.telefon || null, email: c.email || null,
-        status: c.status || 'neu', followup: c.followup || null,
-        roi: c.roi || null, stadt: c.stadt || null,
-        region: c.region || null, notiz: c.notiz || null,
-        website: c.website || null, gewerk: c.gewerk || null,
-        touches: c.touches || [],
-        status_changed_at: c.status_changed_at || null,
-        synced_at: now,
-      };
-      if (c.email_1_sent)    row.email_1_sent    = c.email_1_sent;
-      if (c.email_1_subject) row.email_1_subject = c.email_1_subject;
-      if (c.email_2_sent)    row.email_2_sent    = c.email_2_sent;
-      if (c.followup_sent)   row.followup_sent   = c.followup_sent;
-      if (c.email_status)    row.email_status    = c.email_status;
-      if (c.unsubscribed)    row.unsubscribed    = true;
-      if (c.reply_received)  row.reply_received  = true;
-      return row;
+      return contactToRow(c, now);
     });
     for (let i = 0; i < rows.length; i += 50) {
       await sbUpsert('/rest/v1/crm_contacts', rows.slice(i, i + 50));
