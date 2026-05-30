@@ -176,7 +176,9 @@ function renderMobileCards(slice) {
     return (
       '<div class="mc" onclick="openP(\'' + c.id + '\')">' +
         '<div class="mc-top">' +
-          '<div class="mc-firma">' + esc(c.firma) + '</div>' +
+          '<div class="mc-firma">' + esc(c.firma) +
+            (c.website ? ' <a class="mc-globe" href="' + esc(c.website) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + esc(c.website) + '">&#127760;</a>' : '') +
+          '</div>' +
           '<div class="mc-right" onclick="event.stopPropagation()">' + statusSelectHtml(c) + roi + '</div>' +
         '</div>' +
         '<div class="mc-mid">' + gwBadge + stadtStr + fuPill + touchPill + '</div>' +
@@ -328,7 +330,11 @@ export function openP(id) {
   const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   document.getElementById('pFirma').textContent = c.firma;
-  document.getElementById('pSub').textContent = [c.title, c.kontakt].filter(Boolean).join(' · ');
+  var subText = [c.title, c.kontakt].filter(Boolean).join(' · ');
+  var globeLink = c.website
+    ? ' <a href="' + esc(c.website) + '" target="_blank" rel="noopener" class="ph-globe" onclick="event.stopPropagation()" title="' + esc(c.website) + '">&#127760;</a>'
+    : '';
+  document.getElementById('pSub').innerHTML = (subText ? esc(subText) : '') + globeLink;
   const wsOk = c.webseite_vorhanden === 'TRUE' || c.webseite_vorhanden === true;
   const kalk = c.hat_kalkulator === 'TRUE' || c.hat_kalkulator === true;
   const b = document.getElementById('pBody');
