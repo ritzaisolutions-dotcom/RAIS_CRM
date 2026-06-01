@@ -112,6 +112,7 @@
   <div class="stats">
     <div class="stat on" id="s-all"   onclick="setF('all')">          <span class="sn" id="c-all">0</span>  <span class="sl">Gesamt</span></div>
     <div class="stat" id="s-heute"    onclick="setF('heute')">        <span class="sn" id="c-heute">0</span><span class="sl">&#128197; Heute</span></div>
+    <div class="stat" id="s-aktion" onclick="setF('aktion')">      <span class="sn" id="c-aktion">0</span><span class="sl">&#9889; Aktion</span></div>
     <div class="stat-group stat-group-neutral">
       <div class="stat" id="s-neu"    onclick="setF('neu')">          <span class="sn" id="c-neu">0</span>  <span class="sl">Neu</span></div>
       <div class="stat" id="s-ka"     onclick="setF('kein_anschluss')"><span class="sn" id="c-ka">0</span>  <span class="sl">Kein Anschluss</span></div>
@@ -128,6 +129,7 @@
       <div class="stat" id="s-gw"     onclick="setF('gewonnen')">     <span class="sn" id="c-gw">0</span>  <span class="sl">Gewonnen</span></div>
     </div>
     <div class="stat-group stat-group-closed">
+      <div class="stat" id="s-np"     onclick="setF('nicht_passend')"> <span class="sn" id="c-np">0</span>  <span class="sl">Nicht passend</span></div>
       <div class="stat" id="s-dq"     onclick="setF('disqualified')"> <span class="sn" id="c-dq">0</span>  <span class="sl">Disqualified</span></div>
       <div class="stat" id="s-gh"     onclick="setF('ghost')">        <span class="sn" id="c-gh">0</span>  <span class="sl">Ghost</span></div>
     </div>
@@ -172,7 +174,6 @@
     <div class="coltog">
       <button class="btn bs" onclick="toggleColMenu(event)">&#9881; Spalten</button>
       <div class="ctdrop" id="ctdrop">
-        <label class="ctrow"><input type="checkbox" id="cv-website" onchange="toggleCol('website')"> Website</label>
         <label class="ctrow"><input type="checkbox" id="cv-stadt" onchange="toggleCol('stadt')"> Stadt</label>
         <label class="ctrow"><input type="checkbox" id="cv-region" onchange="toggleCol('region')"> Region</label>
         <label class="ctrow"><input type="checkbox" id="cv-gewerk" onchange="toggleCol('gewerk')"> Gewerk</label>
@@ -183,6 +184,8 @@
       </div>
     </div>
   </div>
+
+  <div id="aktion-queue-bar" class="aktion-queue-bar" hidden></div>
 
   <div class="tw">
     <table>
@@ -447,6 +450,7 @@
       </div>
       
       <div id="sc-breakdown" style="display:flex; flex-wrap:wrap; justify-content:center; gap:6px; margin-bottom:10px"></div>
+      <div id="sc-aktion-queue" class="sc-aktion-queue-wrap"></div>
     </div>
     <div class="mf" style="justify-content:center; border-top:none; padding-top:0">
       <button class="btn bp" onclick="closeSessionCelebration()" style="width:100%; justify-content:center; padding:10px">Großartig!</button>
@@ -509,6 +513,24 @@
     <div class="mf">
       <button class="btn bs bsm" onclick="closeQuickTodo()">Abbrechen</button>
       <button class="btn bp bsm" onclick="saveQuickTodo()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Aktion nötig Popup -->
+<div id="aktionPop" class="ovl">
+  <div class="modal" style="max-width:420px">
+    <div class="mh"><h2 id="aktionPopTitle">Aktion</h2><button class="btn bg" onclick="closeAktionPop()">&#10005;</button></div>
+    <div class="mb">
+      <p style="font-family:sans-serif;font-size:12px;color:var(--st);margin:0 0 10px">Was ist zu tun?</p>
+      <div class="aktion-chips" id="aktionChips"></div>
+      <textarea id="aktionText" class="qn-ta" rows="3" placeholder="Was ist zu tun?"></textarea>
+    </div>
+    <div class="mf" style="flex-wrap:wrap;gap:8px">
+      <button type="button" class="btn bs bsm" id="aktionPopClear" onclick="clearAktionPop()" hidden>Markierung aufheben</button>
+      <span style="flex:1"></span>
+      <button type="button" class="btn bs bsm" onclick="closeAktionPop()">Abbrechen</button>
+      <button type="button" class="btn bp bsm" onclick="saveAktionPop()">Speichern</button>
     </div>
   </div>
 </div>
@@ -595,11 +617,13 @@
 import { load, syncCloud } from './src/sync.js';
 import { initRealtime } from './src/realtime.js';
 import { render, setF, filterDue, goPg, openP, closeP, qs, openQN, closeQN, saveQN,
-         inlineFU, shiftFU, saveNotiz, notizKey, inlineROI, inlineST,
+         inlineFU, inlineFUFocus, inlineFUBlur, shiftFU, saveNotiz, notizKey, inlineROI, inlineST,
          kbMove, kbOpen, kbEdit, openAdd, openE, closeE, save, del,
          openPurgeDq, closePurgeDq, purgeDq,
          openPurgeVersicherung, closePurgeVersicherung, purgeVersicherungsmakler,
-         doSort, toggleColMenu, toggleCol, applyColPreset, closeSessionCelebration } from './src/prospecting.js';
+         doSort, toggleColMenu, toggleCol, applyColPreset, closeSessionCelebration,
+         openAktionPop, closeAktionPop, saveAktionPop, clearAktionPop, fillAktionSuggestion,
+         checkAktionItem, scrollToAktionQueue } from './src/prospecting.js';
 import { renderCalls, resetCallCount } from './src/calls.js';
 import { addTouch, toggleAcc, saveTF } from './src/touch.js';
 import { openImport, closeI, dzOv, dzLv, dzDr, rdCSV, doImport, exportCSV } from './src/import.js';
@@ -612,7 +636,7 @@ import { initHeaderWidget, initSessionsPage } from './src/sessions.js';
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeClPanel(); closeEsPop(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); }
+  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeClPanel(); closeEsPop(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); }
   const tag = document.activeElement.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (inInput) return;
@@ -653,13 +677,14 @@ Object.assign(window, {
   addTouch, bulkEmail, closeClientModal, closeClPanel, closeDemoTodoPop, closeE, closeEsPop,
   closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, del, delClient, doImport, doSort,
   dzDr, dzLv, dzOv, esGenerate, esSend, exportCSV, filterDue, goPg,
-  inlineFU, inlineROI, inlineST,
+  inlineFU, inlineFUFocus, inlineFUBlur, inlineROI, inlineST,
   markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit,
   openClPanel, openE, openEsPanel, openEsPop, openImport, openP, openPurgeDq, openPurgeVersicherung,
   openQN, openQuickTodo, applyColPreset, purgeDq, purgeVersicherungsmakler, qs, rdCSV, render, renderClients, resetCallCount,
   save, saveClient, saveDemoTodos, saveNotiz, saveQN, saveQuickTodo, saveTF,
   sendEmailBatch, setF, shiftFU,
   syncCloud, toggleAcc, toggleCol, toggleColMenu, toggleMobileMenu, closePurgeVersicherung, closeSessionCelebration,
+  openAktionPop, closeAktionPop, saveAktionPop, clearAktionPop, fillAktionSuggestion, checkAktionItem, scrollToAktionQueue,
 });
 
 </script>

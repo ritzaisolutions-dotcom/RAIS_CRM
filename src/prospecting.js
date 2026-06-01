@@ -1,11 +1,15 @@
 import { S, PG, STATUS, TSTAT, TSCLS } from './state.js';
 import { gid, td, relAge, gewerkKuerzel, gewerkSlug } from './utils.js';
 import { sbadge, roib, fdc, esc, ir, toast } from './ui.js';
-import { markDirty, persist, pushDirty } from './sync.js';
+import { markDirty, persist, pushDirty, isAktionNoetig } from './sync.js';
 import { sbDelete, sbUpsert } from './supabase.js';
 import { emailBadge, emailPanelHtml } from './email.js';
 import { renderCalls, bumpCall } from './calls.js';
-import { onStatusChanged, onOutreachRecorded, getActiveSession } from './sessions.js';
+import {
+  onStatusChanged, onOutreachRecorded, getActiveSession,
+  upsertAktionLead, removeAktionLead, renderAktionQueueBar,
+  completeAktionItem, clearCelebrationAktionQueue,
+} from './sessions.js';
 import { promptAutoClient } from './clients.js';
 import { showDemoTodoPopup } from './todopop.js';
 
@@ -21,8 +25,19 @@ export function isVersicherungsLead(c) {
 const STATUS_SELECT_GROUPS = [
   { label: '── Aktiv ──', keys: ['neu', 'kein_anschluss', 'kein_anschluss_2', 'gatekeeper', 'callback', 'no_show', 'email_nurture'] },
   { label: '── Positiv ──', keys: ['interessiert', 'door_open', 'demo_termin', 'gewonnen'] },
-  { label: '── Geschlossen ──', keys: ['disqualified', 'archiviert', 'ghost'] },
+  { label: '── Geschlossen ──', keys: ['nicht_passend', 'disqualified', 'archiviert', 'ghost'] },
 ];
+
+const AKTION_SUGGESTIONS = [
+  'Rückruf vereinbaren',
+  'E-Mail senden',
+  'Demo-Termin klären',
+  'Unterlagen nachreichen',
+  'Angebot erstellen',
+  'Website nochmal prüfen',
+];
+
+let _aktionPopId = null;
 
 function statusSelectHtml(c) {
   const cur = c.status || 'neu';
@@ -46,6 +61,7 @@ export function getList() {
   const srt    = document.getElementById('sortS').value;
   let list = S.contacts.filter(function(c) {
     if (S.flt === 'heute') { const t = td(); return c.followup && c.followup <= t; }
+    if (S.flt === 'aktion') return isAktionNoetig(c);
     if (S.flt !== 'all' && c.status !== S.flt) return false;
     if (roi === '0' && c.roi) return false;
     if (roi && roi !== '0' && String(c.roi||'') !== roi) return false;
@@ -86,21 +102,49 @@ export function getList() {
       return da.localeCompare(db);
     });
   }
+  if (S.pinContactId) {
+    const pinId = S.pinContactId;
+    let pinIdx = list.findIndex(function(c) { return c.id === pinId; });
+    if (pinIdx === -1) {
+      const pin = S.contacts.find(function(c) { return c.id === pinId; });
+      if (pin) {
+        const at = S.pinListIndex != null ? Math.min(S.pinListIndex, list.length) : list.length;
+        list.splice(at, 0, pin);
+      }
+    } else if (S.pinListIndex != null && pinIdx !== S.pinListIndex) {
+      const item = list.splice(pinIdx, 1)[0];
+      list.splice(Math.min(S.pinListIndex, list.length), 0, item);
+    }
+  }
   return list;
 }
 
+function clearTablePin() {
+  S.pinContactId = null;
+  S.pinListIndex = null;
+}
+
+function patchFollowupRow(contactId) {
+  const c = S.contacts.find(function(x) { return x.id === contactId; });
+  const tr = document.querySelector('#tbody tr[data-id="' + contactId + '"]');
+  if (!c || !tr) return;
+  const t = td();
+  tr.classList.toggle('ov', !!(c.followup && c.followup < t));
+}
+
 export function setF(f) {
+  clearTablePin();
   S.flt = f; S.pg = 1; S.dueMode = false;
   document.querySelectorAll('.stat').forEach(function(el) { el.classList.remove('on'); });
   const map = {all:'s-all', neu:'s-neu', kein_anschluss:'s-ka', kein_anschluss_2:'s-ka2', gatekeeper:'s-gk',
                callback:'s-cb', email_nurture:'s-en', interessiert:'s-int', demo_termin:'s-dt',
-               door_open:'s-do', no_show:'s-ns', disqualified:'s-dq', ghost:'s-gh',
-               gewonnen:'s-gw', heute:'s-heute'};
+               door_open:'s-do', no_show:'s-ns', nicht_passend:'s-np', disqualified:'s-dq', ghost:'s-gh',
+               gewonnen:'s-gw', heute:'s-heute', aktion:'s-aktion'};
   if (map[f]) document.getElementById(map[f]).classList.add('on');
   render();
 }
 
-export function filterDue() { S.dueMode = true; S.pg = 1; render(); }
+export function filterDue() { clearTablePin(); S.dueMode = true; S.pg = 1; render(); }
 
 const OUTREACH_PROTECTED = ['gewonnen', 'demo_termin', 'door_open', 'interessiert', 'disqualified', 'archiviert', 'ghost'];
 
@@ -122,7 +166,7 @@ export function recordOutreachOnFollowupChange(c, prevFollowup, newFollowup, opt
   const statusFromForm = opts.statusFromForm;
   const userChangedStatus = statusFromForm != null && statusFromForm !== prevStatus;
 
-  if (!userChangedStatus && !OUTREACH_PROTECTED.includes(c.status)) {
+  if (!opts.skipStatusAuto && !userChangedStatus && !OUTREACH_PROTECTED.includes(c.status)) {
     c.status = 'kein_anschluss_2';
   } else if (statusFromForm != null) {
     c.status = statusFromForm;
@@ -215,10 +259,14 @@ export function render() {
   document.getElementById('c-dt').textContent  = cnt.demo_termin  || 0;
   document.getElementById('c-do').textContent  = cnt.door_open    || 0;
   document.getElementById('c-ns').textContent  = cnt.no_show      || 0;
+  const npEl = document.getElementById('c-np');
+  if (npEl) npEl.textContent = cnt.nicht_passend || 0;
   document.getElementById('c-dq').textContent  = cnt.disqualified || 0;
   const ghEl = document.getElementById('c-gh');
   if (ghEl) ghEl.textContent = cnt.ghost || 0;
   document.getElementById('c-gw').textContent  = cnt.gewonnen     || 0;
+  const aktionEl = document.getElementById('c-aktion');
+  if (aktionEl) aktionEl.textContent = S.contacts.filter(isAktionNoetig).length;
 
   const due = S.contacts.filter(function(c) { return c.followup && c.followup <= t; }).length;
   document.getElementById('c-heute').textContent = due;
@@ -241,9 +289,10 @@ export function render() {
     thF('#','width:36px;text-align:right;color:#B0A898;font-size:10px','col-sticky-num') +
     thS('firma','Firma','col-sticky-firma') +
     thF('Ansprechpartner') + thF('Telefon') +
-    thS('roi','ROI') + thS('status','Status') + thS('followup','Follow-up') +
-    thF('T1 / Notiz') + thS('reviews','Reviews') +
-    (S.colVis.website ? thF('&#127760;','width:36px;text-align:center') : '') +
+    thF('&#127760;','width:36px;text-align:center','col-web') +
+    thS('status','Status') + thS('followup','Follow-up') + thS('roi','ROI') +
+    thF('Notiz') + thF('Aktion','width:40px;text-align:center') +
+    thS('reviews','Reviews') +
     (S.colVis.stadt   ? thS('stadt','Stadt') : '') +
     (S.colVis.region  ? thS('region','Region') : '') +
     (S.colVis.gewerk  ? thS('gewerk','Gewerk') : '') +
@@ -267,32 +316,41 @@ export function render() {
     const pageOffset = (S.pg - 1) * PG;
     tbody.innerHTML = sl.map(function(c, i) {
       const ovr = (c.followup && c.followup < t) ? ' ov' : '';
+      const aktion = isAktionNoetig(c);
+      const rowCls = (ovr ? ' ov' : '') + (aktion ? ' tr-aktion' : '');
       const t1  = (c.touches && c.touches[0]) || {};
-      const note = (t1.status || t1.notiz || c.besonderheit || c.notiz || '').slice(0, 55);
       const lastT = (c.touches && c.touches.slice().reverse().find(function(t){ return t.datum; })) || null;
       const lastTDatum = lastT ? lastT.datum : null;
       const lastTAge = lastTDatum ? Math.floor((new Date(td()) - new Date(lastTDatum)) / 86400000) : null;
       const ageCls = lastTAge === null ? '' : (lastTAge <= 3 ? 'age-fresh' : lastTAge <= 7 ? 'age-warn' : 'age-old');
       const ageStr = lastTDatum ? relAge(lastTDatum) : (c.created ? relAge(new Date(c.created).toISOString().slice(0,10)) : null);
-      return '<tr class="' + ovr + '" onclick="openP(\'' + c.id + '\')">' +
+      const aktionHint = (c.extra && c.extra.aktion_notiz) ? '<span class="aktion-hint">' + esc(c.extra.aktion_notiz) + '</span>' : '';
+      const aktionTitle = (c.extra && c.extra.aktion_notiz) ? esc(c.extra.aktion_notiz) : 'Aktion markieren';
+      return '<tr class="' + rowCls.trim() + '" data-id="' + c.id + '" onclick="openP(\'' + c.id + '\')">' +
         '<td class="col-sticky-num" style="text-align:right;font-family:sans-serif;font-size:11px;color:#B0A898;padding-right:10px;user-select:none">' + (pageOffset + i + 1) + '</td>' +
         '<td class="fc col-sticky-firma">' + esc(c.firma) + (c.gewerk ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>' : '') + '</td>' +
         '<td>' + esc(c.kontakt || '—') + '</td>' +
         '<td><a href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()" style="color:#2C5F8A;text-decoration:none;font-family:monospace;font-size:12.5px">' + esc(c.telefon || '—') + '</a></td>' +
+        '<td class="col-web" onclick="event.stopPropagation()" style="text-align:center">' +
+          (c.website ? '<a class="wlink" href="' + esc(c.website) + '" target="_blank" rel="noopener" title="' + esc(c.website) + '">&#127760;</a>' : '<span class="wlink-none">&#127760;</span>') +
+        '</td>' +
+        '<td class="st-cell" onclick="event.stopPropagation()">' + statusSelectHtml(c) + '</td>' +
+        '<td onclick="event.stopPropagation()" class="fu-cell"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onfocus="inlineFUFocus(this)" onchange="inlineFU(this)" onblur="inlineFUBlur(this)" title="Follow-up Datum"></td>' +
         '<td onclick="event.stopPropagation()"><select class="idd roi-dd roi-' + (c.roi||0) + '" data-id="' + c.id + '" onchange="inlineROI(this)">' +
           '<option value=""'  + (!c.roi?          ' selected':'') + '>— offen</option>' +
           '<option value="1"' + (c.roi==1?' selected':'') + '>① Niedrig</option>' +
           '<option value="2"' + (c.roi==2?' selected':'') + '>② Mittel</option>' +
           '<option value="3"' + (c.roi==3?' selected':'') + '>③ Hoch</option>' +
         '</select></td>' +
-        '<td class="st-cell" onclick="event.stopPropagation()">' + statusSelectHtml(c) + '</td>' +
-        '<td onclick="event.stopPropagation()" class="fu-cell"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onchange="inlineFU(this)" title="Follow-up Datum"></td>' +
         '<td class="notiz-cell" onclick="event.stopPropagation()">' +
           '<textarea class="notiz-ta" data-id="' + c.id + '" rows="2" placeholder="Notiz…" onblur="saveNotiz(this)" onkeydown="notizKey(event,this)">' + esc(c.notiz || '') + '</textarea>' +
           (ageStr ? '<span class="age-lbl ' + ageCls + '">' + (lastTDatum ? '&#128222; ' : '') + ageStr + '</span>' : '') +
         '</td>' +
+        '<td class="col-aktion" onclick="event.stopPropagation()" style="text-align:center;white-space:nowrap">' +
+          '<button type="button" class="aktion-flag-btn' + (aktion ? ' on' : '') + '" onclick="openAktionPop(\'' + c.id + '\')" title="' + aktionTitle + '">&#9889;</button>' +
+          aktionHint +
+        '</td>' +
         '<td style="font-family:sans-serif;font-size:12px;color:#7B746B">' + esc(c.reviews || '—') + '</td>' +
-        (S.colVis.website ? '<td style="text-align:center" onclick="event.stopPropagation()">' + (c.website ? '<a class="wlink" href="' + esc(c.website) + '" target="_blank" rel="noopener" title="' + esc(c.website) + '">&#127760;</a>' : '<span class="wlink-none">&#127760;</span>') + '</td>' : '') +
         (S.colVis.stadt   ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.stadt  || '—') + '</td>' : '') +
         (S.colVis.region  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.region || '—') + '</td>' : '') +
         (S.colVis.gewerk  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.gewerk || '—') + '</td>' : '') +
@@ -306,6 +364,7 @@ export function render() {
   }
 
   renderMobileCards(sl);
+  renderAktionQueueBar();
 
   document.getElementById('rc').textContent = tot === S.contacts.length
     ? tot + ' Einträge' : tot + ' von ' + S.contacts.length;
@@ -380,6 +439,7 @@ export function openP(id) {
     (c.facebook ? ir('Facebook', '<a href="' + esc(c.facebook) + '" target="_blank" rel="noopener">Profil öffnen</a>') : '') +
     '<div class="sh">Status</div>' +
     ir('Status',    sbadge(c.status) + (c.status_changed_at ? '<span style="font-size:11px;color:#B0A898;margin-left:7px;font-family:sans-serif">seit ' + relAge(c.status_changed_at) + ' (' + c.status_changed_at + ')</span>' : '')) +
+    (isAktionNoetig(c) && c.extra && c.extra.aktion_notiz ? ir('Aktion nötig', esc(c.extra.aktion_notiz)) : '') +
     ir('ROI',       roib(c.roi)) +
     ir('Follow-up', fdc(c.followup)) +
     ((c.stadt||c.region) ? ir('Ort', esc([c.stadt,c.region].filter(Boolean).join(', '))) : '') +
@@ -403,6 +463,7 @@ export function openP(id) {
       '<button class="qs-chip" onclick="qs(\'' + id + '\',\'gatekeeper\')">Gatekeeper</button>' +
       '<button class="qs-chip qs-chip-dt" onclick="qs(\'' + id + '\',\'callback\')">Callback</button>' +
       '<button class="qs-chip qs-chip-dt" onclick="qs(\'' + id + '\',\'demo_termin\')">Demo Termin</button>' +
+      '<button class="qs-chip qs-chip-np" onclick="qs(\'' + id + '\',\'nicht_passend\')">Nicht passend</button>' +
       '<button class="qs-chip qs-chip-dq" onclick="qs(\'' + id + '\',\'disqualified\')">Disqualified</button>' +
       '<button class="qs-chip qs-chip-dq" onclick="qs(\'' + id + '\',\'ghost\')">Ghost</button>' +
     '</div>' +
@@ -426,7 +487,7 @@ export function qs(id, s) {
   if (!c.touches) c.touches = [];
   const TOUCH_MAP = { kein_anschluss:'Nicht erreicht', kein_anschluss_2:'Nicht erreicht (2)',
     gatekeeper:'Gatekeeper', callback:'Rückruf erbeten', demo_termin:'Termin vereinbart',
-    disqualified:'Kein Interesse', ghost:'Ghost' };
+    disqualified:'Kein Interesse', nicht_passend:'Nicht passend (vorab)', ghost:'Ghost' };
   c.touches.push({ status: TOUCH_MAP[s] || (STATUS[s] ? STATUS[s].label : s), datum: td(), notiz: '' });
   markDirty(c); persist(); render(); pushDirty(); closeP();
   toast('Status: ' + (STATUS[s] ? STATUS[s].label : s));
@@ -437,16 +498,39 @@ export function qs(id, s) {
   }
 }
 
+export function inlineFUFocus(inp) {
+  const id = inp.dataset.id;
+  S.pinContactId = id;
+  const tr = inp.closest('tr');
+  if (tr) {
+    const rows = kbRows();
+    const idx = rows.indexOf(tr);
+    S.pinListIndex = idx >= 0 ? idx : null;
+  }
+}
+
 export function inlineFU(inp) {
   const c = S.contacts.find(function(x) { return x.id === inp.dataset.id; });
   if (!c) return;
   const prev = c.followup || '';
   c.followup = inp.value;
+  S.pinContactId = c.id;
   markDirty(c);
-  recordOutreachOnFollowupChange(c, prev, c.followup);
+  recordOutreachOnFollowupChange(c, prev, c.followup, { skipStatusAuto: true });
   persist();
   pushDirty();
-  render();
+  patchFollowupRow(c.id);
+}
+
+export function inlineFUBlur(inp) {
+  const id = inp.dataset.id;
+  setTimeout(function() {
+    const row = document.querySelector('#tbody tr[data-id="' + id + '"]');
+    if (row && row.contains(document.activeElement)) return;
+    if (S.pinContactId !== id) return;
+    clearTablePin();
+    render();
+  }, 80);
 }
 
 export function shiftFU(days) {
@@ -535,6 +619,7 @@ export function inlineST(sel) {
   const prev = c.status;
   c.status = sel.value;
   if (prev === c.status) return;
+  clearTablePin();
   bumpCall();
   c.status_changed_at = td();
   markDirty(c);
@@ -698,6 +783,7 @@ export async function purgeDq(mode) {
 }
 
 export function doSort(col) {
+  clearTablePin();
   const idx = S.sortStack.findIndex(function(s) { return s.col === col; });
   if (idx === -1) {
     S.sortStack.push({ col: col, dir: 1 });
@@ -722,14 +808,106 @@ export function toggleCol(col) {
   render();
 }
 
+function _ensureContactExtra(c) {
+  if (!c.extra || typeof c.extra !== 'object') c.extra = {};
+  return c.extra;
+}
+
+function _clearAktionExtra(c) {
+  const ex = _ensureContactExtra(c);
+  ex.aktion_noetig = false;
+  delete ex.aktion_notiz;
+}
+
+function _initAktionPopChips() {
+  const host = document.getElementById('aktionChips');
+  if (!host || host.dataset.ready) return;
+  host.dataset.ready = '1';
+  host.innerHTML = AKTION_SUGGESTIONS.map(function(s) {
+    return '<button type="button" class="aktion-chip-btn" onclick="fillAktionSuggestion(' + JSON.stringify(s) + ')">' + esc(s) + '</button>';
+  }).join('');
+}
+
+export function openAktionPop(id) {
+  _initAktionPopChips();
+  const c = S.contacts.find(function(x) { return x.id === id; });
+  if (!c) return;
+  _aktionPopId = id;
+  document.getElementById('aktionPopTitle').textContent = c.firma || 'Lead';
+  document.getElementById('aktionText').value = (c.extra && c.extra.aktion_notiz) || '';
+  const clearBtn = document.getElementById('aktionPopClear');
+  if (clearBtn) clearBtn.hidden = !isAktionNoetig(c);
+  document.getElementById('aktionPop').classList.add('on');
+  setTimeout(function() { document.getElementById('aktionText').focus(); }, 50);
+}
+
+export function closeAktionPop() {
+  document.getElementById('aktionPop').classList.remove('on');
+  _aktionPopId = null;
+}
+
+export function fillAktionSuggestion(text) {
+  document.getElementById('aktionText').value = text;
+}
+
+export function saveAktionPop() {
+  const c = S.contacts.find(function(x) { return x.id === _aktionPopId; });
+  if (!c) return;
+  const text = document.getElementById('aktionText').value.trim();
+  if (!text) {
+    toast('Bitte kurz beschreiben, was zu tun ist.');
+    return;
+  }
+  const ex = _ensureContactExtra(c);
+  ex.aktion_noetig = true;
+  ex.aktion_notiz = text;
+  markDirty(c);
+  if (getActiveSession()) upsertAktionLead(c.id, c.firma || '', text);
+  persist();
+  pushDirty();
+  closeAktionPop();
+  render();
+  toast('Aktion gespeichert.');
+}
+
+export function clearAktionPop() {
+  const c = S.contacts.find(function(x) { return x.id === _aktionPopId; });
+  if (!c) return;
+  _clearAktionExtra(c);
+  markDirty(c);
+  removeAktionLead(c.id);
+  persist();
+  pushDirty();
+  closeAktionPop();
+  render();
+  toast('Markierung aufgehoben.');
+}
+
+export function checkAktionItem(contactId) {
+  const c = S.contacts.find(function(x) { return x.id === contactId; });
+  if (!c) return;
+  _clearAktionExtra(c);
+  markDirty(c);
+  completeAktionItem(contactId);
+  persist();
+  pushDirty();
+  render();
+  toast('Aktion erledigt.');
+}
+
+export function scrollToAktionQueue() {
+  const bar = document.getElementById('aktion-queue-bar');
+  if (bar) bar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 export function applyColPreset(preset, silent) {
   if (preset === 'calling') {
-    S.colVis = { website: false, stadt: false, region: false, gewerk: false };
+    S.colVis = { stadt: false, region: false, gewerk: false };
   } else if (preset === 'full') {
-    S.colVis = { website: true, stadt: true, region: true, gewerk: true };
+    S.colVis = { stadt: true, region: true, gewerk: true };
   }
   localStorage.setItem('rais_crm_colvis', JSON.stringify(S.colVis));
-  ['website','stadt','region','gewerk'].forEach(function(k) {
+  ['stadt','region','gewerk'].forEach(function(k) {
     const cb = document.getElementById('cv-' + k);
     if (cb) cb.checked = !!S.colVis[k];
   });
@@ -751,6 +929,11 @@ export function closePurgeVersicherung() {
 
 export function closeSessionCelebration() {
   document.getElementById('sessionCelebrationPop').classList.remove('on');
+  clearCelebrationAktionQueue();
+  const remaining = S.contacts.filter(isAktionNoetig).length;
+  if (remaining > 0) {
+    toast(remaining + ' Lead(s) brauchen noch eine Aktion — Filter „Aktion“ nutzen.');
+  }
 }
 
 export async function purgeVersicherungsmakler() {

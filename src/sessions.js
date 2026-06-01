@@ -5,20 +5,23 @@ import { applyColPreset } from './prospecting.js';
 import { STATUS } from './state.js';
 
 // --- STATE ---
-let activeSession = null;  // { id, startedTs, pausedAt, pausedSeconds, timerMode, targetSeconds, breakdown, leadsPlayed }
+let activeSession = null;  // { id, startedTs, pausedAt, pausedSeconds, timerMode, targetSeconds, breakdown, leadsPlayed, aktionLeads }
 let timerInterval = null;
 let _sessionsContainer = null;
+let _celebrationAktionLeads = null;
 
 const SESSION_KEY = 'rais_active_session';
 
 const STATUS_GROUPS = {
   positive: ['gewonnen', 'demo_termin', 'door_open', 'interessiert'],
+  pre_removed: ['nicht_passend'],
   negative: ['disqualified', 'archiviert', 'ghost'],
   neutral:  ['kein_anschluss', 'kein_anschluss_2', 'gatekeeper', 'callback', 'no_show', 'email_nurture'],
 };
 
 function statusColor(s) {
   if (STATUS_GROUPS.positive.includes(s)) return 'var(--sg)';
+  if (STATUS_GROUPS.pre_removed.includes(s)) return 'var(--st)';
   if (STATUS_GROUPS.negative.includes(s)) return 'var(--rd)';
   return 'var(--yw)';
 }
@@ -66,6 +69,7 @@ function _restoreSession() {
     if (!s || !s.id) return;
     // If it was running when the page reloaded, treat as paused so elapsed time freezes correctly
     if (!s.pausedAt) s.pausedAt = Date.now();
+    if (!Array.isArray(s.aktionLeads)) s.aktionLeads = [];
     activeSession = s;
     renderWidget();
     toast('Session wiederhergestellt — ▶ Fortsetzen um weiterzumachen.');
@@ -102,7 +106,8 @@ function renderWidget() {
       ? fmtTime(Math.max(0, activeSession.targetSeconds - elapsed))
       : fmtTime(elapsed);
   }
-  setText('sph-count', '· ' + activeSession.leadsPlayed + ' Leads');
+  const openAktion = getOpenAktionLeads().length;
+  setText('sph-count', '· ' + activeSession.leadsPlayed + ' Leads' + (openAktion ? ' · ⚡' + openAktion : ''));
 
   const pauseBtn = document.getElementById('sph-pause-btn');
   const resumeBtn = document.getElementById('sph-resume-btn');
@@ -166,6 +171,7 @@ export async function startSession(config) {
       targetSeconds: targetSeconds,
       breakdown: {},
       leadsPlayed: 0,
+      aktionLeads: [],
     };
     _saveSession();
     timerInterval = setInterval(renderWidget, 1000);
@@ -211,20 +217,30 @@ export async function endSession(name) {
   const elapsed = elapsedSeconds();
   const leads = activeSession.leadsPlayed;
   const bd = activeSession.breakdown;
+  const aktionLeads = activeSession.aktionLeads || [];
+  const payload = {
+    id: activeSession.id,
+    is_active: false,
+    is_paused: false,
+    ended_at: new Date().toISOString(),
+    duration_seconds: elapsed,
+    leads_played: leads,
+    status_breakdown: bd,
+    name: name || null,
+    action_items: aktionLeads,
+  };
   try {
-    await sbUpsert('/rest/v1/crm_sessions?id=eq.' + activeSession.id, [{
-      id: activeSession.id,
-      is_active: false,
-      is_paused: false,
-      ended_at: new Date().toISOString(),
-      duration_seconds: elapsed,
-      leads_played: leads,
-      status_breakdown: bd,
-      name: name || null,
-    }]);
-    
-    // Celebration Summary Popups mit kognitivem Belohnungsmuster triggeren
-    showCelebrationModal(elapsed, leads, bd, name);
+    try {
+      await sbUpsert('/rest/v1/crm_sessions?id=eq.' + activeSession.id, [payload]);
+    } catch (e) {
+      const msg = String(e.message || '');
+      if (msg.includes('action_items') || msg.includes('column')) {
+        delete payload.action_items;
+        await sbUpsert('/rest/v1/crm_sessions?id=eq.' + activeSession.id, [payload]);
+        console.warn('action_items column missing — session saved without queue history');
+      } else throw e;
+    }
+    showCelebrationModal(elapsed, leads, bd, name, aktionLeads);
   } catch(e) {
     toast('Fehler beim Speichern: ' + e.message);
   }
@@ -232,9 +248,13 @@ export async function endSession(name) {
   _saveSession();
   renderWidget();
   _refreshSessionsPage();
+  if (typeof window.render === 'function') window.render();
 }
 
-function showCelebrationModal(elapsed, leads, breakdown, name) {
+function showCelebrationModal(elapsed, leads, breakdown, name, aktionLeads) {
+  _celebrationAktionLeads = (aktionLeads || []).map(function(x) {
+    return Object.assign({}, x);
+  });
   const pop = document.getElementById('sessionCelebrationPop');
   if (!pop) return;
   
@@ -243,6 +263,7 @@ function showCelebrationModal(elapsed, leads, breakdown, name) {
   const durEl = document.getElementById('sc-duration');
   const leadsEl = document.getElementById('sc-leads');
   const breakdownEl = document.getElementById('sc-breakdown');
+  const queueHost = document.getElementById('sc-aktion-queue');
   
   durEl.textContent = fmtTime(elapsed);
   leadsEl.textContent = leads;
@@ -274,8 +295,129 @@ function showCelebrationModal(elapsed, leads, breakdown, name) {
   } else {
     breakdownEl.innerHTML = '<span style="font-family:sans-serif; font-size:11px; color:var(--st); font-style:italic">Keine Statusänderungen aufgezeichnet.</span>';
   }
+
+  if (queueHost) {
+    renderAktionQueueHtml(queueHost, aktionLeads || [], { collapsible: true, defaultOpen: true });
+  }
+
+  const openCnt = (aktionLeads || []).filter(function(x) { return !x.done; }).length;
+  if (openCnt > 0) {
+    textEl.textContent = (textEl.textContent || '') + ' Noch ' + openCnt + ' Lead(s) mit offener Aktion.';
+  }
   
   pop.classList.add('on');
+}
+
+export function getOpenAktionLeads() {
+  if (!activeSession || !Array.isArray(activeSession.aktionLeads)) return [];
+  return activeSession.aktionLeads.filter(function(x) { return !x.done; });
+}
+
+export function upsertAktionLead(contactId, contactName, aktionNotiz) {
+  if (!activeSession) return;
+  if (!Array.isArray(activeSession.aktionLeads)) activeSession.aktionLeads = [];
+  const id = String(contactId);
+  let entry = activeSession.aktionLeads.find(function(x) { return x.contact_id === id; });
+  if (entry) {
+    entry.contact_name = contactName || entry.contact_name;
+    entry.aktion_notiz = aktionNotiz;
+    entry.done = false;
+  } else {
+    activeSession.aktionLeads.push({
+      contact_id: id,
+      contact_name: contactName || '',
+      aktion_notiz: aktionNotiz,
+      done: false,
+      marked_at: new Date().toISOString(),
+    });
+  }
+  _saveSession();
+  renderWidget();
+  renderAktionQueueBar();
+}
+
+export function removeAktionLead(contactId) {
+  if (!activeSession || !Array.isArray(activeSession.aktionLeads)) return;
+  const id = String(contactId);
+  activeSession.aktionLeads = activeSession.aktionLeads.filter(function(x) { return x.contact_id !== id; });
+  _saveSession();
+  renderWidget();
+  renderAktionQueueBar();
+}
+
+function renderAktionQueueHtml(hostEl, items, opts) {
+  if (!hostEl) return;
+  const open = (items || []).filter(function(x) { return !x.done; });
+  const done = (items || []).filter(function(x) { return x.done; });
+  if (!open.length && !done.length) {
+    hostEl.innerHTML = '';
+    hostEl.hidden = true;
+    return;
+  }
+  hostEl.hidden = false;
+  const esc = function(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  };
+  let inner = '';
+  if (open.length) {
+    inner += open.map(function(item) {
+      return '<label class="sc-aktion-row">' +
+        '<input type="checkbox" onchange="checkAktionItem(\'' + esc(item.contact_id) + '\')">' +
+        '<span class="sc-aktion-body">' +
+          '<span class="sc-aktion-firma" onclick="event.preventDefault();openP(\'' + esc(item.contact_id) + '\')">' + esc(item.contact_name) + '</span>' +
+          (item.aktion_notiz ? '<span class="sc-aktion-notiz">' + esc(item.aktion_notiz) + '</span>' : '') +
+        '</span></label>';
+    }).join('');
+  } else {
+    inner += '<p class="sc-aktion-done-msg">Alle Aktionen erledigt.</p>';
+  }
+  if (done.length) {
+    inner += '<details class="sc-aktion-done-details"><summary>Erledigt (' + done.length + ')</summary>' +
+      done.map(function(item) {
+        return '<div class="sc-aktion-row sc-aktion-row-done"><span>' + esc(item.contact_name) + '</span></div>';
+      }).join('') + '</details>';
+  }
+  if (opts && opts.collapsible) {
+    hostEl.innerHTML = '<details class="sc-aktion-details"' + (opts.defaultOpen && open.length ? ' open' : '') + '>' +
+      '<summary class="sc-aktion-summary">Noch Aktion nötig (' + open.length + ')</summary>' +
+      '<div class="sc-aktion-list">' + inner + '</div></details>';
+  } else {
+    hostEl.innerHTML = '<div class="sc-aktion-list">' + inner + '</div>';
+  }
+}
+
+export function renderAktionQueueBar() {
+  const bar = document.getElementById('aktion-queue-bar');
+  if (!bar) return;
+  if (!activeSession) {
+    bar.innerHTML = '';
+    bar.hidden = true;
+    return;
+  }
+  renderAktionQueueHtml(bar, activeSession.aktionLeads || [], { collapsible: true, defaultOpen: true });
+}
+
+export function completeAktionItem(contactId) {
+  const id = String(contactId);
+  [activeSession && activeSession.aktionLeads, _celebrationAktionLeads].forEach(function(arr) {
+    if (!arr) return;
+    const entry = arr.find(function(x) { return x.contact_id === id; });
+    if (entry) entry.done = true;
+  });
+  if (activeSession) _saveSession();
+  refreshAktionQueueUIs();
+}
+
+export function refreshAktionQueueUIs() {
+  renderAktionQueueBar();
+  const host = document.getElementById('sc-aktion-queue');
+  if (host && _celebrationAktionLeads) {
+    renderAktionQueueHtml(host, _celebrationAktionLeads, { collapsible: true, defaultOpen: true });
+  }
+}
+
+export function clearCelebrationAktionQueue() {
+  _celebrationAktionLeads = null;
 }
 
 export async function discardSession() {

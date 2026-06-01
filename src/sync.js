@@ -3,6 +3,10 @@ import { sbGet, sbUpsert } from './supabase.js';
 import { toast } from './ui.js';
 
 export function isDirtyContact(c) { return !!(c && !c.synced_at); }
+
+export function isAktionNoetig(c) {
+  return !!(c && c.extra && c.extra.aktion_noetig);
+}
 export function markDirty(c) { if (c) c.synced_at = null; }
 export function persist() { localStorage.setItem(KEY, JSON.stringify(S.contacts)); }
 
@@ -59,9 +63,12 @@ export function load() {
   });
   try {
     const cv = JSON.parse(localStorage.getItem('rais_crm_colvis'));
-    if (cv) Object.assign(S.colVis, cv);
+    if (cv) {
+      Object.assign(S.colVis, cv);
+      delete S.colVis.website;
+    }
   } catch(e) {}
-  ['website','stadt','region','gewerk'].forEach(function(k) {
+  ['stadt','region','gewerk'].forEach(function(k) {
     const cb = document.getElementById('cv-' + k);
     if (cb) cb.checked = !!S.colVis[k];
   });
@@ -104,6 +111,11 @@ export async function syncCloud(silent) {
       }
       if (local) {
         LOCAL_WINS.forEach(function(f) { if (local[f] != null) c[f] = local[f]; });
+        if (local.extra && typeof local.extra === 'object') {
+          c.extra = Object.assign({}, r.extra || {}, local.extra);
+        } else if (r.extra) {
+          c.extra = Object.assign({}, r.extra);
+        }
       }
       return c;
     });

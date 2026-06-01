@@ -71,6 +71,7 @@ function parseCSV(txt) {
     'kein_anschluss': 'kein_anschluss', 'nicht erreicht': 'kein_anschluss', 'nicht_erreicht': 'kein_anschluss', 'no show': 'kein_anschluss',
     'kein_anschluss_2': 'kein_anschluss_2', 'kein anschluss 2': 'kein_anschluss_2', 'ka2': 'kein_anschluss_2',
     'nicht_interessiert': 'disqualified', 'kein interesse': 'disqualified', 'kein_interesse': 'disqualified', 'disqualified': 'disqualified',
+    'nicht passend': 'nicht_passend', 'nicht_passend': 'nicht_passend', 'kein fit': 'nicht_passend', 'aussortiert': 'nicht_passend',
     'ghost': 'ghost',
     'gatekeeper': 'gatekeeper',
     'followup': 'callback', 'follow-up': 'callback',
