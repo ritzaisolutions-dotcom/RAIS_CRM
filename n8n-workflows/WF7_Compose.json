@@ -1,0 +1,150 @@
+{
+  "name": "WF7 — CRM Compose Email (kevin@ritz-ai.solutions)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf7-compose",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-400, 300],
+      "id": "wh-wf7",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json;\nconst body = raw.body || raw;\nconst preview = !!body.preview_only;\nconst approved = !!body.approved;\n\nif (approved) {\n  return [{ json: { mode: 'send', to: body.to, subject: body.subject, body: body.body, contact_id: body.contact_id } }];\n}\n\nif (preview) {\n  const firma = body.firma || 'Ihr Betrieb';\n  const kontakt = body.kontakt || '';\n  const einwand = (body.einwand || body.notiz || '').trim();\n  const anlass = body.anlass || 'sonstiges';\n  const nachname = kontakt && kontakt !== 'NA' ? kontakt.split(' ').slice(-1)[0] : null;\n  const anrede = nachname ? 'Sehr geehrter Herr ' + nachname : 'Sehr geehrte Damen und Herren';\n\n  let subject = 'Kurze Rückmeldung zu ' + firma;\n  let bezug = einwand ? 'Bezugnehmend auf unser Gespräch (' + einwand + ')' : 'Bezugnehmend auf unser Gespräch';\n\n  if (anlass.indexOf('einwand') === 0) {\n    subject = 'Zu Ihrem Punkt — ' + firma;\n    bezug = einwand ? 'Sie hatten angemerkt: „' + einwand + '“.' : 'Zu Ihrem Einwand möchte ich kurz Stellung nehmen.';\n  } else if (anlass === 'demo_nachbereitung') {\n    subject = 'Zusammenfassung unserer Demo — ' + firma;\n    bezug = 'Vielen Dank für die Zeit in unserer Demo.';\n  } else if (anlass === 'nach_call') {\n    subject = 'Wie besprochen — ' + firma;\n    bezug = 'Wie in unserem Telefonat besprochen, sende ich Ihnen die angekündigten Informationen.';\n  }\n\n  const mailBody = anrede + ',\\n\\n' + bezug + '\\n\\n' +\n    '[Hier 2–3 Sätze Nutzen / konkreter Vorschlag einfügen]\\n\\n' +\n    'Gerne kläre ich offene Fragen in einem kurzen Termin.\\n\\n' +\n    'Mit freundlichen Grüßen\\nKevin Ritz\\nkevin@ritz-ai.solutions';\n\n  return [{ json: { mode: 'preview', subject: subject, body: mailBody, contact_id: body.contact_id } }];\n}\n\nreturn [{ json: { mode: 'error', message: 'preview_only oder approved erforderlich' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-160, 300],
+      "id": "route-wf7",
+      "name": "Route Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "preview",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [80, 200],
+      "id": "if-preview-wf7",
+      "name": "Is Preview?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "send",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [80, 400],
+      "id": "if-send-wf7",
+      "name": "Is Send?"
+    },
+    {
+      "parameters": {
+        "fromEmail": "kevin@ritz-ai.solutions",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [320, 400],
+      "id": "smtp-wf7",
+      "name": "Send via SMTP",
+      "credentials": {
+        "smtp": {
+          "id": "jr5t6ZjMqqqydzQg",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, subject: $json.subject, body: $json.body } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [320, 200],
+      "id": "resp-preview-wf7",
+      "name": "Respond Preview"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, sent: true } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [560, 400],
+      "id": "resp-send-wf7",
+      "name": "Respond Send"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, error: $json.message || 'Ungültige Anfrage' } }}",
+        "options": { "responseCode": 400 }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [320, 560],
+      "id": "resp-err-wf7",
+      "name": "Respond Error"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Route Request", "type": "main", "index": 0 }]]
+    },
+    "Route Request": {
+      "main": [[{ "node": "Is Preview?", "type": "main", "index": 0 }]]
+    },
+    "Is Preview?": {
+      "main": [
+        [{ "node": "Respond Preview", "type": "main", "index": 0 }],
+        [{ "node": "Is Send?", "type": "main", "index": 0 }]
+      ]
+    },
+    "Is Send?": {
+      "main": [
+        [{ "node": "Send via SMTP", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Send via SMTP": {
+      "main": [[{ "node": "Respond Send", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "CRM Rechtsklick-Email: preview_only liefert subject/body; approved sendet via Hostinger SMTP. Webhook-Auth Header X-RAIS-Token in n8n aktivieren (wie WF4–WF6)."
+  }
+}

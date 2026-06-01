@@ -3,7 +3,7 @@ import { gid, td, relAge, gewerkKuerzel, gewerkSlug } from './utils.js';
 import { sbadge, roib, fdc, esc, ir, toast } from './ui.js';
 import { markDirty, persist, pushDirty, isAktionNoetig } from './sync.js';
 import { sbDelete, sbUpsert } from './supabase.js';
-import { emailBadge, emailPanelHtml } from './email.js';
+import { emailCellHtml, emailPanelHtml } from './email.js';
 import { renderCalls, bumpCall } from './calls.js';
 import {
   onStatusChanged, onOutreachRecorded, getActiveSession,
@@ -12,6 +12,7 @@ import {
 } from './sessions.js';
 import { promptAutoClient } from './clients.js';
 import { showDemoTodoPopup } from './todopop.js';
+import { maybeOfferCalendar } from './calendar.js';
 
 export function isVersicherungsLead(c) {
   if (!c) return false;
@@ -218,7 +219,7 @@ function renderMobileCards(slice) {
       ? '<a class="mc-call-btn" href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()">&#128222; ' + esc(c.telefon) + '</a>'
       : '';
     return (
-      '<div class="mc" onclick="openP(\'' + c.id + '\')">' +
+      '<div class="mc" data-id="' + c.id + '" onclick="openP(\'' + c.id + '\')" oncontextmenu="showCtxMenuAtEvent(event,\'' + c.id + '\')">' +
         '<div class="mc-top">' +
           '<div class="mc-firma">' + esc(c.firma) +
             (c.website ? ' <a class="mc-globe" href="' + esc(c.website) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + esc(c.website) + '">&#127760;</a>' : '') +
@@ -326,7 +327,7 @@ export function render() {
       const ageStr = lastTDatum ? relAge(lastTDatum) : (c.created ? relAge(new Date(c.created).toISOString().slice(0,10)) : null);
       const aktionHint = (c.extra && c.extra.aktion_notiz) ? '<span class="aktion-hint">' + esc(c.extra.aktion_notiz) + '</span>' : '';
       const aktionTitle = (c.extra && c.extra.aktion_notiz) ? esc(c.extra.aktion_notiz) : 'Aktion markieren';
-      return '<tr class="' + rowCls.trim() + '" data-id="' + c.id + '" onclick="openP(\'' + c.id + '\')">' +
+      return '<tr class="' + rowCls.trim() + '" data-id="' + c.id + '" onclick="openP(\'' + c.id + '\')" oncontextmenu="showCtxMenuAtEvent(event,\'' + c.id + '\')">' +
         '<td class="col-sticky-num" style="text-align:right;font-family:sans-serif;font-size:11px;color:#B0A898;padding-right:10px;user-select:none">' + (pageOffset + i + 1) + '</td>' +
         '<td class="fc col-sticky-firma">' + esc(c.firma) + (c.gewerk ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>' : '') + '</td>' +
         '<td>' + esc(c.kontakt || '—') + '</td>' +
@@ -354,7 +355,7 @@ export function render() {
         (S.colVis.stadt   ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.stadt  || '—') + '</td>' : '') +
         (S.colVis.region  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.region || '—') + '</td>' : '') +
         (S.colVis.gewerk  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.gewerk || '—') + '</td>' : '') +
-        '<td onclick="event.stopPropagation()" style="white-space:nowrap">' + emailBadge(c) + '</td>' +
+        '<td onclick="event.stopPropagation()" style="white-space:nowrap">' + emailCellHtml(c) + '</td>' +
         '<td class="ra-cell" onclick="event.stopPropagation()"><div class="ra">' +
           '<button class="btn bg bsm" onclick="openQN(\'' + c.id + '\')" title="Schnellnotiz">&#128221;</button>' +
           '<button class="btn bg bsm" onclick="openE(\'' + c.id + '\')" title="Bearbeiten">&#9998;</button>' +
@@ -375,12 +376,6 @@ export function render() {
     .map(function(p) { return '<button class="pbb' + (p === S.pg ? ' on' : '') + '" onclick="goPg(' + p + ')">' + p + '</button>'; })
     .join('');
 
-  if (typeof countEligible === 'function') {
-    [1,2,3].forEach(function(n) {
-      const el = document.getElementById('bulkCnt' + n);
-      if (el) el.textContent = '(' + countEligible(n) + ')';
-    });
-  }
 }
 
 export function goPg(p) { S.pg = p; render(); }
@@ -496,6 +491,9 @@ export function qs(id, s) {
     promptAutoClient(c, s);
     showDemoTodoPopup(c);
   }
+  if (s === 'demo_termin') {
+    maybeOfferCalendar(c, 'demo');
+  }
 }
 
 export function inlineFUFocus(inp) {
@@ -520,6 +518,9 @@ export function inlineFU(inp) {
   persist();
   pushDirty();
   patchFollowupRow(c.id);
+  if (c.status === 'callback' && c.followup && c.followup !== prev) {
+    maybeOfferCalendar(c, 'rueckruf');
+  }
 }
 
 export function inlineFUBlur(inp) {
@@ -630,6 +631,9 @@ export function inlineST(sel) {
     promptAutoClient(c, c.status);
     showDemoTodoPopup(c);
   }
+  if (c.status === 'demo_termin') {
+    maybeOfferCalendar(c, 'demo');
+  }
 }
 
 export function openAdd() {
@@ -722,7 +726,9 @@ export function save() {
 export async function del(id) {
   id = id || S.eid;
   if (!id) { toast('Kein Kontakt zum Löschen.'); return; }
-  if (!confirm('Kontakt wirklich löschen?')) return;
+  const c = S.contacts.find(function(x) { return x.id === id; });
+  const label = (c && c.firma) ? c.firma : 'diesen Lead';
+  if (!confirm('„' + label + '“ wirklich löschen?\n\nDer Lead wird unwiderruflich aus der Datenbank entfernt.')) return;
   if (S.syncInProgress) { toast('Sync läuft — bitte kurz warten.'); return; }
   try {
     await sbDelete('/rest/v1/crm_contacts?id=eq.' + id);
@@ -730,8 +736,12 @@ export async function del(id) {
     toast('Löschen fehlgeschlagen: ' + e.message);
     return;
   }
-  S.contacts = S.contacts.filter(function(c) { return c.id !== id; });
-  persist(); closeE(); render(); toast('Gelöscht.');
+  S.contacts = S.contacts.filter(function(x) { return x.id !== id; });
+  persist();
+  closeE();
+  if (typeof window.closeP === 'function') window.closeP();
+  render();
+  toast('Gelöscht.');
 }
 
 export function openPurgeDq() {

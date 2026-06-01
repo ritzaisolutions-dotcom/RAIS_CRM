@@ -1,5 +1,5 @@
-const CACHE = 'rais-crm-v1';
-const RUNTIME_CACHE = 'rais-crm-runtime';
+const CACHE = 'rais-crm-v3';
+const RUNTIME_CACHE = 'rais-crm-runtime-v3';
 const SHELL = [
   './',
   './index.html',
@@ -27,6 +27,14 @@ self.addEventListener('activate', function(e) {
   self.clients.claim();
 });
 
+function isFreshAsset(pathname) {
+  return pathname.endsWith('.js') ||
+    pathname.endsWith('.css') ||
+    pathname.endsWith('.html') ||
+    pathname === '/' ||
+    pathname.endsWith('/');
+}
+
 self.addEventListener('fetch', function(e) {
   if (e.request.method !== 'GET') return;
 
@@ -34,19 +42,33 @@ self.addEventListener('fetch', function(e) {
   const isSameOrigin = url.origin === self.location.origin;
   const isCDN = url.origin === 'https://cdn.jsdelivr.net';
 
-  // We only want to handle caching for static assets, scripts, and libraries
   if (isSameOrigin || isCDN) {
-    // Avoid caching Supabase REST API endpoints or auth calls, only cache static files / libraries
     if (url.pathname.startsWith('/rest/') || url.pathname.startsWith('/auth/')) {
       e.respondWith(fetch(e.request));
       return;
     }
 
+    // App shell + ES modules: network first so deploys show new context menu / features
+    if (isSameOrigin && isFreshAsset(url.pathname)) {
+      e.respondWith(
+        fetch(e.request).then(function(response) {
+          if (response && response.status === 200 && response.type === 'basic') {
+            const clone = response.clone();
+            caches.open(RUNTIME_CACHE).then(function(cache) {
+              cache.put(e.request, clone);
+            });
+          }
+          return response;
+        }).catch(function() {
+          return caches.match(e.request);
+        })
+      );
+      return;
+    }
+
     e.respondWith(
       fetch(e.request).then(function(response) {
-        if (!response || response.status !== 200) {
-          return response;
-        }
+        if (!response || response.status !== 200) return response;
         const responseToCache = response.clone();
         caches.open(RUNTIME_CACHE).then(function(cache) {
           cache.put(e.request, responseToCache);

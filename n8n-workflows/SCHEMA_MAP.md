@@ -84,27 +84,35 @@ Findet Ansprechpartner, Email, Social Media.
 
 ---
 
-### WF4 — Email 1 (`wf4-email1`)
-Generiert und sendet erste Email (LLM-personalisiert).
-
-**Schreibt in `crm_contacts`:**
-`email_1_sent`, `email_1_subject`, `email_status`
+### WF4 — Email 1 (`wf4-email1`) — *deprecated (CRM-UI entfernt)*
+Legacy-Sequenz. Nicht mehr aus dem CRM aufgerufen.
 
 ---
 
-### WF5 — Email 2 (`wf5-email2`)
-Sendet Follow-up Email 2.
-
-**Schreibt in `crm_contacts`:**
-`email_2_sent`, `email_status`
+### WF5 / WF6 — *deprecated (CRM-UI entfernt)*
 
 ---
 
-### WF6 — Email 3 / Followup (`wf6-email3`)
-Sendet abschließende Follow-up Email.
+### WF7 — CRM Compose (`wf7-compose`)
+Einzelmail aus CRM (Rechtsklick). `preview_only` → `{ subject, body }`; `approved` → SMTP-Versand.
 
-**Schreibt in `crm_contacts`:**
-`followup_sent`, `email_status`
+**CRM schreibt lokal (kein Pflicht-Feld in Supabase):**
+`extra.email_log[]`, neuer `touches`-Eintrag (Status „Email“)
+
+**SMTP-Absender:** `kevin@ritz-ai.solutions` (Hostinger, Credentials in n8n)
+
+---
+
+### WF8 — CRM Calendar (`wf8-calendar`)
+Interner Google-Kalender **ritzaisolutions@gmail.com** (keine Kunden-Einladungen).
+
+**Request:** `type` (`demo`|`rueckruf`), `start` (ISO mit Offset), `duration_minutes` (15|5), Kontaktfelder.
+
+**Response:** `{ ok, event_id, htmlLink }`
+
+**CRM schreibt lokal (optional):** `extra.google_cal` (Audit)
+
+**Nicht:** `kevin@ritz-ai.solutions` — nur WF7 für Kundenmail.
 
 ---
 

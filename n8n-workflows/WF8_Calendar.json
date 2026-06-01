@@ -1,0 +1,119 @@
+{
+  "name": "WF8 — CRM Google Calendar (ritzaisolutions@gmail.com)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf8-calendar",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-480, 300],
+      "id": "wh-wf8",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst headers = item.headers || {};\nconst body = item.body || item;\n\nconst TOKEN = 'ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc';\nconst got = (headers['x-rais-token'] || headers['X-RAIS-Token'] || body.token || '').toString();\nif (got !== TOKEN) {\n  return [{ json: { mode: 'error', message: 'Nicht autorisiert' } }];\n}\n\nconst type = body.type;\nif (type !== 'demo' && type !== 'rueckruf') {\n  return [{ json: { mode: 'error', message: 'Ungültiger Typ (demo oder rueckruf)' } }];\n}\n\nlet duration = parseInt(body.duration_minutes, 10);\nif (type === 'demo') duration = 15;\nelse if (type === 'rueckruf') duration = 5;\nif (duration !== 15 && duration !== 5) {\n  return [{ json: { mode: 'error', message: 'Ungültige Dauer' } }];\n}\n\nconst startStr = body.start;\nif (!startStr) {\n  return [{ json: { mode: 'error', message: 'Startzeit fehlt' } }];\n}\n\nconst start = new Date(startStr);\nif (isNaN(start.getTime())) {\n  return [{ json: { mode: 'error', message: 'Ungültige Startzeit' } }];\n}\n\nconst end = new Date(start.getTime() + duration * 60000);\n\nconst firma = body.firma || 'Unbekannt';\nconst kontakt = body.kontakt || '—';\nconst email = body.email || '—';\nconst telefon = body.telefon || '—';\nconst website = body.website || '—';\nconst notiz = (body.notiz || '').trim();\nconst contactId = body.contact_id || '';\n\nconst summary = type === 'demo' ? 'Demo: ' + firma : 'Rückruf: ' + firma;\nconst lines = [\n  'Firma: ' + firma,\n  'Kontakt: ' + kontakt,\n  'E-Mail: ' + email,\n  'Telefon: ' + telefon,\n  'Website: ' + website\n];\nif (notiz) lines.push('Notiz: ' + notiz);\nif (contactId) lines.push('CRM-ID: ' + contactId);\nlines.push('');\nif (type === 'demo') {\n  lines.push('Kunden-Einladung separat von kevin@ritz-ai.solutions per E-Mail senden.');\n} else {\n  lines.push('Interner Erinnerungstermin (ritzaisolutions@gmail.com).');\n}\n\nreturn [{\n  json: {\n    mode: 'create',\n    summary,\n    description: lines.join('\\n'),\n    start: start.toISOString(),\n    end: end.toISOString(),\n    contact_id: contactId,\n    cal_type: type\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-240, 300],
+      "id": "build-wf8",
+      "name": "Build Event"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "create",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [0, 300],
+      "id": "if-create-wf8",
+      "name": "Is Create?"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "start": "={{ $json.start }}",
+        "end": "={{ $json.end }}",
+        "additionalFields": {
+          "summary": "={{ $json.summary }}",
+          "description": "={{ $json.description }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.2,
+      "position": [240, 200],
+      "id": "gcal-wf8",
+      "name": "Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "REPLACE_ME",
+          "name": "Google Calendar — ritzaisolutions@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, event_id: $json.id, htmlLink: $json.htmlLink, type: $('Build Event').item.json.cal_type } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [480, 200],
+      "id": "resp-ok-wf8",
+      "name": "Respond OK"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, error: $json.message || 'Kalenderfehler' } }}",
+        "options": { "responseCode": 400 }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [240, 420],
+      "id": "resp-err-wf8",
+      "name": "Respond Error"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Build Event", "type": "main", "index": 0 }]]
+    },
+    "Build Event": {
+      "main": [[{ "node": "Is Create?", "type": "main", "index": 0 }]]
+    },
+    "Is Create?": {
+      "main": [
+        [{ "node": "Google Calendar", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Google Calendar": {
+      "main": [[{ "node": "Respond OK", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "CRM: Demo (15 Min) oder Rückruf (5 Min) im internen Google-Kalender ritzaisolutions@gmail.com. Keine attendees. OAuth-Credential nach Import zuweisen. Webhook-Header X-RAIS-Token wie WF7."
+  }
+}

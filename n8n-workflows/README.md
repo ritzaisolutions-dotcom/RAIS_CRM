@@ -10,6 +10,8 @@
 | `WF4_Email1.json` | wf4-email1 | LLM-generierte Email 1 erstellen + senden |
 | `WF5_Email2.json` | wf5-email2 | Follow-up Email 2 senden |
 | `WF6_Email3.json` | wf6-email3 | Abschluss-Follow-up Email 3 senden |
+| `WF7_Compose.json` | wf7-compose | CRM Einzelmail (kevin@ritz-ai.solutions) |
+| `WF8_Calendar.json` | wf8-calendar | CRM Demo/Rückruf → Google Kalender (ritzaisolutions@gmail.com) |
 
 ## Webhook-Endpunkte
 
@@ -23,6 +25,8 @@ Basis-URL: `https://n8n.ritz-ai.solutions/webhook/`
 | WF4 | `wf4-email1` |
 | WF5 | `wf5-email2` |
 | WF6 | `wf6-email3` |
+| WF7 | `wf7-compose` |
+| WF8 | `wf8-calendar` |
 
 **Auth:** Alle Webhooks erwarten Header `X-RAIS-Token: <token>` (Phase 1.5).
 

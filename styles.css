@@ -610,32 +610,150 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
 .lg-preview tbody tr:hover { background: #EDE9E0; }
 .lg-empty { text-align: center; padding: 30px; color: var(--st); font-size: 13px; }
 
-/* ── Email badges in table ────────────────────────────────────────────────── */
-.em-badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: .3px; cursor: pointer; }
-.em-none  { background: #EDEBE6; color: #B0A898; }
-.em-e1    { background: #E8F0FF; color: #2048A8; }
-.em-e2    { background: #F0E8FF; color: #6B2FA8; }
-.em-e3    { background: #EDE0FF; color: #4A1A8A; }
-.em-reply { background: #D4F0DC; color: #0A5C24; }
-.em-unsub { background: #FFE8E8; color: #A00000; }
-
-/* ── Email send popup ─────────────────────────────────────────────────────── */
-.es-pop { position: fixed; inset: 0; z-index: 500; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.4); }
-.es-inner { background: var(--sf); border-radius: 10px; width: 400px; box-shadow: var(--shadow-lg); }
-.es-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 10px; border-bottom: 1px solid var(--bd); }
-.es-title { font-weight: 700; font-size: 14px; color: var(--ch); }
-.es-body { padding: 14px 18px; }
+/* ── Email column + panel ─────────────────────────────────────────────────── */
+.em-cell { display: inline-block; font-size: 12px; font-weight: 700; }
+.em-cell.em-none { color: #B0A898; }
+.em-cell.em-ok { color: #2048A8; }
+.em-cell.em-reply { color: #0A5C24; }
+.em-cell.em-unsub { color: #A00000; }
 .es-notiz { background: var(--bg); border: 1px solid var(--bd); border-radius: 4px; padding: 8px 10px; font-size: 12px; font-family: inherit; color: var(--st); margin-bottom: 12px; line-height: 1.5; min-height: 36px; font-style: italic; }
-.es-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--bd); }
+.email-panel-hint { font-family: sans-serif; font-size: 12px; color: var(--st); font-style: italic; margin: 0 0 8px; }
+.email-panel-addr { font-family: sans-serif; font-size: 12px; color: var(--ch); margin: 0 0 8px; word-break: break-all; }
+.email-panel-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.email-log { margin: 8px 0; max-height: 120px; overflow-y: auto; }
+.email-log-row { font-family: sans-serif; font-size: 11px; color: var(--st); padding: 4px 0; border-bottom: 1px solid var(--bd); }
+.email-log-date { color: #B0A898; }
 
-/* Email section in side panel */
-.email-sec { margin-top: 4px; }
-.email-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--bd); font-size: 12px; }
-.email-row:last-child { border-bottom: none; }
-.email-lbl { font-weight: 700; color: var(--st); min-width: 56px; }
-.email-val { color: var(--ch); flex: 1; padding: 0 8px; }
-.email-val.sent { color: var(--pn); }
-.email-val.pending { color: #B0A898; font-style: italic; }
+/* ── Mail compose modal ───────────────────────────────────────────────────── */
+.mail-compose-modal { max-width: 520px; width: 100%; }
+.mail-compose-meta { font-family: sans-serif; font-size: 12px; color: var(--ch); margin: 0 0 12px; }
+.mc-mode-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+.mc-mode-tab {
+  font-family: sans-serif; font-size: 11px; padding: 5px 10px;
+  border: 1px solid var(--bd); border-radius: 999px; background: var(--bg);
+  color: var(--ch); cursor: pointer;
+}
+.mc-mode-tab.on { border-color: var(--or); color: var(--or); background: #FFF4E6; }
+.mail-compose-loading { text-align: center; padding: 16px; font-family: sans-serif; font-size: 13px; color: var(--st); }
+.mail-compose-hint { font-family: sans-serif; font-size: 11px; color: #B0A898; margin: 8px 0 0; }
+.cal-pop-modal { max-width: 400px; width: 100%; }
+.cal-pop-meta { font-family: sans-serif; font-size: 12px; color: var(--ch); margin: 0 0 8px; }
+.cal-pop-hint { font-family: sans-serif; font-size: 11px; color: #B0A898; margin: 0 0 14px; line-height: 1.4; }
+
+/* ── Termine-Tab (Google Embed + CRM-Agenda) ─────────────────────────────── */
+.termine-page { padding: 24px 28px 32px; max-width: 1100px; }
+.termine-header { margin-bottom: 16px; }
+.termine-h1 { font-family: sans-serif; font-size: 22px; font-weight: 700; color: var(--ch); margin: 0 0 6px; }
+.termine-sub { font-family: sans-serif; font-size: 12px; color: var(--st); margin: 0; }
+.termine-h2 { font-family: sans-serif; font-size: 15px; font-weight: 600; color: var(--ch); margin: 0; }
+.gcal-embed-wrap {
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  margin-bottom: 24px;
+}
+.gcal-embed {
+  display: block;
+  width: 100%;
+  height: min(480px, 45vh);
+  border: 0;
+}
+.termine-agenda-section { border-top: 1px solid var(--bd); padding-top: 20px; }
+.termine-agenda-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.termine-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.termine-filter-chip {
+  font-family: sans-serif;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--bd);
+  background: #fff;
+  color: var(--st);
+  cursor: pointer;
+}
+.termine-filter-chip:hover { border-color: var(--or); color: var(--or); }
+.termine-filter-chip.on { background: var(--or); border-color: var(--or); color: #fff; }
+.termine-agenda { min-height: 80px; }
+.termine-empty { text-align: center; padding: 28px 16px; color: var(--st); font-family: sans-serif; font-size: 13px; }
+.termine-empty-hint { font-size: 12px; color: #B0A898; margin-top: 8px; }
+.termine-day-group { margin-bottom: 18px; }
+.termine-day-title {
+  font-family: sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--st);
+  margin: 0 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--bd);
+}
+.termine-day-list { list-style: none; margin: 0; padding: 0; }
+.termine-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: sans-serif;
+  font-size: 13px;
+}
+.termine-row:hover { background: #F5F2ED; }
+.termine-time { font-weight: 600; color: var(--ch); min-width: 44px; }
+.termine-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+.termine-badge-demo { background: #E8F5EC; color: #1A7A40; }
+.termine-badge-cb { background: #FFF4E6; color: #B45309; }
+.termine-title { flex: 1; min-width: 120px; color: var(--ch); }
+.termine-tel { font-size: 12px; color: var(--st); }
+.termine-gcal-link {
+  font-size: 11px;
+  color: var(--or);
+  text-decoration: none;
+  padding: 4px 8px;
+  border: 1px solid var(--bd);
+  border-radius: 4px;
+}
+.termine-gcal-link:hover { border-color: var(--or); }
+@media (max-width: 768px) {
+  .termine-page { padding: 16px 14px 80px; }
+  .gcal-embed { height: min(320px, 38vh); }
+  .termine-agenda-head { flex-direction: column; align-items: flex-start; }
+  #mobile-nav .mn-tab-label { font-size: 9px; }
+}
+
+/* ── Kontextmenü ──────────────────────────────────────────────────────────── */
+.ctx-menu {
+  position: fixed; z-index: 600; min-width: 200px;
+  background: var(--sf); border: 1px solid var(--bd); border-radius: 8px;
+  box-shadow: var(--shadow-lg); padding: 4px 0;
+}
+.ctx-item {
+  display: block; width: 100%; text-align: left;
+  font-family: sans-serif; font-size: 13px; padding: 8px 14px;
+  border: none; background: none; color: var(--ch); cursor: pointer;
+}
+.ctx-item:hover:not(:disabled) { background: #EDE9E0; color: var(--or); }
+.ctx-item:disabled { opacity: .45; cursor: default; }
+.ctx-item.ctx-danger { color: #A00000; }
+.ctx-item.ctx-danger:hover:not(:disabled) { background: #FDF0EF; color: #A00000; }
+.ctx-sep { height: 1px; background: var(--bd); margin: 4px 0; }
 
 /* ── Client CRM ───────────────────────────────────────────────────────────── */
 .client-status-aktiv      { background: #EEF3EA; color: var(--pn); }

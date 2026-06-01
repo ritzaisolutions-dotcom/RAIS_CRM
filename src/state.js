@@ -17,7 +17,10 @@ export const S = {
   pinListIndex:  null,
   lgPollTimer:   null,
   lgCurrentRun:  null,
-  esContactId:   null,
+  mailComposeId:   null,
+  mailComposeMode: 'ai',
+  calContactId:    null,
+  calType:         null,
   clClients:     [],
   clEid:         null,
 };

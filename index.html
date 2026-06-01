@@ -168,9 +168,6 @@
       <option value="new">Zuletzt hinzugefügt</option>
       <option value="changed">Zuletzt geändert</option>
     </select>
-    <button class="btn bs bsm" id="bulkE1Btn" onclick="bulkEmail(1)" title="Email 1 an alle eligible Kontakte">📧 E1 <span id="bulkCnt1">0</span></button>
-    <button class="btn bs bsm" id="bulkE2Btn" onclick="bulkEmail(2)" title="Email 2 Followup">📧 E2 <span id="bulkCnt2">0</span></button>
-    <button class="btn bs bsm" id="bulkE3Btn" onclick="bulkEmail(3)" title="Email 3 Letztes Followup">📧 E3 <span id="bulkCnt3">0</span></button>
     <div class="coltog">
       <button class="btn bs" onclick="toggleColMenu(event)">&#9881; Spalten</button>
       <div class="ctdrop" id="ctdrop">
@@ -236,6 +233,30 @@
       <p>+ Client klicken um einen Bestandskunden anzulegen.</p>
     </div>
   </div>
+</main>
+</div>
+
+<!-- ── Page: Termine (Google + CRM-Agenda) ─────────────────────────────────── -->
+<div class="rais-page" id="page-termine">
+<main class="termine-page">
+  <header class="termine-header">
+    <h1 class="termine-h1">Termine</h1>
+    <p class="termine-sub">Interner Kalender: ritzaisolutions@gmail.com · Kundenkontakt: kevin@ritz-ai.solutions</p>
+  </header>
+  <div class="gcal-embed-wrap">
+    <iframe id="gcalEmbed" class="gcal-embed" title="Google Kalender" loading="lazy"></iframe>
+  </div>
+  <section class="termine-agenda-section" aria-label="CRM-Termine">
+    <div class="termine-agenda-head">
+      <h2 class="termine-h2">CRM-Agenda</h2>
+      <div class="termine-filters" role="group" aria-label="Filter">
+        <button type="button" class="termine-filter-chip on" data-filter="all">Alle</button>
+        <button type="button" class="termine-filter-chip" data-filter="demo">Demo / Sales</button>
+        <button type="button" class="termine-filter-chip" data-filter="rueckruf">Rückruf</button>
+      </div>
+    </div>
+    <div id="termine-agenda" class="termine-agenda"></div>
+  </section>
 </main>
 </div>
 
@@ -547,49 +568,76 @@
   </div>
 </div>
 
-<!-- Email Send Popup (1:1 mit LLM Preview) -->
-<div class="es-pop" id="esPop" style="display:none">
-  <div class="es-inner">
-    <div class="es-top">
-      <span class="es-title" id="esTitle">Email senden an …</span>
-      <button class="btn bg" onclick="closeEsPop()">✕</button>
+<!-- Kontextmenü (Rechtsklick auf Lead) -->
+<nav id="ctxMenu" class="ctx-menu" hidden aria-label="Lead-Aktionen"></nav>
+
+<!-- Email Compose (Rechtsklick → Email senden) -->
+<div class="ovl" id="mailComposePop">
+  <div class="modal mail-compose-modal">
+    <div class="mh">
+      <h2 id="mcTitle">Email senden</h2>
+      <button type="button" class="btn bg" onclick="closeMailCompose()">&#10005;</button>
     </div>
-    <div class="es-body">
-      <div id="esStep1">
-        <div class="fr" style="margin-bottom:10px">
-          <label>Notiz aus CRM</label>
-          <div class="es-notiz" id="esNotiz">—</div>
+    <div class="mb">
+      <p class="mail-compose-meta"><strong>An:</strong> <span id="mcTo"></span></p>
+      <div class="mc-mode-tabs">
+        <button type="button" class="mc-mode-tab on" data-mode="ai" onclick="mailComposeSetMode('ai')">KI-Vorschlag</button>
+        <button type="button" class="mc-mode-tab" data-mode="outline" onclick="mailComposeSetMode('outline')">Rahmen</button>
+        <button type="button" class="mc-mode-tab" data-mode="blank" onclick="mailComposeSetMode('blank')">Freitext</button>
+      </div>
+      <div class="fr">
+        <label>Notiz / Einwand aus CRM</label>
+        <div class="es-notiz" id="mcNotiz">—</div>
+      </div>
+      <div id="mcStepSetup">
+        <div class="fr" id="mcAnlassSelectRow">
+          <label>Anlass</label>
+          <select class="fs2" id="mcAnlass"></select>
+        </div>
+      </div>
+      <div id="mcLoading" hidden class="mail-compose-loading">KI generiert Email…</div>
+      <div id="mcStepEdit">
+        <div class="fr">
+          <label for="mcSubject">Betreff</label>
+          <input type="text" id="mcSubject" class="fs2" style="width:100%">
         </div>
         <div class="fr">
-          <label>Anlass</label>
-          <select class="fs2" id="esAnlass">
-            <option value="keine_website">Keine Webseite vorhanden</option>
-            <option value="veraltet">Webseite veraltet (vor 2018)</option>
-            <option value="kein_kalkulator">Kein Kostenrechner</option>
-            <option value="kein_formular">Kein Kontaktformular</option>
-            <option value="nur_telefon">Nur Telefon erreichbar</option>
-            <option value="kein_termin">Keine Online-Terminbuchung</option>
-            <option value="mobile">Schlechte Mobile-Darstellung</option>
-            <option value="kein_google">Kein Google-Auftritt</option>
-            <option value="sonstiges">Sonstiges (Notiz verwenden)</option>
-          </select>
+          <label for="mcBody">Inhalt</label>
+          <textarea id="mcBody" class="qn-ta" rows="12" style="width:100%"></textarea>
         </div>
-      </div>
-      <div id="esStep2" style="display:none">
-        <div style="font-family:sans-serif;font-size:12px;font-weight:600;color:var(--st);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Betreff</div>
-        <input type="text" id="esSubject" style="width:100%;padding:7px 10px;border:1px solid var(--bd);border-radius:4px;font-size:13px;font-family:sans-serif;margin-bottom:10px;outline:none" onfocus="this.style.borderColor='var(--or)'" onblur="this.style.borderColor='var(--bd)'">
-        <div style="font-family:sans-serif;font-size:12px;font-weight:600;color:var(--st);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px">Email-Inhalt</div>
-        <textarea id="esBody" style="width:100%;min-height:200px;padding:9px 11px;border:1px solid var(--bd);border-radius:4px;font-size:13px;font-family:sans-serif;resize:vertical;outline:none" onfocus="this.style.borderColor='var(--or)'" onblur="this.style.borderColor='var(--bd)'"></textarea>
-        <div style="font-family:sans-serif;font-size:11px;color:#B0A898;margin-top:5px">✏️ Du kannst Betreff und Text vor dem Senden bearbeiten.</div>
-      </div>
-      <div id="esLoading" style="display:none;text-align:center;padding:20px;font-family:sans-serif;font-size:13px;color:var(--st)">
-        ✍️ LLM generiert Email…
+        <p class="mail-compose-hint">Absender: kevin@ritz-ai.solutions — Text vor dem Senden prüfen.</p>
       </div>
     </div>
-    <div class="es-foot">
-      <button class="btn bs" onclick="closeEsPop()">Abbrechen</button>
-      <button class="btn bs" id="esGenBtn" onclick="esGenerate()">✨ Generieren</button>
-      <button class="btn bp" id="esSendBtn" onclick="esSend()" style="display:none">📨 Senden</button>
+    <div class="mf">
+      <button type="button" class="btn bs bsm" onclick="closeMailCompose()">Abbrechen</button>
+      <button type="button" class="btn bs bsm" id="mcGenBtn" onclick="mailComposeGenerate()">Generieren</button>
+      <button type="button" class="btn bp bsm" id="mcSendBtn" onclick="mailComposeSend()">Senden</button>
+    </div>
+  </div>
+</div>
+
+<!-- Google Kalender (intern: ritzaisolutions@gmail.com) -->
+<div class="ovl" id="calPop">
+  <div class="modal cal-pop-modal">
+    <div class="mh">
+      <h2 id="calTitle">Kalender</h2>
+      <button type="button" class="btn bg" onclick="closeCalPop()">&#10005;</button>
+    </div>
+    <div class="mb">
+      <p class="cal-pop-meta"><strong>Lead:</strong> <span id="calFirma"></span></p>
+      <p class="cal-pop-hint" id="calHint"></p>
+      <div class="fr">
+        <label for="calDate">Datum</label>
+        <input type="date" id="calDate" class="fs2" style="width:100%">
+      </div>
+      <div class="fr">
+        <label for="calTime">Uhrzeit</label>
+        <input type="time" id="calTime" class="fs2" style="width:100%" value="10:00">
+      </div>
+    </div>
+    <div class="mf">
+      <button type="button" class="btn bs bsm" onclick="closeCalPop()">Abbrechen</button>
+      <button type="button" class="btn bp bsm" id="calCreateBtn" onclick="calCreate()">In Kalender anlegen</button>
     </div>
   </div>
 </div>
@@ -602,6 +650,10 @@
   <button class="mn-tab" data-page="clients">
     <span class="mn-tab-icon">&#128101;</span>
     <span class="mn-tab-label">Clients</span>
+  </button>
+  <button class="mn-tab" data-page="termine">
+    <span class="mn-tab-icon">&#128197;</span>
+    <span class="mn-tab-label">Termine</span>
   </button>
   <button class="mn-tab" data-page="sessions">
     <span class="mn-tab-icon">&#127937;</span>
@@ -627,16 +679,21 @@ import { render, setF, filterDue, goPg, openP, closeP, qs, openQN, closeQN, save
 import { renderCalls, resetCallCount } from './src/calls.js';
 import { addTouch, toggleAcc, saveTF } from './src/touch.js';
 import { openImport, closeI, dzOv, dzLv, dzDr, rdCSV, doImport, exportCSV } from './src/import.js';
-import { openEsPanel, openEsPop, closeEsPop, esGenerate, esSend, sendEmailBatch, markReply, markUnsub, bulkEmail } from './src/email.js';
+import { openEsPanel, openMailCompose, closeMailCompose, mailComposeSetMode, mailComposeGenerate, mailComposeSend, markReply, markUnsub } from './src/email.js';
+import { openCalPop, closeCalPop, calCreate, maybeOfferCalendar } from './src/calendar.js';
+import { initContextMenu, ctxAction, showCtxMenuAtEvent } from './src/contextmenu.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
 import { showDemoTodoPopup, saveDemoTodos, closeDemoTodoPop, openQuickTodo, saveQuickTodo, closeQuickTodo } from './src/todopop.js';
 import { initMarcoPage } from './src/chat.js';
 import { initSidebar } from './src/sidebar.js';
 import { initHeaderWidget, initSessionsPage } from './src/sessions.js';
+import { initTerminePage, refreshTermineIfActive } from './src/termine.js';
+
+window.refreshTermineAgenda = refreshTermineIfActive;
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeClPanel(); closeEsPop(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); }
+  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeClPanel(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); }
   const tag = document.activeElement.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (inInput) return;
@@ -650,8 +707,10 @@ document.addEventListener('keydown', function(e) {
 
 initSidebar();
 initHeaderWidget(document.getElementById('sph-widget'));
+initContextMenu();
 
 window.addEventListener('rais:page-change', function(e) {
+  if (e.detail.page === 'termine') initTerminePage();
   if (e.detail.page === 'sessions') initSessionsPage(document.getElementById('sessions-history-container'));
   if (e.detail.page === 'marco') initMarcoPage(document.getElementById('marco-container'));
 });
@@ -674,15 +733,16 @@ document.addEventListener('click', function(e) {
 });
 
 Object.assign(window, {
-  addTouch, bulkEmail, closeClientModal, closeClPanel, closeDemoTodoPop, closeE, closeEsPop,
-  closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, del, delClient, doImport, doSort,
-  dzDr, dzLv, dzOv, esGenerate, esSend, exportCSV, filterDue, goPg,
+  addTouch, calCreate, closeCalPop, closeClientModal, closeClPanel, closeDemoTodoPop, closeE, closeMailCompose,
+  closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, ctxAction, del, delClient, doImport, doSort,
+  dzDr, dzLv, dzOv, exportCSV, filterDue, goPg,
   inlineFU, inlineFUFocus, inlineFUBlur, inlineROI, inlineST,
+  mailComposeGenerate, mailComposeSend, mailComposeSetMode,
   markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit,
-  openClPanel, openE, openEsPanel, openEsPop, openImport, openP, openPurgeDq, openPurgeVersicherung,
+  openCalPop, openClPanel, openE, openEsPanel, openImport, openMailCompose, openP, openPurgeDq, openPurgeVersicherung, showCtxMenuAtEvent,
   openQN, openQuickTodo, applyColPreset, purgeDq, purgeVersicherungsmakler, qs, rdCSV, render, renderClients, resetCallCount,
   save, saveClient, saveDemoTodos, saveNotiz, saveQN, saveQuickTodo, saveTF,
-  sendEmailBatch, setF, shiftFU,
+  setF, shiftFU,
   syncCloud, toggleAcc, toggleCol, toggleColMenu, toggleMobileMenu, closePurgeVersicherung, closeSessionCelebration,
   openAktionPop, closeAktionPop, saveAktionPop, clearAktionPop, fillAktionSuggestion, checkAktionItem, scrollToAktionQueue,
 });
