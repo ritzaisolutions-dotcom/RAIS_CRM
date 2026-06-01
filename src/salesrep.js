@@ -9,6 +9,9 @@ const WH = { salesrep: WH_BASE + 'wf9-salesrep' };
 const HISTORY_KEY = 'rais_salesrep_history';
 const HISTORY_MAX = 10;
 
+const CHAT_WELCOME =
+  'Firmendaten unten eingeben und „Recherche starten“ — deine Anfrage und die Recherche-Antwort erscheinen hier im Chat.';
+
 function whFetch(url, opts) {
   opts = opts || {};
   opts.headers = Object.assign({ 'Content-Type': 'application/json', 'X-RAIS-Token': WH_TOKEN }, opts.headers || {});
@@ -17,6 +20,14 @@ function whFetch(url, opts) {
 
 function getContact(id) {
   return S.contacts.find(function(x) { return x.id === id; });
+}
+
+function chatId(fromPage) {
+  return fromPage ? 'srPageChat' : 'srChat';
+}
+
+function applyId(fromPage) {
+  return fromPage ? 'srPageApply' : 'srApply';
 }
 
 function normalizeWebsite(url) {
@@ -46,6 +57,68 @@ function fillForm(prefix, data) {
   if (elW) elW.value = data.website || '';
   if (elS) elS.value = data.stadt || '';
   if (elG) elG.value = data.gewerk || '';
+}
+
+function scrollChat(fromPage) {
+  const el = document.getElementById(chatId(fromPage));
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+function clearChat(fromPage) {
+  const el = document.getElementById(chatId(fromPage));
+  if (el) el.innerHTML = '';
+  const apply = document.getElementById(applyId(fromPage));
+  if (apply) { apply.hidden = true; apply.innerHTML = ''; }
+}
+
+function appendChatMsg(fromPage, role, innerHtml) {
+  const el = document.getElementById(chatId(fromPage));
+  if (!el) return;
+  const wrap = document.createElement('div');
+  wrap.className = 'salesrep-msg salesrep-msg-' + role;
+  wrap.innerHTML =
+    '<div class="salesrep-msg-avatar" aria-hidden="true">' + (role === 'user' ? 'Du' : 'SR') + '</div>' +
+    '<div class="salesrep-msg-body">' + innerHtml + '</div>';
+  el.appendChild(wrap);
+  scrollChat(fromPage);
+}
+
+function userMessageHtml(form) {
+  const parts = ['<p class="salesrep-msg-title">' + esc(form.firma) + '</p>'];
+  if (form.website) parts.push('<p class="salesrep-msg-line"><span>Website</span> ' + esc(form.website) + '</p>');
+  if (form.stadt) parts.push('<p class="salesrep-msg-line"><span>Stadt</span> ' + esc(form.stadt) + '</p>');
+  if (form.gewerk) parts.push('<p class="salesrep-msg-line"><span>Gewerk</span> ' + esc(form.gewerk) + '</p>');
+  return parts.join('');
+}
+
+function showTyping(fromPage, on) {
+  const el = document.getElementById(chatId(fromPage));
+  if (!el) return;
+  let typing = el.querySelector('.salesrep-msg-typing');
+  if (on) {
+    if (typing) return;
+    typing = document.createElement('div');
+    typing.className = 'salesrep-msg salesrep-msg-assistant salesrep-msg-typing';
+    typing.innerHTML =
+      '<div class="salesrep-msg-avatar" aria-hidden="true">SR</div>' +
+      '<div class="salesrep-msg-body"><p class="salesrep-typing-text">Recherchiert…</p></div>';
+    el.appendChild(typing);
+    scrollChat(fromPage);
+  } else if (typing) {
+    typing.remove();
+  }
+}
+
+function welcomeChat(fromPage) {
+  clearChat(fromPage);
+  appendChatMsg(fromPage, 'assistant',
+    '<p class="salesrep-msg-welcome">' + esc(CHAT_WELCOME) + '</p>');
+}
+
+function loadChatExchange(fromPage, form, report) {
+  clearChat(fromPage);
+  appendChatMsg(fromPage, 'user', userMessageHtml(form));
+  appendChatMsg(fromPage, 'assistant', reportHtml(report));
 }
 
 function reportHtml(report) {
@@ -115,13 +188,17 @@ function renderApplySection(report, contactId, containerId) {
   box.querySelector('.salesrep-apply-btn')?.addEventListener('click', function() {
     salesRepApplyToContact(contactId, box);
   });
+  scrollChat(containerId.indexOf('Page') >= 0);
 }
 
 function setLoading(loading, prefix) {
-  const loadEl = document.getElementById((prefix || 'sr') + 'Loading');
+  const fromPage = prefix === 'srPage';
   const runBtn = document.getElementById((prefix || 'sr') + 'RunBtn');
-  if (loadEl) loadEl.hidden = !loading;
-  if (runBtn) { runBtn.disabled = loading; runBtn.textContent = loading ? 'Recherchiert…' : 'Recherche starten'; }
+  showTyping(fromPage, loading);
+  if (runBtn) {
+    runBtn.disabled = loading;
+    runBtn.textContent = loading ? 'Recherchiert…' : 'Recherche starten';
+  }
 }
 
 function pushHistory(entry) {
@@ -152,13 +229,17 @@ function renderHistoryList() {
       const h = list[parseInt(btn.dataset.idx, 10)];
       if (!h) return;
       fillForm('srPage', h);
-      const out = document.getElementById('srPageResult');
-      if (out && h.report) {
-        out.hidden = false;
-        out.innerHTML = reportHtml(h.report);
+      const form = {
+        firma: h.firma || '',
+        website: h.website || '',
+        stadt: h.stadt || '',
+        gewerk: h.gewerk || '',
+      };
+      if (h.report) {
+        loadChatExchange(true, form, h.report);
         S.salesrepReport = h.report;
         S.salesrepContactId = null;
-        renderApplySection(null, null, 'srPageApply');
+        renderApplySection(null, null, applyId(true));
       }
     });
   });
@@ -178,10 +259,7 @@ export function openSalesRepPop(contactId) {
   });
   const meta = document.getElementById('srMeta');
   if (meta) meta.textContent = c ? ('Lead: ' + (c.firma || '—')) : 'Freie Recherche';
-  const result = document.getElementById('srResult');
-  const apply = document.getElementById('srApply');
-  if (result) { result.hidden = true; result.innerHTML = ''; }
-  if (apply) { apply.hidden = true; apply.innerHTML = ''; }
+  welcomeChat(false);
   setLoading(false, 'sr');
   pop.classList.add('on');
 }
@@ -204,9 +282,8 @@ export async function salesRepRun(fromPage) {
   const c = contactId ? getContact(contactId) : null;
   const mode = contactId ? 'contact' : 'free';
 
+  appendChatMsg(fromPage, 'user', userMessageHtml(form));
   setLoading(true, prefix);
-  const resultId = fromPage ? 'srPageResult' : 'srResult';
-  const applyId = fromPage ? 'srPageApply' : 'srApply';
 
   try {
     const resp = await whFetch(WH.salesrep, {
@@ -225,22 +302,23 @@ export async function salesRepRun(fromPage) {
     if (!resp.ok || !data.ok) throw new Error(data.error || 'HTTP ' + resp.status);
 
     S.salesrepReport = data.report;
-    const out = document.getElementById(resultId);
-    if (out) {
-      out.hidden = false;
-      out.innerHTML = reportHtml(data.report);
-    }
-    renderApplySection(data.report, contactId, applyId);
+    appendChatMsg(fromPage, 'assistant', reportHtml(data.report));
+    renderApplySection(data.report, contactId, applyId(fromPage));
 
     pushHistory({
       at: new Date().toISOString().slice(0, 16).replace('T', ' '),
       firma: form.firma,
+      website: form.website,
+      stadt: form.stadt,
+      gewerk: form.gewerk,
       report: data.report,
     });
     if (fromPage) renderHistoryList();
 
     toast('Recherche abgeschlossen.');
   } catch (e) {
+    appendChatMsg(fromPage, 'assistant',
+      '<p class="salesrep-msg-error">Fehler: ' + esc(e.message) + '</p>');
     toast('Sales Rep Assistant: ' + e.message);
   } finally {
     setLoading(false, prefix);
@@ -300,19 +378,20 @@ export function initSalesRepPage() {
     root.innerHTML =
       '<main class="salesrep-page-inner">' +
       '<header class="salesrep-header"><h1 class="salesrep-h1">Sales Rep Assistant</h1>' +
-      '<p class="salesrep-sub">Firmenrecherche für Cold Calls — öffentliche Quellen via Gemini.</p></header>' +
+      '<p class="salesrep-sub">Firmenrecherche für Cold Calls — Chat mit Gemini-Recherche.</p></header>' +
       '<div class="salesrep-layout">' +
-      '<section class="salesrep-panel">' +
-      '<h2 class="salesrep-h2">Neue Recherche</h2>' +
-      '<div class="fr"><label for="srPageFirma">Firma *</label><input type="text" id="srPageFirma" class="fs2" style="width:100%"></div>' +
-      '<div class="fr"><label for="srPageWebsite">Website</label><input type="text" id="srPageWebsite" class="fs2" style="width:100%" placeholder="https://…"></div>' +
-      '<div class="fr2"><div><label for="srPageStadt">Stadt</label><input type="text" id="srPageStadt" class="fs2" style="width:100%"></div>' +
-      '<div><label for="srPageGewerk">Gewerk</label><input type="text" id="srPageGewerk" class="fs2" style="width:100%"></div></div>' +
-      '<button type="button" class="btn bp" id="srPageRunBtn">Recherche starten</button>' +
-      '<div id="srPageLoading" hidden class="salesrep-loading">Sales Rep Assistant recherchiert…</div>' +
-      '<div id="srPageResult" class="salesrep-result" hidden></div>' +
+      '<section class="salesrep-panel salesrep-panel-chat">' +
+      '<div id="srPageChat" class="salesrep-chat-messages" role="log" aria-live="polite"></div>' +
       '<div id="srPageApply" class="salesrep-apply" hidden></div>' +
-      '</section>' +
+      '<div class="salesrep-chat-composer salesrep-chat-composer-page">' +
+      '<div class="salesrep-composer-grid">' +
+      '<input type="text" id="srPageFirma" class="fs2" placeholder="Firma *" aria-label="Firma">' +
+      '<input type="text" id="srPageWebsite" class="fs2" placeholder="Website" aria-label="Website">' +
+      '<input type="text" id="srPageStadt" class="fs2" placeholder="Stadt" aria-label="Stadt">' +
+      '<input type="text" id="srPageGewerk" class="fs2" placeholder="Gewerk" aria-label="Gewerk">' +
+      '</div>' +
+      '<button type="button" class="btn bp" id="srPageRunBtn">Recherche starten</button>' +
+      '</div></section>' +
       '<section class="salesrep-panel salesrep-panel-hist">' +
       '<h2 class="salesrep-h2">Verlauf</h2>' +
       '<div id="srPageHistory" class="salesrep-history"></div>' +
@@ -325,11 +404,7 @@ export function initSalesRepPage() {
   }
 
   fillForm('srPage', {});
-  const _out = document.getElementById('srPageResult');
-  if (_out) { _out.hidden = true; _out.innerHTML = ''; }
-  const _apply = document.getElementById('srPageApply');
-  if (_apply) { _apply.hidden = true; _apply.innerHTML = ''; }
+  welcomeChat(true);
   setLoading(false, 'srPage');
   renderHistoryList();
 }
-

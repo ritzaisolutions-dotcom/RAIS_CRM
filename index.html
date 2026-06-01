@@ -642,28 +642,29 @@
   </div>
 </div>
 
-<!-- Sales Rep Assistant (Rechtsklick / Tab) -->
+<!-- Sales Rep Assistant (Rechtsklick / Tab) — eingebetteter Chat -->
 <div class="ovl" id="salesrepPop">
-  <div class="modal salesrep-pop-modal">
+  <div class="modal salesrep-pop-modal salesrep-chat-modal">
     <div class="mh">
       <h2>Sales Rep Assistant</h2>
       <button type="button" class="btn bg" onclick="closeSalesRepPop()">&#10005;</button>
     </div>
-    <div class="mb">
+    <div class="mb salesrep-chat-body">
       <p class="salesrep-pop-meta" id="srMeta">—</p>
-      <div class="fr"><label for="srFirma">Firma *</label><input type="text" id="srFirma" class="fs2" style="width:100%"></div>
-      <div class="fr"><label for="srWebsite">Website</label><input type="text" id="srWebsite" class="fs2" style="width:100%" placeholder="https://…"></div>
-      <div class="fr2">
-        <div><label for="srStadt">Stadt</label><input type="text" id="srStadt" class="fs2" style="width:100%"></div>
-        <div><label for="srGewerk">Gewerk</label><input type="text" id="srGewerk" class="fs2" style="width:100%"></div>
-      </div>
-      <div id="srLoading" hidden class="salesrep-loading">Sales Rep Assistant recherchiert…</div>
-      <div id="srResult" class="salesrep-result" hidden></div>
+      <div id="srChat" class="salesrep-chat-messages" role="log" aria-live="polite"></div>
       <div id="srApply" class="salesrep-apply" hidden></div>
     </div>
-    <div class="mf">
-      <button type="button" class="btn bs bsm" onclick="closeSalesRepPop()">Schließen</button>
-      <button type="button" class="btn bp bsm" id="srRunBtn" onclick="salesRepRun(false)">Recherche starten</button>
+    <div class="salesrep-chat-composer">
+      <div class="salesrep-composer-grid">
+        <input type="text" id="srFirma" class="fs2" placeholder="Firma *" aria-label="Firma">
+        <input type="text" id="srWebsite" class="fs2" placeholder="Website" aria-label="Website">
+        <input type="text" id="srStadt" class="fs2" placeholder="Stadt" aria-label="Stadt">
+        <input type="text" id="srGewerk" class="fs2" placeholder="Gewerk" aria-label="Gewerk">
+      </div>
+      <div class="salesrep-composer-actions">
+        <button type="button" class="btn bs bsm" onclick="closeSalesRepPop()">Schließen</button>
+        <button type="button" class="btn bp bsm" id="srRunBtn" onclick="salesRepRun(false)">Recherche starten</button>
+      </div>
     </div>
   </div>
 </div>
