@@ -62,7 +62,7 @@ function reportHtml(report) {
   html += '<div class="salesrep-report-row"><span class="salesrep-lbl">Telefon</span><span>' + esc(report.telefon || '—') + '</span></div>';
   html += '<div class="salesrep-report-row"><span class="salesrep-lbl">E-Mail</span><span>' + esc(report.email || '—') + '</span></div>';
   if (report.summary) {
-    html += '<p class="salesrep-summary">' + esc(report.summary) + '</p>';
+    html += '<p class="salesrep-summary">' + esc(report.summary).replace(/\n/g, '<br>') + '</p>';
   }
   if (gaps.length) {
     html += '<h4 class="salesrep-sub">Lücken / Ansatzpunkte</h4><ul class="salesrep-gap-list">';
@@ -105,7 +105,7 @@ function renderApplySection(report, contactId, containerId) {
     if (!v || v === '—' || v === 'NA') return;
     const filled = !!(f.cur || '').trim();
     const checked = !filled ? ' checked' : '';
-    const disabled = filled ? '' : '';
+    const disabled = filled ? ' disabled' : '';
     html += '<label class="salesrep-apply-row"><input type="checkbox" data-field="' + f.key + '"' + checked + disabled + '> ' +
       esc(f.label) + ': ' + esc(v) + (filled ? ' <span class="salesrep-apply-warn">(CRM: ' + esc(f.cur) + ')</span>' : '') + '</label>';
   });
@@ -323,9 +323,13 @@ export function initSalesRepPage() {
     });
     _salesrepPageInit = true;
   }
+
+  fillForm('srPage', {});
+  const _out = document.getElementById('srPageResult');
+  if (_out) { _out.hidden = true; _out.innerHTML = ''; }
+  const _apply = document.getElementById('srPageApply');
+  if (_apply) { _apply.hidden = true; _apply.innerHTML = ''; }
+  setLoading(false, 'srPage');
   renderHistoryList();
 }
 
-window.addEventListener('rais:page-change', function(e) {
-  if (e.detail.page === 'salesrep') initSalesRepPage();
-});
