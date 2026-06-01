@@ -116,6 +116,19 @@ Interner Google-Kalender **ritzaisolutions@gmail.com** (keine Kunden-Einladungen
 
 ---
 
+### WF9 — Sales Rep Assistant (`wf9-salesrep`)
+Firmenrecherche für Cold Calls (Gemini + Google Search, optional HTTP-Website-Check).
+
+**Request:** `firma` (Pflicht), `website`, `stadt`, `gewerk`, `notiz`, `mode` (`contact`|`free`), `contact_id`
+
+**Response:** `{ ok: true, report: { website, website_ok, http_status, kontakt, telefon, email, summary, gaps[], hooks[], confidence } }`
+
+**CRM schreibt lokal (optional):** `extra.salesrep_last` beim Übernehmen in Kontakt; Verlauf in `localStorage` `rais_salesrep_history`
+
+**Kein Supabase-Schreibzugriff** durch WF9.
+
+---
+
 ## Wichtige Regel
 
 > **Vor jeder Spalten-Umbenennung oder -Löschung:**

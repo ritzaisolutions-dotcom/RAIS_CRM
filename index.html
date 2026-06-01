@@ -260,12 +260,12 @@
 </main>
 </div>
 
-<!-- ── Page 4: Marco Chat ─────────────────────────────────────────────────── -->
-<div class="rais-page" id="page-marco">
-  <div id="marco-container" style="height:100%"></div>
+<!-- ── Page: Sales Rep Assistant ──────────────────────────────────────────── -->
+<div class="rais-page" id="page-salesrep">
+  <div id="salesrep-page-root" class="salesrep-page"></div>
 </div>
 
-<!-- ── Page 5: Sessions ───────────────────────────────────────────────────── -->
+<!-- ── Page: Sessions ───────────────────────────────────────────────────── -->
 <div class="rais-page" id="page-sessions">
 <main style="padding:28px">
   <!-- Session history (populated by initSessionsPage) -->
@@ -642,6 +642,32 @@
   </div>
 </div>
 
+<!-- Sales Rep Assistant (Rechtsklick / Tab) -->
+<div class="ovl" id="salesrepPop">
+  <div class="modal salesrep-pop-modal">
+    <div class="mh">
+      <h2>Sales Rep Assistant</h2>
+      <button type="button" class="btn bg" onclick="closeSalesRepPop()">&#10005;</button>
+    </div>
+    <div class="mb">
+      <p class="salesrep-pop-meta" id="srMeta">—</p>
+      <div class="fr"><label for="srFirma">Firma *</label><input type="text" id="srFirma" class="fs2" style="width:100%"></div>
+      <div class="fr"><label for="srWebsite">Website</label><input type="text" id="srWebsite" class="fs2" style="width:100%" placeholder="https://…"></div>
+      <div class="fr2">
+        <div><label for="srStadt">Stadt</label><input type="text" id="srStadt" class="fs2" style="width:100%"></div>
+        <div><label for="srGewerk">Gewerk</label><input type="text" id="srGewerk" class="fs2" style="width:100%"></div>
+      </div>
+      <div id="srLoading" hidden class="salesrep-loading">Sales Rep Assistant recherchiert…</div>
+      <div id="srResult" class="salesrep-result" hidden></div>
+      <div id="srApply" class="salesrep-apply" hidden></div>
+    </div>
+    <div class="mf">
+      <button type="button" class="btn bs bsm" onclick="closeSalesRepPop()">Schließen</button>
+      <button type="button" class="btn bp bsm" id="srRunBtn" onclick="salesRepRun(false)">Recherche starten</button>
+    </div>
+  </div>
+</div>
+
 <nav id="mobile-nav" role="navigation" aria-label="Hauptnavigation">
   <button class="mn-tab active" data-page="prospecting">
     <span class="mn-tab-icon">&#128203;</span>
@@ -659,9 +685,9 @@
     <span class="mn-tab-icon">&#127937;</span>
     <span class="mn-tab-label">Sessions</span>
   </button>
-  <button class="mn-tab" data-page="marco">
-    <span class="mn-tab-icon">&#129302;</span>
-    <span class="mn-tab-label">Marco</span>
+  <button class="mn-tab" data-page="salesrep">
+    <span class="mn-tab-icon">&#127919;</span>
+    <span class="mn-tab-label">SRA</span>
   </button>
 </nav>
 
@@ -684,7 +710,7 @@ import { openCalPop, closeCalPop, calCreate, maybeOfferCalendar } from './src/ca
 import { initContextMenu, ctxAction, showCtxMenuAtEvent } from './src/contextmenu.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
 import { showDemoTodoPopup, saveDemoTodos, closeDemoTodoPop, openQuickTodo, saveQuickTodo, closeQuickTodo } from './src/todopop.js';
-import { initMarcoPage } from './src/chat.js';
+import { openSalesRepPop, closeSalesRepPop, salesRepRun, salesRepApplyToContact, initSalesRepPage } from './src/salesrep.js';
 import { initSidebar } from './src/sidebar.js';
 import { initHeaderWidget, initSessionsPage } from './src/sessions.js';
 import { initTerminePage, refreshTermineIfActive } from './src/termine.js';
@@ -693,7 +719,7 @@ window.refreshTermineAgenda = refreshTermineIfActive;
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeClPanel(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); }
+  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeSalesRepPop(); closeClPanel(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); }
   const tag = document.activeElement.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (inInput) return;
@@ -712,7 +738,7 @@ initContextMenu();
 window.addEventListener('rais:page-change', function(e) {
   if (e.detail.page === 'termine') initTerminePage();
   if (e.detail.page === 'sessions') initSessionsPage(document.getElementById('sessions-history-container'));
-  if (e.detail.page === 'marco') initMarcoPage(document.getElementById('marco-container'));
+  if (e.detail.page === 'salesrep') initSalesRepPage();
 });
 
 await window._authReady;
@@ -733,13 +759,13 @@ document.addEventListener('click', function(e) {
 });
 
 Object.assign(window, {
-  addTouch, calCreate, closeCalPop, closeClientModal, closeClPanel, closeDemoTodoPop, closeE, closeMailCompose,
+  addTouch, calCreate, closeCalPop, closeClientModal, closeClPanel, closeDemoTodoPop, closeE, closeMailCompose, closeSalesRepPop,
   closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, ctxAction, del, delClient, doImport, doSort,
   dzDr, dzLv, dzOv, exportCSV, filterDue, goPg,
   inlineFU, inlineFUFocus, inlineFUBlur, inlineROI, inlineST,
   mailComposeGenerate, mailComposeSend, mailComposeSetMode,
   markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit,
-  openCalPop, openClPanel, openE, openEsPanel, openImport, openMailCompose, openP, openPurgeDq, openPurgeVersicherung, showCtxMenuAtEvent,
+  openCalPop, openClPanel, openE, openEsPanel, openImport, openMailCompose, openP, openPurgeDq, openPurgeVersicherung, openSalesRepPop, salesRepRun, salesRepApplyToContact, showCtxMenuAtEvent,
   openQN, openQuickTodo, applyColPreset, purgeDq, purgeVersicherungsmakler, qs, rdCSV, render, renderClients, resetCallCount,
   save, saveClient, saveDemoTodos, saveNotiz, saveQN, saveQuickTodo, saveTF,
   setF, shiftFU,

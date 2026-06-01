@@ -21,6 +21,8 @@ export const S = {
   mailComposeMode: 'ai',
   calContactId:    null,
   calType:         null,
+  salesrepContactId: null,
+  salesrepReport:    null,
   clClients:     [],
   clEid:         null,
 };

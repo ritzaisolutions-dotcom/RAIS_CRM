@@ -12,6 +12,7 @@
 | `WF6_Email3.json` | wf6-email3 | Abschluss-Follow-up Email 3 senden |
 | `WF7_Compose.json` | wf7-compose | CRM Einzelmail (kevin@ritz-ai.solutions) |
 | `WF8_Calendar.json` | wf8-calendar | CRM Demo/Rückruf → Google Kalender (ritzaisolutions@gmail.com) |
+| `WF9_SalesRep.json` | wf9-salesrep | CRM Sales Rep Assistant — Firmenrecherche (Gemini) |
 
 ## Webhook-Endpunkte
 
@@ -27,6 +28,7 @@ Basis-URL: `https://n8n.ritz-ai.solutions/webhook/`
 | WF6 | `wf6-email3` |
 | WF7 | `wf7-compose` |
 | WF8 | `wf8-calendar` |
+| WF9 | `wf9-salesrep` |
 
 **Auth:** Alle Webhooks erwarten Header `X-RAIS-Token: <token>` (Phase 1.5).
 

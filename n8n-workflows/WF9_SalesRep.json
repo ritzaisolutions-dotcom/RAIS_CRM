@@ -1,0 +1,260 @@
+{
+  "name": "WF9 — CRM Sales Rep Assistant (Gemini)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf9-salesrep",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-720, 300],
+      "id": "wh-wf9",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst headers = item.headers || {};\nconst body = item.body || item;\n\nconst TOKEN = 'ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc';\nconst got = (headers['x-rais-token'] || headers['X-RAIS-Token'] || body.token || '').toString();\nif (got !== TOKEN) {\n  return [{ json: { mode: 'error', message: 'Nicht autorisiert' } }];\n}\n\nconst firma = (body.firma || '').trim();\nif (!firma) {\n  return [{ json: { mode: 'error', message: 'Firma fehlt' } }];\n}\n\nlet website = (body.website || '').trim();\nif (website && !/^https?:\\/\\//i.test(website)) website = 'https://' + website;\n\nreturn [{\n  json: {\n    mode: 'research',\n    contact_id: body.contact_id || '',\n    crm_mode: body.mode || 'free',\n    firma,\n    website,\n    stadt: (body.stadt || '').trim(),\n    gewerk: (body.gewerk || '').trim(),\n    notiz: (body.notiz || '').trim(),\n    website_ok: false,\n    http_status: null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-480, 300],
+      "id": "auth-wf9",
+      "name": "Auth & Input"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "research",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-240, 300],
+      "id": "if-research-wf9",
+      "name": "Is Research?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.website }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [0, 200],
+      "id": "if-website-wf9",
+      "name": "Has Website?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.website }}",
+        "options": {
+          "timeout": 12000,
+          "redirect": { "redirect": { "followRedirects": true } },
+          "response": { "response": { "fullResponse": true, "neverError": true } }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [240, 120],
+      "id": "http-wf9",
+      "name": "Check Website"
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('Auth & Input').item.json;\nconst httpItem = $input.first().json;\nconst status = httpItem.statusCode || httpItem.status || 0;\nconst ok = status >= 200 && status < 400;\nreturn [{ json: Object.assign({}, base, { website_ok: ok, http_status: status || null }) }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 120],
+      "id": "merge-http-wf9",
+      "name": "Merge HTTP Status"
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('Auth & Input').item.json;\nreturn [{ json: Object.assign({}, base, { website_ok: false, http_status: null }) }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 280],
+      "id": "skip-http-wf9",
+      "name": "No Website Skip"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.0-flash",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.0-flash"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Firma: {{ $json.firma }}\nWebsite: {{ $json.website || 'keine' }}\nWebsite erreichbar (HTTP): {{ $json.website_ok ? 'ja' : 'nein/ungeprüft' }} (Status: {{ $json.http_status || '—' }})\nStadt: {{ $json.stadt || '—' }}\nGewerk: {{ $json.gewerk || '—' }}\nCRM-Notiz: {{ $json.notiz || '—' }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "builtInTools": { "googleSearch": true },
+        "options": {
+          "systemMessage": "### ROLLE\nDu bist Sales-Research-Assistent für Cold Calls bei deutschen Handwerksbetrieben (Fliesenleger, Bodenleger, SHK, etc.). Nutze nur öffentlich zugängliche Informationen (Website, Impressum, Google, Branchenverzeichnisse).\n\n### AUFGABE\n1. Ansprechpartner, Telefon, E-Mail aus öffentlichen Quellen (wenn plausibel)\n2. Kurze Zusammenfassung (2–4 Sätze, Deutsch) für den Vertriebler\n3. 2–5 konkrete Lücken/Ansatzpunkte (z. B. veraltete Website, kein Online-Kalkulator, schlechte Bewertungen)\n4. 2–4 Gesprächs-Hooks (konkret, nicht generisch)\n5. Vertrauen: hoch | mittel | niedrig\n\n### OUTPUT\nNur gültiges JSON, kein Markdown:\n{\n  \"website\": \"https://…\",\n  \"kontakt\": \"Max Mustermann\",\n  \"telefon\": \"+49 …\",\n  \"email\": \"info@…\",\n  \"summary\": \"…\",\n  \"gaps\": [\"…\", \"…\"],\n  \"hooks\": [\"…\", \"…\"],\n  \"confidence\": \"mittel\"\n}\n\nUnbekannte Felder: leerer String oder \"NA\". gaps/hooks immer Arrays (auch leer)."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.1,
+      "position": [720, 200],
+      "id": "gemini-wf9",
+      "name": "Gemini Research",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "REPLACE_ME",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ext-out-wf9",
+              "name": "output",
+              "value": "={{ $json.content?.parts?.[0]?.text || $json.output || $json.text || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "ext-prep-wf9",
+              "name": "prep_json",
+              "value": "={{ JSON.stringify($('Merge HTTP Status').isExecuted ? $('Merge HTTP Status').item.json : $('No Website Skip').item.json) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [960, 200],
+      "id": "ext-wf9",
+      "name": "Extract Output"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nlet base = {};\ntry { base = JSON.parse(item.prep_json || '{}'); } catch (e) { base = {}; }\nif (!base.firma) {\n  try { base = $('Merge HTTP Status').first().json; } catch (e2) {}\n}\nif (!base.firma) {\n  try { base = $('No Website Skip').first().json; } catch (e3) {}\n}\nlet raw = item.output || '';\nif (!raw) {\n  return [{ json: { mode: 'error', message: 'Keine Gemini-Antwort' } }];\n}\ntry {\n  const jsonString = raw.replace(/```json|```/g, '').trim();\n  const parsed = JSON.parse(jsonString);\n  const report = {\n    website: parsed.website || base.website || '',\n    website_ok: base.website_ok === true,\n    http_status: base.http_status,\n    kontakt: parsed.kontakt || '',\n    telefon: parsed.telefon || '',\n    email: parsed.email || '',\n    summary: parsed.summary || '',\n    gaps: Array.isArray(parsed.gaps) ? parsed.gaps : [],\n    hooks: Array.isArray(parsed.hooks) ? parsed.hooks : [],\n    confidence: parsed.confidence || 'mittel'\n  };\n  return [{ json: { mode: 'ok', ok: true, report } }];\n} catch (e) {\n  return [{ json: { mode: 'error', message: 'JSON-Parse: ' + e.message } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 200],
+      "id": "parse-wf9",
+      "name": "Parse Report"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "ok",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1440, 200],
+      "id": "if-ok-wf9",
+      "name": "Is OK?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: true, report: $json.report } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1680, 120],
+      "id": "resp-ok-wf9",
+      "name": "Respond OK"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, error: $json.message || 'Fehler' } }}",
+        "options": { "responseCode": 400 }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1680, 320],
+      "id": "resp-err-wf9",
+      "name": "Respond Error"
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Auth & Input", "type": "main", "index": 0 }]]
+    },
+    "Auth & Input": {
+      "main": [[{ "node": "Is Research?", "type": "main", "index": 0 }]]
+    },
+    "Is Research?": {
+      "main": [
+        [{ "node": "Has Website?", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Has Website?": {
+      "main": [
+        [{ "node": "Check Website", "type": "main", "index": 0 }],
+        [{ "node": "No Website Skip", "type": "main", "index": 0 }]
+      ]
+    },
+    "Check Website": {
+      "main": [[{ "node": "Merge HTTP Status", "type": "main", "index": 0 }]]
+    },
+    "Merge HTTP Status": {
+      "main": [[{ "node": "Gemini Research", "type": "main", "index": 0 }]]
+    },
+    "No Website Skip": {
+      "main": [[{ "node": "Gemini Research", "type": "main", "index": 0 }]]
+    },
+    "Gemini Research": {
+      "main": [[{ "node": "Extract Output", "type": "main", "index": 0 }]]
+    },
+    "Extract Output": {
+      "main": [[{ "node": "Parse Report", "type": "main", "index": 0 }]]
+    },
+    "Parse Report": {
+      "main": [[{ "node": "Is OK?", "type": "main", "index": 0 }]]
+    },
+    "Is OK?": {
+      "main": [
+        [{ "node": "Respond OK", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "description": "CRM Sales Rep Assistant: Firmenrecherche für Cold Calls via Gemini + Google Search. Optional HTTP-Check der Website. Webhook POST wf9-salesrep, Header X-RAIS-Token. Response: { ok, report }."
+  }
+}

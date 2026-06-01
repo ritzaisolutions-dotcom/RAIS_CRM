@@ -5,7 +5,7 @@ const PAGES = [
   { id: 'clients',     icon: '👥', label: 'Clients'     },
   { id: 'termine',     icon: '📅', label: 'Termine'     },
   { id: 'sessions',    icon: '🏁', label: 'Sessions'    },
-  { id: 'marco',       icon: '🤖', label: 'Marco'       },
+  { id: 'salesrep',    icon: '🎯', label: 'Sales Rep Assistant' },
 ];
 
 let _currentPage = 'prospecting';

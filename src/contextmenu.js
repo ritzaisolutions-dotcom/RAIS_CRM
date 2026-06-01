@@ -50,6 +50,7 @@ function showCtxMenu(x, y, id) {
   menu.innerHTML =
     '<button type="button" class="ctx-item" data-action="aktion">⚡ Markieren…</button>' +
     '<button type="button" class="ctx-item"' + (hasEmail ? '' : ' disabled') + ' data-action="mail">✉️ Email senden…</button>' +
+    '<button type="button" class="ctx-item" data-action="salesrep">🎯 Sales Rep Assistant…</button>' +
     '<button type="button" class="ctx-item" data-action="cal-demo">📅 Demo in Kalender (15 Min)</button>' +
     '<button type="button" class="ctx-item" data-action="cal-rueckruf">📅 Rückruf in Kalender (5 Min)</button>' +
     '<button type="button" class="ctx-item ctx-danger" data-action="del">🗑 Lead entfernen</button>' +
@@ -85,6 +86,10 @@ export function ctxAction(action, id) {
   if (action === 'mail') {
     if (!c.email) { toast('Keine Email-Adresse.'); return; }
     if (typeof window.openMailCompose === 'function') window.openMailCompose(id, 'ai');
+    return;
+  }
+  if (action === 'salesrep') {
+    if (typeof window.openSalesRepPop === 'function') window.openSalesRepPop(id);
     return;
   }
   if (action === 'cal-demo') {
