@@ -121,7 +121,7 @@ Firmenrecherche für Cold Calls (Gemini + Google Search, optional HTTP-Website-C
 
 **Request:** `firma` (Pflicht), `website`, `stadt`, `gewerk`, `notiz`, `mode` (`contact`|`free`), `contact_id`
 
-**Response:** `{ ok: true, report: { website, website_ok, http_status, kontakt, telefon, email, summary, gaps[], hooks[], confidence } }`
+**Response:** `{ ok: true, report: { website, website_ok, http_status, kontakt, telefon, email, summary, gaps[], hooks[], confidence, sources[] } }`
 
 **CRM schreibt lokal (optional):** `extra.salesrep_last` beim Übernehmen in Kontakt; Verlauf in `localStorage` `rais_salesrep_history`
 

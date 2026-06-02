@@ -18,6 +18,30 @@ function whFetch(url, opts) {
   return fetch(url, opts);
 }
 
+async function parseSalesRepResponse(resp) {
+  const text = await resp.text();
+  if (!text.trim()) {
+    throw new Error('Leere Antwort vom Workflow — WF9 in n8n prüfen (Gemini-Credentials / Workflow aktiv?).');
+  }
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    throw new Error('Ungültige Server-Antwort vom Sales Rep Workflow.');
+  }
+  if (Array.isArray(data)) data = data[0] || {};
+  if (data.body && typeof data.body === 'object' && data.ok == null && data.report == null) {
+    data = data.body;
+  }
+  if (!resp.ok) {
+    throw new Error(data.error || data.message || ('HTTP ' + resp.status));
+  }
+  if (data.ok === true && data.report) return data.report;
+  if (data.mode === 'ok' && data.report) return data.report;
+  if (data.report && typeof data.report === 'object') return data.report;
+  throw new Error(data.error || data.message || 'Recherche fehlgeschlagen');
+}
+
 function getContact(id) {
   return S.contacts.find(function(x) { return x.id === id; });
 }
@@ -101,7 +125,7 @@ function showTyping(fromPage, on) {
     typing.className = 'salesrep-msg salesrep-msg-assistant salesrep-msg-typing';
     typing.innerHTML =
       '<div class="salesrep-msg-avatar" aria-hidden="true">SR</div>' +
-      '<div class="salesrep-msg-body"><p class="salesrep-typing-text">Recherchiert…</p></div>';
+      '<div class="salesrep-msg-body"><p class="salesrep-typing-text">Sales Rep Assistant recherchiert…</p></div>';
     el.appendChild(typing);
     scrollChat(fromPage);
   } else if (typing) {
@@ -150,6 +174,12 @@ function reportHtml(report) {
   if (report.confidence) {
     html += '<p class="salesrep-conf">Vertrauen: ' + esc(report.confidence) + '</p>';
   }
+  const sources = Array.isArray(report.sources) ? report.sources : [];
+  if (sources.length) {
+    html += '<h4 class="salesrep-sub">Quellen</h4><ul class="salesrep-gap-list">';
+    sources.forEach(function(s) { html += '<li>' + esc(s) + '</li>'; });
+    html += '</ul>';
+  }
   html += '<p class="salesrep-hint">Öffentliche Quellen — vor dem Anruf plausibel prüfen.</p>';
   html += '</div>';
   return html;
@@ -197,7 +227,7 @@ function setLoading(loading, prefix) {
   showTyping(fromPage, loading);
   if (runBtn) {
     runBtn.disabled = loading;
-    runBtn.textContent = loading ? 'Recherchiert…' : 'Recherche starten';
+    runBtn.textContent = loading ? 'Sales Rep Assistant recherchiert…' : 'Recherche starten';
   }
 }
 
@@ -298,12 +328,12 @@ export async function salesRepRun(fromPage) {
         notiz: c ? (c.notiz || c.besonderheit || '').trim() : '',
       }),
     });
-    const data = await resp.json().catch(function() { return {}; });
-    if (!resp.ok || !data.ok) throw new Error(data.error || 'HTTP ' + resp.status);
+    const report = await parseSalesRepResponse(resp);
 
-    S.salesrepReport = data.report;
-    appendChatMsg(fromPage, 'assistant', reportHtml(data.report));
-    renderApplySection(data.report, contactId, applyId(fromPage));
+    S.salesrepReport = report;
+    appendChatMsg(fromPage, 'assistant', reportHtml(report));
+
+    renderApplySection(report, contactId, applyId(fromPage));
 
     pushHistory({
       at: new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -311,7 +341,7 @@ export async function salesRepRun(fromPage) {
       website: form.website,
       stadt: form.stadt,
       gewerk: form.gewerk,
-      report: data.report,
+      report: report,
     });
     if (fromPage) renderHistoryList();
 
@@ -347,10 +377,8 @@ export function salesRepApplyToContact(contactId, applyRoot) {
       return;
     }
     if (!val || val === '—' || val === 'NA') return;
-    if (!(c[field] || '').trim()) {
-      c[field] = val;
-      changed = true;
-    }
+    c[field] = val;
+    changed = true;
   });
 
   if (!changed) {

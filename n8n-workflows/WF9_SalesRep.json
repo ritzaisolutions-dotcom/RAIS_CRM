@@ -113,20 +113,31 @@
         "jsonOutput": true,
         "builtInTools": { "googleSearch": true },
         "options": {
-          "systemMessage": "### ROLLE\nDu bist Sales-Research-Assistent für Cold Calls bei deutschen Handwerksbetrieben (Fliesenleger, Bodenleger, SHK, etc.). Nutze nur öffentlich zugängliche Informationen (Website, Impressum, Google, Branchenverzeichnisse).\n\n### AUFGABE\n1. Ansprechpartner, Telefon, E-Mail aus öffentlichen Quellen (wenn plausibel)\n2. Kurze Zusammenfassung (2–4 Sätze, Deutsch) für den Vertriebler\n3. 2–5 konkrete Lücken/Ansatzpunkte (z. B. veraltete Website, kein Online-Kalkulator, schlechte Bewertungen)\n4. 2–4 Gesprächs-Hooks (konkret, nicht generisch)\n5. Vertrauen: hoch | mittel | niedrig\n\n### OUTPUT\nNur gültiges JSON, kein Markdown:\n{\n  \"website\": \"https://…\",\n  \"kontakt\": \"Max Mustermann\",\n  \"telefon\": \"+49 …\",\n  \"email\": \"info@…\",\n  \"summary\": \"…\",\n  \"gaps\": [\"…\", \"…\"],\n  \"hooks\": [\"…\", \"…\"],\n  \"confidence\": \"mittel\"\n}\n\nUnbekannte Felder: leerer String oder \"NA\". gaps/hooks immer Arrays (auch leer)."
+          "systemMessage": "### ROLLE\nDu bist der Sales Rep Assistant für deutsche Handwerks-Leads (RAIS) — Cold-Call-Recherche. Nutze nur öffentlich zugängliche Informationen (Website, Impressum, Google, Branchenverzeichnisse).\n\n### AUFGABE\n1. Ansprechpartner, Telefon, E-Mail aus öffentlichen Quellen (wenn plausibel)\n2. Kurze Zusammenfassung (2–4 Sätze, Deutsch) für den Vertriebler\n3. 2–5 konkrete Lücken/Ansatzpunkte (z. B. veraltete Website, kein Online-Kalkulator, schlechte Bewertungen)\n4. 2–4 Gesprächs-Hooks (konkret, nicht generisch)\n5. Vertrauen: hoch | mittel | niedrig\n6. Quellen: kurze Liste der genutzten URLs/Typen (z. B. Impressum, Google)\n\n### OUTPUT\nNur gültiges JSON, kein Markdown:\n{\n  \"website\": \"https://…\",\n  \"kontakt\": \"Max Mustermann\",\n  \"telefon\": \"+49 …\",\n  \"email\": \"info@…\",\n  \"summary\": \"…\",\n  \"gaps\": [\"…\", \"…\"],\n  \"hooks\": [\"…\", \"…\"],\n  \"confidence\": \"mittel\",\n  \"sources\": [\"https://…\", \"Google Maps\"]\n}\n\nUnbekannte Felder: leerer String oder \"NA\". gaps/hooks/sources immer Arrays (auch leer)."
         }
       },
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1.1,
       "position": [720, 200],
       "id": "gemini-wf9",
-      "name": "Gemini Research",
+      "name": "Gemini Sales Rep Assistant",
+      "onError": "continueErrorOutput",
       "credentials": {
         "googlePalmApi": {
-          "id": "REPLACE_ME",
+          "id": "Ewff9bZdQEgs99XA",
           "name": "Google Gemini(PaLM) Api account"
         }
       }
+    },
+    {
+      "parameters": {
+        "jsCode": "const err = $input.first().json;\nconst msg = err.errorMessage || err.message || err.error || err.description || 'Gemini-Recherche fehlgeschlagen — API-Key/Credentials in n8n prüfen';\nreturn [{ json: { mode: 'error', message: msg } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 380],
+      "id": "gemini-fail-wf9",
+      "name": "Gemini Failed"
     },
     {
       "parameters": {
@@ -135,7 +146,7 @@
             {
               "id": "ext-out-wf9",
               "name": "output",
-              "value": "={{ $json.content?.parts?.[0]?.text || $json.output || $json.text || '' }}",
+              "value": "={{ typeof $json.output === 'object' && $json.output ? JSON.stringify($json.output) : ($json.content?.parts?.[0]?.text || (typeof $json.output === 'string' ? $json.output : '') || $json.text || ($json.summary ? JSON.stringify($json) : '') || '') }}",
               "type": "string"
             },
             {
@@ -156,7 +167,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nlet base = {};\ntry { base = JSON.parse(item.prep_json || '{}'); } catch (e) { base = {}; }\nif (!base.firma) {\n  try { base = $('Merge HTTP Status').first().json; } catch (e2) {}\n}\nif (!base.firma) {\n  try { base = $('No Website Skip').first().json; } catch (e3) {}\n}\nlet raw = item.output || '';\nif (!raw) {\n  return [{ json: { mode: 'error', message: 'Keine Gemini-Antwort' } }];\n}\ntry {\n  const jsonString = raw.replace(/```json|```/g, '').trim();\n  const parsed = JSON.parse(jsonString);\n  const report = {\n    website: parsed.website || base.website || '',\n    website_ok: base.website_ok === true,\n    http_status: base.http_status,\n    kontakt: parsed.kontakt || '',\n    telefon: parsed.telefon || '',\n    email: parsed.email || '',\n    summary: parsed.summary || '',\n    gaps: Array.isArray(parsed.gaps) ? parsed.gaps : [],\n    hooks: Array.isArray(parsed.hooks) ? parsed.hooks : [],\n    confidence: parsed.confidence || 'mittel'\n  };\n  return [{ json: { mode: 'ok', ok: true, report } }];\n} catch (e) {\n  return [{ json: { mode: 'error', message: 'JSON-Parse: ' + e.message } }];\n}"
+        "jsCode": "const item = $input.first().json;\nlet base = {};\ntry { base = JSON.parse(item.prep_json || '{}'); } catch (e) { base = {}; }\nif (!base.firma) {\n  try { base = $('Merge HTTP Status').first().json; } catch (e2) {}\n}\nif (!base.firma) {\n  try { base = $('No Website Skip').first().json; } catch (e3) {}\n}\nlet parsed = null;\nlet raw = item.output || '';\nif (raw && typeof raw === 'object') parsed = raw;\nelse if (raw) {\n  try {\n    parsed = JSON.parse(String(raw).replace(/```json|```/g, '').trim());\n  } catch (e) { /* try below */ }\n}\nif (!parsed && item.summary) parsed = item;\nif (!parsed) {\n  return [{ json: { mode: 'error', message: raw ? ('JSON-Parse fehlgeschlagen') : 'Keine Gemini-Antwort' } }];\n}\ntry {\n  const report = {\n    website: parsed.website || base.website || '',\n    website_ok: base.website_ok === true,\n    http_status: base.http_status,\n    kontakt: parsed.kontakt || '',\n    telefon: parsed.telefon || '',\n    email: parsed.email || '',\n    summary: parsed.summary || '',\n    gaps: Array.isArray(parsed.gaps) ? parsed.gaps : [],\n    hooks: Array.isArray(parsed.hooks) ? parsed.hooks : [],\n    confidence: parsed.confidence || 'mittel',\n    sources: Array.isArray(parsed.sources) ? parsed.sources : []\n  };\n  return [{ json: { mode: 'ok', ok: true, report } }];\n} catch (e) {\n  return [{ json: { mode: 'error', message: 'JSON-Parse: ' + e.message } }];\n}"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -230,13 +241,17 @@
       "main": [[{ "node": "Merge HTTP Status", "type": "main", "index": 0 }]]
     },
     "Merge HTTP Status": {
-      "main": [[{ "node": "Gemini Research", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Gemini Sales Rep Assistant", "type": "main", "index": 0 }]]
     },
     "No Website Skip": {
-      "main": [[{ "node": "Gemini Research", "type": "main", "index": 0 }]]
+      "main": [[{ "node": "Gemini Sales Rep Assistant", "type": "main", "index": 0 }]]
     },
-    "Gemini Research": {
-      "main": [[{ "node": "Extract Output", "type": "main", "index": 0 }]]
+    "Gemini Sales Rep Assistant": {
+      "main": [[{ "node": "Extract Output", "type": "main", "index": 0 }]],
+      "error": [[{ "node": "Gemini Failed", "type": "main", "index": 0 }]]
+    },
+    "Gemini Failed": {
+      "main": [[{ "node": "Respond Error", "type": "main", "index": 0 }]]
     },
     "Extract Output": {
       "main": [[{ "node": "Parse Report", "type": "main", "index": 0 }]]
