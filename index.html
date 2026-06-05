@@ -236,6 +236,99 @@
 </main>
 </div>
 
+<!-- ── Page: Content ───────────────────────────────────────────────────────── -->
+<div class="rais-page" id="page-content">
+<main>
+  <div id="content-stats" class="content-stats-bar"></div>
+  <div class="tb content-toolbar">
+    <button class="btn bp" onclick="openContentAdd()">+ Neuer Content</button>
+    <select class="fs" id="content-filter-type" onchange="filterContent()">
+      <option value="">Typ: Alle</option>
+      <option value="lfc">LFC</option>
+      <option value="sfc">SFC</option>
+      <option value="article">Article</option>
+    </select>
+    <select class="fs" id="content-filter-status" onchange="filterContent()">
+      <option value="">Status: Alle</option>
+      <option value="idee">Idee</option>
+      <option value="skript">Skript</option>
+      <option value="dreh">Dreh</option>
+      <option value="schnitt">Schnitt</option>
+      <option value="live">Live</option>
+    </select>
+    <select class="fs" id="content-filter-platform" onchange="filterContent()">
+      <option value="">Plattform: Alle</option>
+      <option value="youtube">YouTube</option>
+      <option value="instagram">Instagram</option>
+      <option value="x">X</option>
+    </select>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr style="background:var(--ch)">
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;width:36px">#</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Titel</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Typ</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Plattform</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Status</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Datum</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Links</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;width:64px"></th>
+      </tr></thead>
+      <tbody id="content-tbody"></tbody>
+    </table>
+    <div id="content-empty" class="empty" style="display:none">
+      <div style="font-size:32px;margin-bottom:10px">🎬</div>
+      <h3>Kein Content</h3>
+      <p>+ Neuer Content klicken um ein Stück anzulegen.</p>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- Content Edit Modal -->
+<div class="ovl" id="contentModal">
+  <div class="modal" style="max-width:580px">
+    <div class="mh"><h2 id="cntModalTitle">Neuer Content</h2><button class="btn bg" onclick="closeContentModal()">✕</button></div>
+    <div class="mb">
+      <input type="hidden" id="cntEid">
+      <div><label>Titel *</label><input type="text" id="cntTitle"></div>
+      <div class="fr2">
+        <div><label>Typ *</label><select class="fs2" id="cntType">
+          <option value="lfc">LFC (Long Form)</option>
+          <option value="sfc">SFC (Short Form)</option>
+          <option value="article">Article</option>
+        </select></div>
+        <div><label>Status *</label><select class="fs2" id="cntStatus">
+          <option value="idee">Idee</option>
+          <option value="skript">Skript</option>
+          <option value="dreh">Dreh</option>
+          <option value="schnitt">Schnitt</option>
+          <option value="live">Live</option>
+        </select></div>
+      </div>
+      <div><label>Plattform(en)</label>
+        <div class="cnt-platforms">
+          <label class="cnt-platform-label"><input type="checkbox" class="cnt-platform" value="youtube" checked> 🎬 YouTube</label>
+          <label class="cnt-platform-label"><input type="checkbox" class="cnt-platform" value="instagram"> 📸 Instagram</label>
+          <label class="cnt-platform-label"><input type="checkbox" class="cnt-platform" value="x"> 🐦 X</label>
+        </div>
+      </div>
+      <div><label>Veröffentlichungsdatum</label><input type="date" id="cntDatum"></div>
+      <div class="fr2">
+        <div><label>YouTube URL</label><input type="url" id="cntUrlYoutube" placeholder="https://youtube.com/..."></div>
+        <div><label>Instagram URL</label><input type="url" id="cntUrlInstagram" placeholder="https://instagram.com/..."></div>
+      </div>
+      <div><label>X URL</label><input type="url" id="cntUrlX" placeholder="https://x.com/..."></div>
+      <div><label>Notiz</label><textarea id="cntNotiz" rows="3" style="width:100%;resize:vertical"></textarea></div>
+    </div>
+    <div class="mf">
+      <button class="btn bs" onclick="closeContentModal()">Abbrechen</button>
+      <button class="btn bp" onclick="saveContent()">Speichern</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── Page: Termine (Google + CRM-Agenda) ─────────────────────────────────── -->
 <div class="rais-page" id="page-termine">
 <main class="termine-page">
@@ -678,6 +771,10 @@
     <span class="mn-tab-icon">&#128101;</span>
     <span class="mn-tab-label">Clients</span>
   </button>
+  <button class="mn-tab" data-page="content">
+    <span class="mn-tab-icon">&#127916;</span>
+    <span class="mn-tab-label">Content</span>
+  </button>
   <button class="mn-tab" data-page="termine">
     <span class="mn-tab-icon">&#128197;</span>
     <span class="mn-tab-label">Termine</span>
@@ -710,6 +807,7 @@ import { openEsPanel, openMailCompose, closeMailCompose, mailComposeSetMode, mai
 import { openCalPop, closeCalPop, calCreate, maybeOfferCalendar } from './src/calendar.js';
 import { initContextMenu, ctxAction, showCtxMenuAtEvent } from './src/contextmenu.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
+import { initContentPage, renderContent, openContentAdd, openContentEdit, closeContentModal, saveContent, delContent, filterContent } from './src/content.js';
 import { showDemoTodoPopup, saveDemoTodos, closeDemoTodoPop, openQuickTodo, saveQuickTodo, closeQuickTodo } from './src/todopop.js';
 import { openSalesRepPop, closeSalesRepPop, salesRepRun, salesRepApplyToContact, initSalesRepPage } from './src/salesrep.js';
 import { initSidebar } from './src/sidebar.js';
@@ -720,7 +818,7 @@ window.refreshTermineAgenda = refreshTermineIfActive;
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeSalesRepPop(); closeClPanel(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); }
+  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeSalesRepPop(); closeClPanel(); closeContentModal(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); }
   const tag = document.activeElement.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (inInput) return;
@@ -760,15 +858,15 @@ document.addEventListener('click', function(e) {
 });
 
 Object.assign(window, {
-  addTouch, calCreate, closeCalPop, closeClientModal, closeClPanel, closeDemoTodoPop, closeE, closeMailCompose, closeSalesRepPop,
-  closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, ctxAction, del, delClient, doImport, doSort,
-  dzDr, dzLv, dzOv, exportCSV, filterDue, goPg,
+  addTouch, calCreate, closeCalPop, closeClientModal, closeClPanel, closeContentModal, closeDemoTodoPop, closeE, closeMailCompose, closeSalesRepPop,
+  closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, ctxAction, del, delClient, delContent, doImport, doSort,
+  dzDr, dzLv, dzOv, exportCSV, filterContent, filterDue, goPg,
   inlineFU, inlineFUFocus, inlineFUBlur, inlineROI, inlineST,
   mailComposeGenerate, mailComposeSend, mailComposeSetMode,
-  markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit,
+  markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit, openContentAdd, openContentEdit,
   openCalPop, openClPanel, openE, openEsPanel, openImport, openMailCompose, openP, openPurgeDq, openPurgeVersicherung, openSalesRepPop, salesRepRun, salesRepApplyToContact, showCtxMenuAtEvent,
-  openQN, openQuickTodo, applyColPreset, purgeDq, purgeVersicherungsmakler, qs, rdCSV, render, renderClients, resetCallCount,
-  save, saveClient, saveDemoTodos, saveNotiz, saveQN, saveQuickTodo, saveTF,
+  openQN, openQuickTodo, applyColPreset, purgeDq, purgeVersicherungsmakler, qs, rdCSV, render, renderClients, renderContent, resetCallCount,
+  save, saveClient, saveContent, saveDemoTodos, saveNotiz, saveQN, saveQuickTodo, saveTF,
   setF, shiftFU,
   syncCloud, toggleAcc, toggleCol, toggleColMenu, toggleMobileMenu, closePurgeVersicherung, closeSessionCelebration,
   openAktionPop, closeAktionPop, saveAktionPop, clearAktionPop, fillAktionSuggestion, checkAktionItem, scrollToAktionQueue,

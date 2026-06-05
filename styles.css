@@ -825,6 +825,19 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
 .client-status-aktiv      { background: #EEF3EA; color: var(--pn); }
 .client-status-pausiert   { background: #FEF8EC; color: var(--yw); }
 .client-status-abgeschlossen { background: #EDEBE6; color: var(--st); }
+
+.content-stats-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px;
+  padding: 14px 20px; margin-bottom: 12px;
+  background: #F5F2EC; border: 1px solid #D9D1C7; border-radius: 8px;
+  font-family: sans-serif; font-size: 13px; color: var(--tx);
+}
+.content-stat strong { font-weight: 700; }
+.content-stat-sep { color: #C8C0B4; }
+.content-stat-live { color: var(--pn); font-weight: 600; }
+.content-toolbar { margin-bottom: 12px; }
+.cnt-platforms { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; }
+.cnt-platform-label { display: flex; align-items: center; gap: 6px; font-family: sans-serif; font-size: 13px; cursor: pointer; }
 .medium-icon { font-size: 14px; }
 .cl-scope { font-size: 12px; color: var(--st); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #clientModal { max-width: 580px; }

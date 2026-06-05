@@ -3,6 +3,7 @@ const SIDEBAR_KEY = 'rais_sidebar_collapsed';
 const PAGES = [
   { id: 'prospecting', icon: '📋', label: 'Prospecting' },
   { id: 'clients',     icon: '👥', label: 'Clients'     },
+  { id: 'content',     icon: '🎬', label: 'Content'     },
   { id: 'termine',     icon: '📅', label: 'Termine'     },
   { id: 'sessions',    icon: '🏁', label: 'Sessions'    },
   { id: 'salesrep',    icon: '🎯', label: 'Sales Rep Assistant' },
