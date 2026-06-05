@@ -286,6 +286,45 @@
 </main>
 </div>
 
+<!-- ── Page: Termine (Google + CRM-Agenda) ─────────────────────────────────── -->
+<div class="rais-page" id="page-termine">
+<main class="termine-page">
+  <header class="termine-header">
+    <h1 class="termine-h1">Termine</h1>
+    <p class="termine-sub">Interner Kalender: ritzaisolutions@gmail.com · Kundenkontakt: kevin@ritz-ai.solutions</p>
+  </header>
+  <div class="gcal-embed-wrap">
+    <iframe id="gcalEmbed" class="gcal-embed" title="Google Kalender" loading="lazy"></iframe>
+  </div>
+  <section class="termine-agenda-section" aria-label="CRM-Termine">
+    <div class="termine-agenda-head">
+      <h2 class="termine-h2">CRM-Agenda</h2>
+      <div class="termine-filters" role="group" aria-label="Filter">
+        <button type="button" class="termine-filter-chip on" data-filter="all">Alle</button>
+        <button type="button" class="termine-filter-chip" data-filter="demo">Demo / Sales</button>
+        <button type="button" class="termine-filter-chip" data-filter="rueckruf">Rückruf</button>
+      </div>
+    </div>
+    <div id="termine-agenda" class="termine-agenda"></div>
+  </section>
+</main>
+</div>
+
+<!-- ── Page: Sales Rep Assistant ──────────────────────────────────────────── -->
+<div class="rais-page" id="page-salesrep">
+  <div id="salesrep-page-root" class="salesrep-page"></div>
+</div>
+
+<!-- ── Page: Sessions ───────────────────────────────────────────────────── -->
+<div class="rais-page" id="page-sessions">
+<main style="padding:28px">
+  <!-- Session history (populated by initSessionsPage) -->
+  <div id="sessions-history-container"></div>
+</main>
+</div>
+
+</div><!-- #rais-content -->
+
 <!-- Content Edit Modal -->
 <div class="ovl" id="contentModal">
   <div class="modal" style="max-width:580px">
@@ -328,45 +367,6 @@
     </div>
   </div>
 </div>
-
-<!-- ── Page: Termine (Google + CRM-Agenda) ─────────────────────────────────── -->
-<div class="rais-page" id="page-termine">
-<main class="termine-page">
-  <header class="termine-header">
-    <h1 class="termine-h1">Termine</h1>
-    <p class="termine-sub">Interner Kalender: ritzaisolutions@gmail.com · Kundenkontakt: kevin@ritz-ai.solutions</p>
-  </header>
-  <div class="gcal-embed-wrap">
-    <iframe id="gcalEmbed" class="gcal-embed" title="Google Kalender" loading="lazy"></iframe>
-  </div>
-  <section class="termine-agenda-section" aria-label="CRM-Termine">
-    <div class="termine-agenda-head">
-      <h2 class="termine-h2">CRM-Agenda</h2>
-      <div class="termine-filters" role="group" aria-label="Filter">
-        <button type="button" class="termine-filter-chip on" data-filter="all">Alle</button>
-        <button type="button" class="termine-filter-chip" data-filter="demo">Demo / Sales</button>
-        <button type="button" class="termine-filter-chip" data-filter="rueckruf">Rückruf</button>
-      </div>
-    </div>
-    <div id="termine-agenda" class="termine-agenda"></div>
-  </section>
-</main>
-</div>
-
-<!-- ── Page: Sales Rep Assistant ──────────────────────────────────────────── -->
-<div class="rais-page" id="page-salesrep">
-  <div id="salesrep-page-root" class="salesrep-page"></div>
-</div>
-
-<!-- ── Page: Sessions ───────────────────────────────────────────────────── -->
-<div class="rais-page" id="page-sessions">
-<main style="padding:28px">
-  <!-- Session history (populated by initSessionsPage) -->
-  <div id="sessions-history-container"></div>
-</main>
-</div>
-
-</div><!-- #rais-content -->
 
 <!-- Client Edit Modal -->
 <div class="ovl" id="clientModal">

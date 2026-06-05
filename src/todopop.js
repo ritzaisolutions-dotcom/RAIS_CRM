@@ -1,8 +1,25 @@
-import { sbUpsert } from './supabase.js';
+import { sbUpsert, getAuthUserId } from './supabase.js';
 import { toast } from './ui.js';
 import { td } from './utils.js';
 
 const SB_TODOS = '/rest/v1/tracker_todos';
+
+/** tracker_todos.category CHECK — CRM labels mapped to Performance Tracker keys */
+const TRACKER_CATEGORY = {
+  business: 'rais',
+  content: 'eckstein',
+  privat: 'privat',
+};
+
+function mapTrackerCategory(cat) {
+  return TRACKER_CATEGORY[cat] || 'rais';
+}
+
+function trackerTodoRow(fields) {
+  const uid = getAuthUserId();
+  if (!uid) return null;
+  return Object.assign({ created_by: uid, done: false }, fields);
+}
 
 // ── Demo Termin Todo-Popup ─────────────────────────────────────────────────
 
@@ -48,15 +65,30 @@ export async function saveDemoTodos() {
   if (!title1 && !title2) { toast('Bitte mindestens einen Titel eingeben.'); return; }
 
   const todos = [];
-  if (title1) todos.push({ title: title1, due_date: date1, due_time: time1, category: 'business', relevance: 'high', done: false });
-  if (title2) todos.push({ title: title2, due_date: date2, due_time: null, category: 'business', relevance: 'high', done: false });
+  if (title1) {
+    const row = trackerTodoRow({ title: title1, due_date: date1, due_time: time1, category: mapTrackerCategory('business'), relevance: 'high' });
+    if (row) todos.push(row);
+  }
+  if (title2) {
+    const row = trackerTodoRow({ title: title2, due_date: date2, due_time: null, category: mapTrackerCategory('business'), relevance: 'high' });
+    if (row) todos.push(row);
+  }
+  if (!todos.length) {
+    toast('Bitte im CRM einloggen, um Todos im Tracker zu speichern.');
+    return;
+  }
 
   try {
     await sbUpsert(SB_TODOS, todos);
     toast('&#128203; ' + todos.length + ' Todo(s) im Tracker gespeichert.');
     closeDemoTodoPop();
   } catch(e) {
-    toast('Fehler beim Speichern: ' + e.message);
+    const msg = e.message || '';
+    if (msg.indexOf('42501') >= 0 || msg.indexOf('row-level security') >= 0) {
+      toast('Todos konnten nicht gespeichert werden — bitte im CRM einloggen (gleicher Account wie Performance Tracker).');
+    } else {
+      toast('Fehler beim Speichern: ' + msg);
+    }
   }
 }
 
@@ -82,14 +114,17 @@ export function openQuickTodo() {
 export async function saveQuickTodo() {
   const title = (document.getElementById('qt-title').value || '').trim();
   if (!title) { toast('Titel fehlt.'); return; }
-  const row = {
-    title:    title,
+  const row = trackerTodoRow({
+    title: title,
     due_date: document.getElementById('qt-date').value || null,
     due_time: document.getElementById('qt-time').value || null,
-    relevance:document.getElementById('qt-rel').value,
-    category: document.getElementById('qt-cat').value,
-    done:     false,
-  };
+    relevance: document.getElementById('qt-rel').value,
+    category: mapTrackerCategory(document.getElementById('qt-cat').value),
+  });
+  if (!row) {
+    toast('Bitte im CRM einloggen, um Todos im Tracker zu speichern.');
+    return;
+  }
   try {
     await sbUpsert(SB_TODOS, [row]);
     toast('&#128203; Todo gespeichert.');

@@ -5,6 +5,20 @@ let _token = SB_KEY;
 export function setAuthToken(t) { _token = t; }
 export function getAuthToken() { return _token; }
 
+/** Authenticated user UUID from JWT (null when not logged in). */
+export function getAuthUserId() {
+  const token = getAuthToken();
+  if (!token || token === SB_KEY) return null;
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const json = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
+    return json.sub || null;
+  } catch (e) {
+    return null;
+  }
+}
+
 function hdrGet()    { return { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + _token }; }
 function hdrUpsert() { return { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + _token, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates,return=minimal' }; }
 
