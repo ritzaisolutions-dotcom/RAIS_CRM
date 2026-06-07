@@ -1,7 +1,6 @@
 import { sbGet, sbUpsert, sbDelete } from './supabase.js';
 import { esc, toast } from './ui.js';
-
-const CONTENT_KEY_SB = '/rest/v1/crm_content';
+import { initThumbnailEditor } from './thumbnail.js';
 
 export const TYPE_LABELS = {
   lfc:     'LFC',
@@ -37,14 +36,48 @@ const PLATFORM_LABELS = {
   x:         'X',
 };
 
+const CONTENT_KEY_SB = '/rest/v1/crm_content';
+
 let _items = [];
 let _editId = null;
+let _contentView = 'pipeline';
+let _thumbnailInited = false;
 
 window.addEventListener('rais:page-change', function(e) {
   if (e.detail.page === 'content') initContentPage();
 });
 
+function initContentSubnav() {
+  const root = document.getElementById('page-content');
+  if (!root || root.dataset.subnavBound) return;
+  root.dataset.subnavBound = '1';
+  root.querySelectorAll('.content-subtab').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      switchContentView(btn.dataset.view || 'pipeline');
+    });
+  });
+}
+
+export function switchContentView(view) {
+  _contentView = view === 'thumbnail' ? 'thumbnail' : 'pipeline';
+  document.querySelectorAll('.content-subtab').forEach(function(btn) {
+    const on = btn.dataset.view === _contentView;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  const pipeline = document.getElementById('content-view-pipeline');
+  const thumbnail = document.getElementById('content-view-thumbnail');
+  if (pipeline) pipeline.hidden = _contentView !== 'pipeline';
+  if (thumbnail) thumbnail.hidden = _contentView !== 'thumbnail';
+  if (_contentView === 'thumbnail' && !_thumbnailInited) {
+    initThumbnailEditor();
+    _thumbnailInited = true;
+  }
+}
+
 export async function initContentPage() {
+  initContentSubnav();
+  switchContentView(_contentView);
   await loadContent();
 }
 

@@ -30,9 +30,11 @@ This is a **static, no-build CRM** — a single `index.html` entry point that lo
 | `leadgen.js` | Lead-Gen tab; n8n webhook calls for WF1–WF3 (discover/qualify/enrich); listens on `rais:page-change` for lazy init |
 | `email.js` | Compose modal + send via n8n WF7 (`wf7-compose`); legacy WF4–WF6 removed from UI |
 | `calendar.js` | Demo/Rückruf Google Calendar via WF8 (`wf8-calendar`, ritzaisolutions@gmail.com) |
-| `termine.js` | Termine tab — Google Calendar embed + CRM agenda; lazy init on `rais:page-change` |
+| `termine.js` | Termine tab — CRM-Agenda (Demo/Rückruf aus Kontakten); lazy init on `rais:page-change` |
 | `contextmenu.js` | Right-click menu on contact rows/cards (mark, email, sales rep, delete) |
 | `salesrep.js` | Sales Rep Assistant — modal + tab, WF9 (`wf9-salesrep`), history in `rais_salesrep_history` |
+| `content.js` | Content-Pipeline (crm_content): CRUD, Filter, Stats; Sub-Tabs Pipeline / Thumbnail |
+| `thumbnail.js` | YouTube-Thumbnail-Editor unter Content → Thumbnail; RAIS-Branding, lazy init |
 | `clients.js` | Clients tab — CRUD for signed clients stored in `crm_clients`; listens on `rais:page-change` for lazy init |
 | `calls.js` | Daily/weekly call counter stored in a separate `localStorage` key |
 | `import.js` | CSV import — flexible column-name matching, deduplication by phone/website |
@@ -66,7 +68,7 @@ window.addEventListener('rais:page-change', function(e) {
 });
 ```
 
-`leadgen.js`, `clients.js`, and `termine.js` register their own `rais:page-change` listeners internally. `salesrep.js` also listens for the tab; `index.html` may call `initSalesRepPage()` on navigation (idempotent).
+`leadgen.js`, `clients.js`, `content.js`, and `termine.js` register their own `rais:page-change` listeners internally. `thumbnail.js` is lazy-init on first visit to Content → Thumbnail. `salesrep.js` also listens for the tab; `index.html` may call `initSalesRepPage()` on navigation (idempotent).
 
 ### Globals exposed on `window`
 

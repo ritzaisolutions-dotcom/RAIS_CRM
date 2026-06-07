@@ -1,15 +1,7 @@
 import { S } from './state.js';
-import { esc, toast } from './ui.js';
+import { esc } from './ui.js';
 import { td } from './utils.js';
 
-/**
- * Google Kalender → Einstellungen → Kalender integrieren → Einbettungscode
- * (ritzaisolutions@gmail.com, primary). Bei leerem iframe diese URL ersetzen.
- */
-export const GCAL_EMBED_URL =
-  'https://calendar.google.com/calendar/embed?src=ritzaisolutions%40gmail.com&ctz=Europe%2FBerlin&mode=WEEK';
-
-let _iframeLoaded = false;
 let _listenersBound = false;
 let _currentFilter = 'all';
 
@@ -149,17 +141,6 @@ export function renderTermineAgenda(filter) {
   });
 }
 
-function loadGcalEmbed() {
-  const iframe = document.getElementById('gcalEmbed');
-  if (!iframe || _iframeLoaded) return;
-  if (!GCAL_EMBED_URL || GCAL_EMBED_URL.indexOf('src=') < 0) {
-    toast('Google-Kalender-URL in src/termine.js (GCAL_EMBED_URL) eintragen.');
-    return;
-  }
-  iframe.src = GCAL_EMBED_URL;
-  _iframeLoaded = true;
-}
-
 function bindTermineListeners() {
   if (_listenersBound) return;
   _listenersBound = true;
@@ -171,7 +152,6 @@ function bindTermineListeners() {
 }
 
 export function initTerminePage() {
-  loadGcalEmbed();
   bindTermineListeners();
   renderTermineAgenda(_currentFilter);
 }

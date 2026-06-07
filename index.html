@@ -239,6 +239,11 @@
 <!-- ── Page: Content ───────────────────────────────────────────────────────── -->
 <div class="rais-page" id="page-content">
 <main>
+  <nav class="content-subnav" role="tablist" aria-label="Content-Bereiche">
+    <button type="button" class="content-subtab on" data-view="pipeline" role="tab" aria-selected="true">Pipeline</button>
+    <button type="button" class="content-subtab" data-view="thumbnail" role="tab" aria-selected="false">Thumbnail</button>
+  </nav>
+  <div id="content-view-pipeline">
   <div id="content-stats" class="content-stats-bar"></div>
   <div class="tb content-toolbar">
     <button class="btn bp" onclick="openContentAdd()">+ Neuer Content</button>
@@ -283,6 +288,40 @@
       <p>+ Neuer Content klicken um ein Stück anzulegen.</p>
     </div>
   </div>
+  </div>
+  <div id="content-view-thumbnail" class="tn-editor" hidden>
+    <header class="tn-app-header">
+      <div>
+        <div class="tn-app-title">RAIS Content · Thumbnail</div>
+        <div class="tn-app-subtitle" id="tn-preset-label">Variante 1 aktiv</div>
+      </div>
+      <button type="button" class="btn bp" id="tn-export-btn">Export-Anleitung</button>
+    </header>
+    <div class="tn-app-body">
+      <div class="tn-canvas-area">
+        <div class="tn-canvas-label">Vorschau — 16:9 · 1280 × 720px Zielformat</div>
+        <div class="tn-outer">
+          <div class="tn" id="tn-preview">
+            <img class="tn-bg" id="tn-bg" src="" alt="" />
+            <div class="tn-overlay" id="tn-overlay"></div>
+            <div class="tn-bar-top" id="tn-bar-top"></div>
+            <div class="tn-bar-bottom" id="tn-bar-bottom"></div>
+            <div class="tn-ep" id="tn-ep">#01</div>
+            <div class="tn-text" id="tn-text">
+              <div class="tn-rule" id="tn-rule"></div>
+              <div class="tn-headline" id="tn-headline"></div>
+              <div class="tn-subline" id="tn-subline"></div>
+            </div>
+            <div class="tn-logo" id="tn-logo">
+              <img src="" id="tn-logo-img" alt="RAIS Logo" />
+            </div>
+          </div>
+        </div>
+        <p class="tn-hint">Live-Vorschau. Änderungen sind sofort sichtbar. Export über „Export-Anleitung“ oder Screenshot des Vorschaubereichs.</p>
+      </div>
+      <aside class="tn-sidebar" id="tn-sidebar"></aside>
+    </div>
+  </div>
 </main>
 </div>
 
@@ -291,11 +330,8 @@
 <main class="termine-page">
   <header class="termine-header">
     <h1 class="termine-h1">Termine</h1>
-    <p class="termine-sub">Interner Kalender: ritzaisolutions@gmail.com · Kundenkontakt: kevin@ritz-ai.solutions</p>
+    <p class="termine-sub">Demo- und Rückruf-Termine aus dem CRM · Google-Kalender-Links pro Kontakt</p>
   </header>
-  <div class="gcal-embed-wrap">
-    <iframe id="gcalEmbed" class="gcal-embed" title="Google Kalender" loading="lazy"></iframe>
-  </div>
   <section class="termine-agenda-section" aria-label="CRM-Termine">
     <div class="termine-agenda-head">
       <h2 class="termine-h2">CRM-Agenda</h2>
@@ -364,6 +400,25 @@
     <div class="mf">
       <button class="btn bs" onclick="closeContentModal()">Abbrechen</button>
       <button class="btn bp" onclick="saveContent()">Speichern</button>
+    </div>
+  </div>
+</div>
+
+<!-- Thumbnail Export Modal -->
+<div class="ovl" id="tnExportModal">
+  <div class="modal" style="max-width:440px">
+    <div class="mh"><h2>Thumbnail exportieren</h2><button class="btn bg" onclick="closeTnExportModal()">✕</button></div>
+    <div class="mb" style="font-size:13px;color:var(--st);line-height:1.7">
+      <p>So exportierst du das Thumbnail (1280 × 720px):</p>
+      <ol style="padding-left:20px;margin-top:10px">
+        <li style="margin-bottom:6px">Screenshot nur des Vorschaubereichs (16:9-Box)</li>
+        <li style="margin-bottom:6px">Oder in Canva/Figma: <code style="background:#F5F2ED;padding:1px 6px;border-radius:4px">1280 × 720px</code> anlegen</li>
+        <li style="margin-bottom:6px">Design mit den Werten aus dem Editor nachbauen</li>
+        <li>Schriften: <strong>Syne Bold</strong> (Headline, Badge) · <strong>Syne Regular</strong> (Subline)</li>
+      </ol>
+    </div>
+    <div class="mf">
+      <button class="btn bp" onclick="closeTnExportModal()">Verstanden</button>
     </div>
   </div>
 </div>
@@ -807,7 +862,8 @@ import { openEsPanel, openMailCompose, closeMailCompose, mailComposeSetMode, mai
 import { openCalPop, closeCalPop, calCreate, maybeOfferCalendar } from './src/calendar.js';
 import { initContextMenu, ctxAction, showCtxMenuAtEvent } from './src/contextmenu.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
-import { initContentPage, renderContent, openContentAdd, openContentEdit, closeContentModal, saveContent, delContent, filterContent } from './src/content.js';
+import { initContentPage, renderContent, openContentAdd, openContentEdit, closeContentModal, saveContent, delContent, filterContent, switchContentView } from './src/content.js';
+import { openTnExportModal, closeTnExportModal } from './src/thumbnail.js';
 import { showDemoTodoPopup, saveDemoTodos, closeDemoTodoPop, openQuickTodo, saveQuickTodo, closeQuickTodo } from './src/todopop.js';
 import { openSalesRepPop, closeSalesRepPop, salesRepRun, salesRepApplyToContact, initSalesRepPage } from './src/salesrep.js';
 import { initSidebar } from './src/sidebar.js';
@@ -818,7 +874,7 @@ window.refreshTermineAgenda = refreshTermineIfActive;
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeSalesRepPop(); closeClPanel(); closeContentModal(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); }
+  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeSalesRepPop(); closeClPanel(); closeContentModal(); closeTnExportModal(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); }
   const tag = document.activeElement.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (inInput) return;
@@ -860,7 +916,7 @@ document.addEventListener('click', function(e) {
 Object.assign(window, {
   addTouch, calCreate, closeCalPop, closeClientModal, closeClPanel, closeContentModal, closeDemoTodoPop, closeE, closeMailCompose, closeSalesRepPop,
   closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, ctxAction, del, delClient, delContent, doImport, doSort,
-  dzDr, dzLv, dzOv, exportCSV, filterContent, filterDue, goPg,
+  dzDr, dzLv, dzOv, exportCSV, filterContent, filterDue, goPg, switchContentView, openTnExportModal, closeTnExportModal,
   inlineFU, inlineFUFocus, inlineFUBlur, inlineROI, inlineST,
   mailComposeGenerate, mailComposeSend, mailComposeSetMode,
   markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit, openContentAdd, openContentEdit,
