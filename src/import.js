@@ -1,5 +1,5 @@
 import { S } from './state.js';
-import { gid, td } from './utils.js';
+import { gid, td, normalizeWebsite } from './utils.js';
 import { persist } from './sync.js';
 import { toast } from './ui.js';
 
@@ -90,7 +90,7 @@ function parseCSV(txt) {
       title: g(iTit),
       telefon: cleanPhone(g(iT)),
       email: g(iEm),
-      website: g(iWeb),
+      website: normalizeWebsite(g(iWeb)),
       status: sm2[rs] || 'neu',
       followup: g(iFu),
       stadt: g(iSt),

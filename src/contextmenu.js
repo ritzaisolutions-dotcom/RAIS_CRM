@@ -1,5 +1,6 @@
 import { S } from './state.js';
 import { toast } from './ui.js';
+import { normalizeWebsite } from './utils.js';
 
 let _ctxId = null;
 
@@ -117,7 +118,7 @@ export function ctxAction(action, id) {
     return;
   }
   if (action === 'web' && c.website) {
-    window.open(c.website, '_blank', 'noopener,noreferrer');
+    window.open(normalizeWebsite(c.website), '_blank', 'noopener,noreferrer');
     return;
   }
   if (action === 'edit') {

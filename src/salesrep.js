@@ -1,7 +1,7 @@
 import { S } from './state.js';
 import { markDirty, persist, pushDirty } from './sync.js';
 import { esc, toast } from './ui.js';
-import { td } from './utils.js';
+import { td, normalizeWebsite } from './utils.js';
 
 const WH_BASE  = 'https://n8n.ritz-ai.solutions/webhook/';
 const WH_TOKEN = 'ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc';
@@ -52,13 +52,6 @@ function chatId(fromPage) {
 
 function applyId(fromPage) {
   return fromPage ? 'srPageApply' : 'srApply';
-}
-
-function normalizeWebsite(url) {
-  const u = (url || '').trim();
-  if (!u) return '';
-  if (/^https?:\/\//i.test(u)) return u;
-  return 'https://' + u;
 }
 
 function readForm(prefix) {

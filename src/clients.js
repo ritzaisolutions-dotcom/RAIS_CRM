@@ -1,7 +1,7 @@
 import { S, CL_KEY_SB, MEDIUM_ICONS } from './state.js';
 import { sbGet, sbUpsert, sbDelete } from './supabase.js';
 import { esc, toast, ir } from './ui.js';
-import { td } from './utils.js';
+import { td, normalizeWebsite } from './utils.js';
 
 window.addEventListener('rais:page-change', function(e) {
   if (e.detail.page === 'clients') loadClients();
@@ -97,7 +97,7 @@ export async function saveClient() {
     kontakt:         document.getElementById('clKontakt').value.trim() || null,
     telefon:         document.getElementById('clTelefon').value.trim() || null,
     email:           document.getElementById('clEmail').value.trim()   || null,
-    website:         document.getElementById('clWebsite').value.trim() || null,
+    website:         normalizeWebsite(document.getElementById('clWebsite').value) || null,
     kontakt_medium:  document.getElementById('clMedium').value,
     status:          document.getElementById('clStatus').value,
     naechste_datum:  document.getElementById('clDatum').value  || null,
@@ -145,7 +145,7 @@ export function openClPanel(id) {
     '<div class="sh">Kontakt</div>' +
     ir('Telefon',  c.telefon ? '<a href="tel:' + esc(c.telefon) + '">' + esc(c.telefon) + '</a>' : '—') +
     ir('Email',    c.email   ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '—') +
-    ir('Website',  c.website ? '<a href="' + esc(c.website) + '" target="_blank">' + esc(c.website.replace(/^https?:\/\//,'')) + '</a>' : '—') +
+    ir('Website',  c.website ? '<a href="' + esc(normalizeWebsite(c.website)) + '" target="_blank">' + esc(normalizeWebsite(c.website).replace(/^https?:\/\//,'')) + '</a>' : '—') +
     ir('Medium',   (MEDIUM_ICONS[c.kontakt_medium]||'') + ' ' + esc(c.kontakt_medium||'—')) +
     '<div class="sh">Projekt</div>' +
     ir('Status',   '<span class="badge client-status-' + (c.status||'aktiv') + '">' + esc(c.status||'aktiv') + '</span>') +

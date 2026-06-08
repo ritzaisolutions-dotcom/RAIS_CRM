@@ -1,6 +1,15 @@
 export function gid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
 export function td() { return new Date().toISOString().slice(0,10); }
 
+/** Ensures external website links have a scheme (avoids relative URLs on CRM origin). */
+export function normalizeWebsite(url) {
+  const u = (url || '').trim();
+  if (!u) return '';
+  if (/^https?:\/\//i.test(u)) return u;
+  if (u.startsWith('//')) return 'https:' + u;
+  return 'https://' + u;
+}
+
 export function relAge(dateStr) {
   if (!dateStr) return '';
   const diff = Math.floor((new Date(td()) - new Date(dateStr)) / 86400000);

@@ -1,5 +1,5 @@
 import { S, PG, STATUS, TSTAT, TSCLS } from './state.js';
-import { gid, td, relAge, gewerkKuerzel, gewerkSlug } from './utils.js';
+import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite } from './utils.js';
 import { sbadge, roib, fdc, esc, ir, toast } from './ui.js';
 import { markDirty, persist, pushDirty, isAktionNoetig } from './sync.js';
 import { sbDelete, sbUpsert } from './supabase.js';
@@ -21,6 +21,11 @@ export function isVersicherungsLead(c) {
     c.hauptleistung, c.extra && c.extra.hauptleistung,
   ].filter(Boolean).join(' ').toLowerCase();
   return /versicherung|versicherungsmakler|versicherungsagentur|versicherungsbüro|versicherungsberatung/.test(hay);
+}
+
+function webHref(url) {
+  const u = normalizeWebsite(url);
+  return u ? esc(u) : '';
 }
 
 const STATUS_SELECT_GROUPS = [
@@ -224,7 +229,7 @@ function renderMobileCards(slice) {
       '<div class="mc" data-id="' + c.id + '" onclick="openP(\'' + c.id + '\')" oncontextmenu="showCtxMenuAtEvent(event,\'' + c.id + '\')">' +
         '<div class="mc-top">' +
           '<div class="mc-firma">' + esc(c.firma) +
-            (c.website ? ' <a class="mc-globe" href="' + esc(c.website) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + esc(c.website) + '">&#127760;</a>' : '') +
+            (c.website ? ' <a class="mc-globe" href="' + webHref(c.website) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + webHref(c.website) + '">&#127760;</a>' : '') +
           '</div>' +
           '<div class="mc-right" onclick="event.stopPropagation()">' + statusSelectHtml(c) + roi + '</div>' +
         '</div>' +
@@ -341,7 +346,7 @@ export function render() {
         '<td>' + esc(c.kontakt || '—') + '</td>' +
         '<td><a href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()" style="color:#2C5F8A;text-decoration:none;font-family:monospace;font-size:12.5px">' + esc(c.telefon || '—') + '</a></td>' +
         '<td class="col-web" onclick="event.stopPropagation()" style="text-align:center">' +
-          (c.website ? '<a class="wlink" href="' + esc(c.website) + '" target="_blank" rel="noopener" title="' + esc(c.website) + '">&#127760;</a>' : '<span class="wlink-none">&#127760;</span>') +
+          (c.website ? '<a class="wlink" href="' + webHref(c.website) + '" target="_blank" rel="noopener" title="' + webHref(c.website) + '">&#127760;</a>' : '<span class="wlink-none">&#127760;</span>') +
         '</td>' +
         '<td class="st-cell" onclick="event.stopPropagation()">' + statusSelectHtml(c) + '</td>' +
         '<td onclick="event.stopPropagation()" class="fu-cell"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onfocus="inlineFUFocus(this)" onchange="inlineFU(this)" onblur="inlineFUBlur(this)" title="Follow-up Datum"></td>' +
@@ -394,7 +399,7 @@ export function openP(id) {
   document.getElementById('pFirma').textContent = c.firma;
   var subText = [c.title, c.kontakt].filter(Boolean).join(' · ');
   var globeLink = c.website
-    ? ' <a href="' + esc(c.website) + '" target="_blank" rel="noopener" class="ph-globe" onclick="event.stopPropagation()" title="' + esc(c.website) + '">&#127760;</a>'
+    ? ' <a href="' + webHref(c.website) + '" target="_blank" rel="noopener" class="ph-globe" onclick="event.stopPropagation()" title="' + webHref(c.website) + '">&#127760;</a>'
     : '';
   document.getElementById('pSub').innerHTML = (subText ? esc(subText) : '') + globeLink;
   const wsOk = c.webseite_vorhanden === 'TRUE' || c.webseite_vorhanden === true;
@@ -438,8 +443,8 @@ export function openP(id) {
     '<div class="sh">Kontakt</div>' +
     ir('Telefon', c.telefon ? '<a href="tel:' + esc(c.telefon) + '">' + esc(c.telefon) + '</a>' : '—') +
     ir('E-Mail',  c.email   ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '—') +
-    ir('Website', c.website ? '<a href="' + esc(c.website) + '" target="_blank" rel="noopener">' + esc(c.website.replace(/^https?:\/\//,'')) + '</a>' : '—') +
-    (c.facebook ? ir('Facebook', '<a href="' + esc(c.facebook) + '" target="_blank" rel="noopener">Profil öffnen</a>') : '') +
+    ir('Website', c.website ? '<a href="' + webHref(c.website) + '" target="_blank" rel="noopener">' + esc(normalizeWebsite(c.website).replace(/^https?:\/\//,'')) + '</a>' : '—') +
+    (c.facebook ? ir('Facebook', '<a href="' + webHref(c.facebook) + '" target="_blank" rel="noopener">Profil öffnen</a>') : '') +
     '<div class="sh">Status</div>' +
     ir('Status',    sbadge(c.status) + (c.status_changed_at ? '<span style="font-size:11px;color:#B0A898;margin-left:7px;font-family:sans-serif">seit ' + relAge(c.status_changed_at) + ' (' + c.status_changed_at + ')</span>' : '')) +
     (isAktionNoetig(c) && c.extra && c.extra.aktion_notiz ? ir('Aktion nötig', esc(c.extra.aktion_notiz)) : '') +
@@ -699,7 +704,7 @@ export function save() {
     title:       document.getElementById('etit').value.trim(),
     telefon:     document.getElementById('et').value.trim(),
     email:       document.getElementById('em').value.trim(),
-    website:     document.getElementById('ew').value.trim(),
+    website:     normalizeWebsite(document.getElementById('ew').value),
     status:      document.getElementById('es').value,
     followup:    document.getElementById('efu').value,
     roi:         parseInt(document.getElementById('er').value) || null,
