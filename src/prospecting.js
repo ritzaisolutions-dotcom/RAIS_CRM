@@ -58,6 +58,7 @@ function statusSelectHtml(c) {
 export function getList() {
   const q      = document.getElementById('srch').value.toLowerCase();
   const roi    = document.getElementById('roiF').value;
+  const stadtF = document.getElementById('stadtF').value;
   const gewF   = document.getElementById('gewerkF').value;
   const srt    = document.getElementById('sortS').value;
   let list = S.contacts.filter(function(c) {
@@ -66,6 +67,7 @@ export function getList() {
     if (S.flt !== 'all' && c.status !== S.flt) return false;
     if (roi === '0' && c.roi) return false;
     if (roi && roi !== '0' && String(c.roi||'') !== roi) return false;
+    if (stadtF && (c.stadt || '') !== stadtF) return false;
     if (gewF && (c.gewerk || '') !== gewF) return false;
     if (S.dueMode) { const t = td(); return c.followup && c.followup <= t; }
     if (q) {
@@ -234,17 +236,23 @@ function renderMobileCards(slice) {
   }).join('');
 }
 
-function populateGewerkFilter() {
-  const sel = document.getElementById('gewerkF');
+function populateSelectFilter(id, label, field) {
+  const sel = document.getElementById(id);
   if (!sel) return;
-  const unique = [...new Set(S.contacts.map(function(c) { return c.gewerk; }).filter(Boolean))].sort();
+  const unique = [...new Set(S.contacts.map(function(c) { return c[field]; }).filter(Boolean))].sort(function(a, b) {
+    return String(a).localeCompare(String(b), 'de');
+  });
   const current = sel.value;
-  sel.innerHTML = '<option value="">Gewerk: Alle</option>' +
-    unique.map(function(g) { return '<option value="' + g + '"' + (g === current ? ' selected' : '') + '>' + g + '</option>'; }).join('');
+  sel.innerHTML = '<option value="">' + label + ': Alle</option>' +
+    unique.map(function(v) {
+      const e = esc(v);
+      return '<option value="' + e + '"' + (v === current ? ' selected' : '') + '>' + e + '</option>';
+    }).join('');
 }
 
 export function render() {
-  populateGewerkFilter();
+  populateSelectFilter('stadtF', 'Stadt', 'stadt');
+  populateSelectFilter('gewerkF', 'Gewerk', 'gewerk');
   const t = td();
   const cnt = {all: S.contacts.length};
   Object.keys(STATUS).forEach(function(k) { cnt[k] = S.contacts.filter(function(c) { return c.status === k; }).length; });
