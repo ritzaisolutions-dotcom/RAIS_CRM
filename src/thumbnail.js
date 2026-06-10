@@ -1,37 +1,156 @@
-/** RAIS Content Thumbnail Editor — lazy-init from Content sub-tab */
+/** Content Thumbnail Editor — lazy-init from Content sub-tab */
 
-const RAIS_LOGO =
-  'data:image/svg+xml,' + encodeURIComponent(
-    '<svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">' +
-    '<path transform="translate(0,1024) scale(0.1,-0.1)" fill="#EC6A37" d="M5095 7745c-5-2-22-6-37-9-34-8-94-59-114-97-18-35-18-120 0-162 7-18 32-49 55-69l41-35 0-776 0-777-27-6c-51-11-104-25-119-31l-14-5 0 393 0 394-70 73c-38 39-73 73-77 73-5 1-45 41-90 89l-83 88 0 74 0 74 41 39c22 22 48 53 56 70l16 29 0 51 1 50-22 42c-26 50-63 78-126 94l-47 12-42-13c-79-23-128-76-142-153l-7-38 12-45 13-45 48-43 49-44 0-114 0-113 155-155 155-155 0-406 0-407-17-8c-25-10-46-6-60 13-30 38-185 193-194 193-6 0-8 4-5 9 6 9-133 146-149 146-5 1-9 6-8 11 2 12-137 153-152 154-5 0-10 4-10 8 0 6-380 386-512 511l-15 14 7 42 6 43-12 46-11 46-39 38-38 38-39 12c-57 17-92 15-142-10l-45-23-29-42-29-42-5-49-4-49 20-45 20-45 33-26c43-32 101-48 153-41l41 6 269-271c148-148 274-267 279-264 6 3 7 2 4-4-8-12 497-516 507-506 4 4 7 3 5-2-1-6 1-18 6-28l7-17-12-15-13-16-403 3-404 3 0 10c0 6-2 10-4 10-2 0-4 4-4 10l0 10 403 3 404 3 13-16 12-15-7-17c-5-10-7-22-6-28 2-5 1-6-5-2-10 10-515 494-507 506 3 6 2 7-4 4-5-3-131 116-279 264l-269 271-41-6c-52-7-110 9-153 41l-33 26-20 45-20 45 4 49 5 49 29 42 29 42 45 23c50 25 85 27 142 10l39-12 38-38 39-38 11-46 12-46-6-43-7-42 15-14c132-125 512-505 512-511 0-4 5-8 10-8 15-1 154-142 152-154-1-5 3-10 8-11 16 0 155-137 149-146-3-5-1-9 5-9 9 0 164-155 194-193 14-19 35-23 60-13l17 8 0 407 0 406 155 155 155 155 0 113 0 114-49 44-48 43-13 45-12 45 7 38c14 77 63 130 142 153l42 13 47-12c63-16 100-44 126-94l22-42-1-50 0-51-16-29c-8-17-34-48-56-70l-41-39 0-74 0-74 83-88c45-48 85-88 90-89 4 0 39-34 77-73l70-73 0-394 0-393 14 5c15 6 68 20 119 31l27 6 0 777 0 776-41 35c-23 20-48 51-55 69-18 42-18 127 0 162 20 38 80 89 114 97 15 3 32 7 37 9 5 2 22 6 37 9 34 8 94 59 114 97 18 35 18 120 0 162-7 18-32 49-55 69l-41 35 0 776 0 777 27 6c51 11 104 25 119 31l14 5 0-393 0-394 70-73c38-39 73-73 77-73 5-1 45-41 90-89l83-88 0-74 0-74-41-39c-22-22-48-53-56-70l-16-29 0-51-1-50 22-42c26-50 63-78 126-94l47-12 42 13c79 23 128 76 142 153l7 38-12 45-13 45-48 43-49 44 0 114 0 113-155 155-155 155 0 406 0 407 17 8c25 10 46 6 60-13 30-38 185-193 194-193 6 0 8-4 5-9-6-9 133-146 149-146 5-1 9-6 8-11-2-12 137-153 152-154 5 0 10-4 10-8 0-6 380-386 512-511l15-14-7-42-6-43 12-46 11-46 39-38 38-38 39-12c57-17 92-15 142 10l45 23 29 42 29 42 5 49 4 49-20 45-20 45-33 26c-43 32-101 48-153 41l-41-6-269 271c-148 148-274 267-279 264-6-3-7-2-4 4 8 12-497 516-507 506-4-4-7-3-5 2 1 6-1 18-6 28l-7 17 12 15 13 16 403-3 404-3 0-10c0-6 2-10 4-10 2 0 4-4 4-10l0-10-403-3-404-3-13 16-12 15 7 17c5 10 7 22 6 28-2 5-1 6 5 2 10-10 515-494 507-506-3-6-2-7 4-4 5 3 131-116 279-264l269-271 41 6c52 7 110-9 153-41l33-26 20-45 20-45-4-49-5-49-29-42-29-42-45-23c-50-25-85-27-142-10l-39 12-38 38-39 38-11 46-12 46 6 43 7 42-15 14c-132 125-512 505-512 511 0 4-5 8-10 8-15 1-154 142-152 154 1 5-3 10-8 11-16 0-155 137-149 146 3 5 1 9-5 9-9 0-164 155-194 193-14 19-35 23-60 13l-17-8 0-407 0-406-155-155-155-155 0-113 0-114 49-44 48-43 13-45 12-45-7-38c-14-77-63-130-142-153l-42-13-47 12c-63 16-100 44-126 94l-22 42 1 50 0 51 16 29c8 17 34 48 56 70l41 39 0 74 0 74-83 88c-45 48-85 88-90 89-4 0-39 34-77 73l-70 73 0 394 0 393-14-5c-15-6-68-20-119-31l-27-6 0-777 0-776 41-35c23-20 48-51 55-69 18-42 18-127 0-162-20-38-80-89-114-97-15-3-32-7-37-9z"/>' +
-    '</svg>'
-  );
+import { toast } from './ui.js';
 
-const PRESETS = [
-  { label: 'Variante 1', ep: '#01', hl: 'KI-Automatisierung\nfür', kw: 'Handwerk', sl: 'Kevin Ritz · RAIS Solutions', kwpos: 'after' },
-  { label: 'Variante 2', ep: '#02', hl: 'n8n Workflows\nohne', kw: 'Code', sl: 'Automatisierung für KMUs', kwpos: 'after' },
-  { label: 'Variante 3', ep: 'VIDEO', hl: 'CRM & Vertrieb', kw: 'automatisieren', sl: 'Mehr Deals, weniger Admin', kwpos: 'after' },
-  { label: 'Variante 4', ep: 'SFC', hl: 'Das musst du\nüber KI', kw: 'wissen', sl: 'Short-Form Hook · kevin_ritz', kwpos: 'after' },
+const TN_STORAGE_KEY = 'rais_tn_state';
+const TN_EXPORT_W = 1280;
+const TN_EXPORT_H = 720;
+const DEFAULT_BG = './0610.png';
+
+const BRAND_SWATCHES = [
+  { label: 'Orange', hex: '#EC6A37', target: 'accent' },
+  { label: 'Sage', hex: '#789464', target: 'subline' },
+  { label: 'Pistachio', hex: '#3C5A2A', target: 'subline' },
+  { label: 'Charcoal', hex: '#2F2A24', target: 'headline' },
+  { label: 'Stone', hex: '#7B746B', target: 'subline' },
+  { label: 'Cloud', hex: '#F5F2EC', target: 'linen' },
 ];
 
+const PRESETS = [
+  {
+    label: 'Studio',
+    ep: 'VIDEO',
+    hl: 'Deine Headline\nhier',
+    kw: '',
+    sl: 'Untertitel · Thema',
+    kwpos: 'hidden',
+    overlaySide: 'right',
+    textAlign: 'right',
+    panelMode: true,
+    overlayOpacity: 75,
+    overlayReach: 62,
+    textX: 48,
+    textY: 12,
+    textW: 48,
+    headlineColor: '#2F2A24',
+    sublineColor: '#789464',
+    accentColor: '#EC6A37',
+    bars: 'none',
+  },
+  {
+    label: 'Dunkel Akzent',
+    ep: 'NEU',
+    hl: 'Das musst du\nwissen',
+    kw: 'jetzt',
+    sl: 'Kurz erklärt · Schritt für Schritt',
+    kwpos: 'after',
+    overlaySide: 'right',
+    textAlign: 'right',
+    panelMode: false,
+    overlayOpacity: 55,
+    overlayReach: 55,
+    textX: 50,
+    textY: 14,
+    textW: 46,
+    headlineColor: '#2F2A24',
+    sublineColor: '#3C5A2A',
+    accentColor: '#EC6A37',
+    bars: 'top',
+  },
+  {
+    label: 'Sage Editorial',
+    ep: 'TIP',
+    hl: 'So funktioniert\ndas',
+    kw: '',
+    sl: 'Praxisnah · ohne Fachchinesisch',
+    kwpos: 'hidden',
+    overlaySide: 'right',
+    textAlign: 'right',
+    panelMode: true,
+    overlayOpacity: 82,
+    overlayReach: 58,
+    textX: 46,
+    textY: 10,
+    textW: 50,
+    headlineColor: '#2F2A24',
+    sublineColor: '#7B746B',
+    accentColor: '#789464',
+    bars: 'none',
+  },
+];
+
+const TN_DEFAULTS = {
+  headline: 'Deine Headline hier',
+  subline: 'Untertitel · Thema',
+  ep: 'VIDEO',
+  kw: '',
+  kwpos: 'hidden',
+  headlineColor: '#2F2A24',
+  sublineColor: '#789464',
+  accentColor: '#EC6A37',
+  linenColor: '#FBF8F3',
+  cloudColor: '#F5F2EC',
+  overlaySide: 'right',
+  textAlign: 'right',
+  panelMode: true,
+  overlayOpacity: 75,
+  overlayReach: 62,
+  textX: 48,
+  textY: 12,
+  textW: 48,
+  hlSizePct: 3.2,
+  slSizePct: 1.6,
+  epSizePct: 1.3,
+  bright: 100,
+  sat: 100,
+  bgPos: '50%',
+  bars: 'none',
+  bgImage: DEFAULT_BG,
+  textPos: 'right',
+};
+
 let _inited = false;
-let hlSizePct = 3.2;
-let slSizePct = 1.6;
-let epSizePct = 1.3;
-let darkRgb = { r: 32, g: 28, b: 23 };
+let _persistTimer = null;
+let linenRgb = { r: 251, g: 248, b: 243 };
+let cloudRgb = { r: 245, g: 242, b: 236 };
 
 function $(id) { return document.getElementById(id); }
 
 function hexToRgb(hex) {
   const m = String(hex).replace('#', '').match(/^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
-  if (!m) return darkRgb;
+  if (!m) return { r: 251, g: 248, b: 243 };
   return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
 }
 
-function rgbaFromVar(varName, alpha) {
-  const hex = getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || '#201C17';
-  const c = hexToRgb(hex.startsWith('#') ? hex : '#201C17');
+function rgba(hexOrRgb, alpha) {
+  const c = typeof hexOrRgb === 'string' ? hexToRgb(hexOrRgb) : hexOrRgb;
   return 'rgba(' + c.r + ',' + c.g + ',' + c.b + ',' + alpha + ')';
+}
+
+function getState() {
+  const s = {};
+  Object.keys(TN_DEFAULTS).forEach(function(k) { s[k] = TN_DEFAULTS[k]; });
+  try {
+    const raw = localStorage.getItem(TN_STORAGE_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      Object.keys(saved).forEach(function(k) {
+        if (k.indexOf('logo') === 0) return;
+        if (Object.prototype.hasOwnProperty.call(TN_DEFAULTS, k)) s[k] = saved[k];
+      });
+    }
+  } catch (e) { /* ignore */ }
+  if (!s.bgImage) s.bgImage = DEFAULT_BG;
+  return s;
+}
+
+let tnState = getState();
+
+function schedulePersist() {
+  clearTimeout(_persistTimer);
+  _persistTimer = setTimeout(function() {
+    try { localStorage.setItem(TN_STORAGE_KEY, JSON.stringify(tnState)); } catch (e) { /* ignore */ }
+  }, 300);
 }
 
 function toggleTnSection(id) {
@@ -62,127 +181,249 @@ function applyFontSizes() {
   const hl = $('tn-headline');
   const sl = $('tn-subline');
   const ep = $('tn-ep');
-  if (hl) hl.style.fontSize = (w * hlSizePct / 100) + 'px';
-  if (sl) sl.style.fontSize = (w * slSizePct / 100) + 'px';
-  if (ep) ep.style.fontSize = (w * epSizePct / 100) + 'px';
+  if (hl) hl.style.fontSize = (w * tnState.hlSizePct / 100) + 'px';
+  if (sl) sl.style.fontSize = (w * tnState.slSizePct / 100) + 'px';
+  if (ep) ep.style.fontSize = (w * tnState.epSizePct / 100) + 'px';
 }
 
-function updateTextPos() {
-  const x = $('rng-textx').value;
-  const y = $('rng-texty').value;
-  const w = $('rng-textw').value;
-  $('val-textx').textContent = x + '%';
-  $('val-texty').textContent = y + '%';
-  $('val-textw').textContent = w + '%';
+function applyTextLayout() {
   const el = $('tn-text');
-  el.style.left = x + '%';
-  el.style.bottom = y + '%';
-  el.style.width = w + '%';
-}
+  const preview = $('tn-preview');
+  if (!el || !preview) return;
 
-function updateLogoSize(v) {
-  $('val-logo').textContent = v + '%';
-  $('tn-logo').style.width = v + '%';
-}
+  el.style.left = tnState.textX + '%';
+  el.style.bottom = tnState.textY + '%';
+  el.style.width = tnState.textW + '%';
 
-function updateLogoSide(side) {
-  const el = $('tn-logo');
-  if (side === 'left') {
-    el.style.right = 'auto';
-    el.style.left = '2.5%';
-  } else {
-    el.style.left = 'auto';
-    el.style.right = '2.5%';
+  el.classList.remove('tn-text--left', 'tn-text--right', 'tn-text--center', 'tn-text--panel');
+  el.classList.add('tn-text--' + tnState.textAlign);
+  if (tnState.panelMode) el.classList.add('tn-text--panel');
+
+  const overlay = $('tn-overlay');
+  if (overlay) {
+    overlay.classList.remove('tn-overlay--left', 'tn-overlay--right');
+    overlay.classList.add('tn-overlay--' + tnState.overlaySide);
+  }
+
+  const rule = $('tn-rule');
+  if (rule) {
+    rule.style.display = tnState.textAlign === 'center' ? 'none' : 'block';
+    if (tnState.textAlign === 'right') {
+      rule.style.marginLeft = 'auto';
+      rule.style.marginRight = '0';
+    } else if (tnState.textAlign === 'left') {
+      rule.style.marginLeft = '0';
+      rule.style.marginRight = 'auto';
+    }
   }
 }
 
+function syncControlsFromState() {
+  const map = {
+    'inp-ep': 'ep',
+    'inp-hl': 'headline',
+    'inp-kw': 'kw',
+    'inp-sl': 'subline',
+    'inp-kwpos': 'kwpos',
+    'inp-textpos': 'textPos',
+    'inp-panel': 'panelMode',
+    'inp-bars': 'bars',
+    'inp-bgpos': 'bgPos',
+  };
+  Object.keys(map).forEach(function(id) {
+    const el = $(id);
+    if (!el) return;
+    const key = map[id];
+    if (el.type === 'checkbox') el.checked = !!tnState[key];
+    else el.value = tnState[key];
+  });
+
+  const ranges = {
+    'rng-hlsize': 'hlSizePct', 'rng-slsize': 'slSizePct', 'rng-epsize': 'epSizePct',
+    'rng-textx': 'textX', 'rng-texty': 'textY', 'rng-textw': 'textW',
+    'rng-bright': 'bright', 'rng-sat': 'sat',
+    'rng-overlay': 'overlayOpacity', 'rng-ovreach': 'overlayReach',
+  };
+  Object.keys(ranges).forEach(function(id) {
+    const el = $(id);
+    if (el) el.value = tnState[ranges[id]];
+  });
+
+  const colors = { accent: 'accentColor', headline: 'headlineColor', subline: 'sublineColor', linen: 'linenColor' };
+  Object.keys(colors).forEach(function(name) {
+    const picker = $('color-' + name);
+    const hex = $('hex-' + name);
+    const val = tnState[colors[name]];
+    if (picker) picker.value = val;
+    if (hex) hex.value = val;
+  });
+
+  updateRangeLabels();
+}
+
+function updateRangeLabels() {
+  const labels = {
+    'val-hlsize': tnState.hlSizePct + '%',
+    'val-slsize': tnState.slSizePct + '%',
+    'val-epsize': tnState.epSizePct + '%',
+    'val-textx': tnState.textX + '%',
+    'val-texty': tnState.textY + '%',
+    'val-textw': tnState.textW + '%',
+    'val-bright': tnState.bright + '%',
+    'val-sat': tnState.sat + '%',
+    'val-overlay': tnState.overlayOpacity + '%',
+    'val-ovreach': tnState.overlayReach + '%',
+  };
+  Object.keys(labels).forEach(function(id) {
+    const el = $(id);
+    if (el) el.textContent = labels[id];
+  });
+}
+
+function applyBrandCssVars() {
+  document.documentElement.style.setProperty('--tn-accent', tnState.accentColor);
+  document.documentElement.style.setProperty('--tn-headline', tnState.headlineColor);
+  document.documentElement.style.setProperty('--tn-subline', tnState.sublineColor);
+  document.documentElement.style.setProperty('--tn-linen', tnState.linenColor);
+  document.documentElement.style.setProperty('--tn-cloud', tnState.cloudColor);
+  linenRgb = hexToRgb(tnState.linenColor);
+  cloudRgb = hexToRgb(tnState.cloudColor);
+}
+
 function updateColor(varName, hex, hexInputId) {
+  const map = { accent: 'accentColor', headline: 'headlineColor', subline: 'sublineColor', linen: 'linenColor' };
+  if (map[varName]) tnState[map[varName]] = hex;
+  if (varName === 'linen') {
+    tnState.linenColor = hex;
+    linenRgb = hexToRgb(hex);
+  }
   document.documentElement.style.setProperty('--tn-' + varName, hex);
   if (hexInputId && $(hexInputId)) $(hexInputId).value = hex;
-  if (varName === 'dark') darkRgb = hexToRgb(hex);
+  applyBrandCssVars();
   updateOverlay();
+  schedulePersist();
 }
 
 function updateColorFromHex(varName, val) {
   if (/^#[0-9a-fA-F]{6}$/.test(val)) updateColor(varName, val, 'hex-' + varName);
 }
 
+function applySwatch(target, hex) {
+  updateColor(target, hex, 'hex-' + target);
+  const picker = $('color-' + target);
+  if (picker) picker.value = hex;
+}
+
 function updateBars(v) {
+  tnState.bars = v;
   $('tn-bar-top').style.display = (v === 'both' || v === 'top') ? 'block' : 'none';
   $('tn-bar-bottom').style.display = (v === 'both' || v === 'bottom') ? 'block' : 'none';
+  schedulePersist();
 }
 
 function updatePhotoFilter() {
-  const bright = $('rng-bright').value;
-  const sat = $('rng-sat').value;
-  $('val-bright').textContent = bright + '%';
-  $('val-sat').textContent = sat + '%';
-  $('tn-bg').style.filter = 'brightness(' + (bright / 100) + ') saturate(' + (sat / 100) + ')';
+  $('tn-bg').style.filter = 'brightness(' + (tnState.bright / 100) + ') saturate(' + (tnState.sat / 100) + ')';
 }
 
 function updateOverlay() {
-  const op = parseFloat($('rng-overlay').value);
-  const reach = parseInt($('rng-ovreach').value, 10);
-  $('val-overlay').textContent = op + '%';
-  $('val-ovreach').textContent = reach + '%';
-  const full = rgbaFromVar('--tn-dark', op / 100);
-  const mid = rgbaFromVar('--tn-dark', (op * 0.75) / 100);
-  const reach2 = Math.min(reach + 30, 100);
-  $('tn-overlay').style.background =
-    'linear-gradient(to right, ' + full + ' 0%, ' + mid + ' ' + reach + '%, rgba(32,28,23,0.1) ' + reach2 + '%, rgba(32,28,23,0) 100%)';
+  const op = tnState.overlayOpacity / 100;
+  const reach = tnState.overlayReach;
+  const reach2 = Math.min(reach + 28, 100);
+  const mid = rgba(linenRgb, op * 0.65);
+  const full = rgba(cloudRgb, op * 0.92);
+  const overlay = $('tn-overlay');
+  if (!overlay) return;
+
+  if (tnState.overlaySide === 'right') {
+    overlay.style.background =
+      'linear-gradient(90deg, transparent 0%, transparent ' + (reach - 18) + '%, ' +
+      mid + ' ' + reach + '%, ' + full + ' ' + reach2 + '%, ' + full + ' 100%)';
+  } else {
+    overlay.style.background =
+      'linear-gradient(270deg, transparent 0%, transparent ' + (reach - 18) + '%, ' +
+      mid + ' ' + reach + '%, ' + full + ' ' + reach2 + '%, ' + full + ' 100%)';
+  }
 }
 
-function updateEp(v) { $('tn-ep').textContent = v; }
+function applyTextPosPreset(pos) {
+  tnState.textPos = pos;
+  if (pos === 'right') {
+    tnState.overlaySide = 'right';
+    tnState.textAlign = 'right';
+    tnState.textX = 48;
+    tnState.textW = 48;
+  } else if (pos === 'left') {
+    tnState.overlaySide = 'left';
+    tnState.textAlign = 'left';
+    tnState.textX = 3.5;
+    tnState.textW = 54;
+  } else {
+    tnState.overlaySide = 'right';
+    tnState.textAlign = 'center';
+    tnState.textX = 26;
+    tnState.textW = 48;
+  }
+  syncControlsFromState();
+  applyTextLayout();
+  updateOverlay();
+  schedulePersist();
+}
+
+function updateEp(v) {
+  tnState.ep = v;
+  $('tn-ep').textContent = v;
+  schedulePersist();
+}
 
 function updateHeadline() {
-  renderHeadline($('inp-hl').value, $('inp-kw').value, $('inp-kwpos').value);
+  tnState.headline = $('inp-hl').value;
+  tnState.kw = $('inp-kw').value;
+  tnState.kwpos = $('inp-kwpos').value;
+  renderHeadline(tnState.headline, tnState.kw, tnState.kwpos);
   applyFontSizes();
+  schedulePersist();
 }
 
-function updateSubline(v) { $('tn-subline').textContent = v; }
-
-function updateHlSize(v) {
-  hlSizePct = parseFloat(v);
-  $('val-hlsize').textContent = v + '%';
-  applyFontSizes();
-}
-
-function updateSlSize(v) {
-  slSizePct = parseFloat(v);
-  $('val-slsize').textContent = v + '%';
-  applyFontSizes();
-}
-
-function updateEpSize(v) {
-  epSizePct = parseFloat(v);
-  $('val-epsize').textContent = v + '%';
-  applyFontSizes();
+function updateSubline(v) {
+  tnState.subline = v;
+  $('tn-subline').textContent = v;
+  schedulePersist();
 }
 
 function applyPreset(n) {
   const p = PRESETS[n];
   if (!p) return;
-  $('inp-ep').value = p.ep;
-  $('inp-hl').value = p.hl;
-  $('inp-kw').value = p.kw;
-  $('inp-sl').value = p.sl;
-  $('inp-kwpos').value = p.kwpos;
+  Object.keys(p).forEach(function(k) {
+    if (k !== 'label') tnState[k] = p[k];
+  });
+  tnState.textPos = p.textAlign === 'left' ? 'left' : (p.textAlign === 'center' ? 'center' : 'right');
   $('tn-preset-label').textContent = p.label + ' aktiv';
-  updateEp(p.ep);
-  updateSubline(p.sl);
+  applyBrandCssVars();
+  syncControlsFromState();
+  updateEp(tnState.ep);
+  updateSubline(tnState.subline);
   updateHeadline();
+  applyTextLayout();
+  updateOverlay();
+  updatePhotoFilter();
+  updateBars(tnState.bars);
+  schedulePersist();
 }
 
 function loadBg(input) {
   const file = input.files && input.files[0];
   if (!file) return;
-  $('tn-bg').src = URL.createObjectURL(file);
+  const url = URL.createObjectURL(file);
+  tnState.bgImage = url;
+  $('tn-bg').src = url;
+  schedulePersist();
 }
 
-function loadLogo(input) {
-  const file = input.files && input.files[0];
-  if (!file) return;
-  $('tn-logo-img').src = URL.createObjectURL(file);
+function applyBgImage() {
+  const bg = $('tn-bg');
+  if (!bg) return;
+  if (tnState.bgImage) bg.src = tnState.bgImage;
+  bg.style.objectPosition = 'center ' + tnState.bgPos;
 }
 
 export function openTnExportModal() {
@@ -193,10 +434,252 @@ export function closeTnExportModal() {
   $('tnExportModal').classList.remove('on');
 }
 
+function loadImageForExport(src) {
+  return new Promise(function(resolve, reject) {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() { resolve(img); };
+    img.onerror = function() { reject(new Error('Bild konnte nicht geladen werden')); };
+    img.src = src;
+  });
+}
+
+function drawCoverImage(ctx, img, w, h) {
+  const ir = img.width / img.height;
+  const cr = w / h;
+  let sw, sh, sx, sy;
+  if (ir > cr) {
+    sh = img.height;
+    sw = sh * cr;
+    sx = (img.width - sw) / 2;
+    sy = 0;
+  } else {
+    sw = img.width;
+    sh = sw / cr;
+    sx = 0;
+    sy = (img.height - sh) / 2;
+  }
+  const bgPos = String(tnState.bgPos);
+  if (bgPos === 'top' || bgPos === '20%') sy = 0;
+  else if (bgPos === 'bottom') sy = img.height - sh;
+  else if (bgPos === '50%') sy = (img.height - sh) / 2;
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h);
+}
+
+function wrapCanvasLines(ctx, text, maxWidth) {
+  const lines = [];
+  text.split('\n').forEach(function(paragraph) {
+    const words = paragraph.trim().split(/\s+/).filter(Boolean);
+    if (!words.length) { lines.push(''); return; }
+    let line = words[0];
+    for (let i = 1; i < words.length; i++) {
+      const test = line + ' ' + words[i];
+      if (ctx.measureText(test).width > maxWidth) {
+        lines.push(line);
+        line = words[i];
+      } else line = test;
+    }
+    lines.push(line);
+  });
+  return lines;
+}
+
+async function ensureSyneLoaded() {
+  if (!document.fonts || !document.fonts.load) return;
+  await Promise.all([
+    document.fonts.load('800 64px Syne'),
+    document.fonts.load('600 32px Syne'),
+    document.fonts.load('700 24px Syne'),
+  ]).catch(function() { /* fallback */ });
+  await document.fonts.ready;
+}
+
+export async function exportTnPng() {
+  const src = $('tn-bg') && $('tn-bg').src;
+  if (!src) {
+    toast('Bitte zuerst ein Hintergrundfoto laden.');
+    return;
+  }
+  try {
+    await ensureSyneLoaded();
+    const img = await loadImageForExport(src);
+    const canvas = document.createElement('canvas');
+    canvas.width = TN_EXPORT_W;
+    canvas.height = TN_EXPORT_H;
+    const ctx = canvas.getContext('2d');
+    const w = TN_EXPORT_W;
+    const h = TN_EXPORT_H;
+
+    ctx.filter = 'brightness(' + (tnState.bright / 100) + ') saturate(' + (tnState.sat / 100) + ')';
+    drawCoverImage(ctx, img, w, h);
+    ctx.filter = 'none';
+
+    const op = tnState.overlayOpacity / 100;
+    const reach = tnState.overlayReach / 100;
+    const reach2 = Math.min(reach + 0.28, 1);
+    const grad = ctx.createLinearGradient(0, 0, w, 0);
+    if (tnState.overlaySide === 'right') {
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(Math.max(0, reach - 0.18), 'rgba(0,0,0,0)');
+      grad.addColorStop(reach, rgba(linenRgb, op * 0.65));
+      grad.addColorStop(reach2, rgba(cloudRgb, op * 0.92));
+      grad.addColorStop(1, rgba(cloudRgb, op * 0.92));
+    } else {
+      grad.addColorStop(0, rgba(cloudRgb, op * 0.92));
+      grad.addColorStop(1 - reach2, rgba(cloudRgb, op * 0.92));
+      grad.addColorStop(1 - reach, rgba(linenRgb, op * 0.65));
+      grad.addColorStop(1 - Math.max(0, reach - 0.18), 'rgba(0,0,0,0)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+    }
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    const textX = tnState.textX / 100 * w;
+    const textY = h - (tnState.textY / 100 * h);
+    const textW = tnState.textW / 100 * w;
+    const pad = Math.round(w * 0.04);
+    let boxX = textX;
+    let boxW = textW;
+
+    const hlSize = Math.round(w * tnState.hlSizePct / 100);
+    const slSize = Math.round(w * tnState.slSizePct / 100);
+    const epSize = Math.round(w * tnState.epSizePct / 100);
+
+    ctx.font = '800 ' + hlSize + 'px Syne, system-ui, sans-serif';
+    const hlLines = wrapCanvasLines(ctx, tnState.headline, textW - pad * 2);
+    const slLines = tnState.subline ? [tnState.subline] : [];
+    const lineH = hlSize * 1.15;
+    const slLineH = slSize * 1.4;
+    const ruleH = Math.max(4, Math.round(w * 0.005));
+    const contentH = ruleH + 8 + hlLines.length * lineH + (slLines.length ? 12 + slLines.length * slLineH : 0);
+
+    if (tnState.panelMode) {
+      const panelPad = pad;
+      let panelX = boxX;
+      if (tnState.textAlign === 'right') panelX = textX + textW - (textW - panelPad);
+      else if (tnState.textAlign === 'center') panelX = textX + (textW - textW) / 2;
+      const panelW = textW;
+      const panelH = contentH + panelPad * 2;
+      const panelY = textY - panelH;
+      ctx.fillStyle = rgba(linenRgb, 0.88);
+      ctx.strokeStyle = 'rgba(217,209,199,0.9)';
+      ctx.lineWidth = 2;
+      roundRect(ctx, panelX, panelY, panelW, panelH, 12);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    if (tnState.bars === 'both' || tnState.bars === 'top') {
+      ctx.fillStyle = tnState.accentColor;
+      ctx.fillRect(0, 0, w, 4);
+    }
+    if (tnState.bars === 'both' || tnState.bars === 'bottom') {
+      ctx.fillStyle = tnState.accentColor;
+      ctx.fillRect(0, h - 4, w, 4);
+    }
+
+    if (tnState.ep) {
+      ctx.font = '800 ' + epSize + 'px Syne, system-ui, sans-serif';
+      const epPadX = Math.round(epSize * 0.5);
+      const epPadY = Math.round(epSize * 0.25);
+      const epW = ctx.measureText(tnState.ep).width + epPadX * 2;
+      const epH = epSize + epPadY * 2;
+      const epX = Math.round(w * 0.035);
+      const epY = Math.round(h * 0.06);
+      ctx.fillStyle = tnState.accentColor;
+      ctx.fillRect(epX, epY, epW, epH);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText(tnState.ep, epX + epPadX, epY + epH - epPadY - 2);
+    }
+
+    let y = textY - (slLines.length ? slLines.length * slLineH + 12 : 0) - hlLines.length * lineH - ruleH - 8;
+    const align = tnState.textAlign;
+
+    ctx.fillStyle = tnState.accentColor;
+    const ruleW = Math.round(w * 0.06);
+    let ruleX = textX;
+    if (align === 'right') ruleX = textX + textW - ruleW - pad;
+    else if (align === 'center') ruleX = textX + (textW - ruleW) / 2;
+    else ruleX = textX + pad;
+    if (align !== 'center') ctx.fillRect(ruleX, y, ruleW, ruleH);
+    y += ruleH + 8;
+
+    ctx.font = '800 ' + hlSize + 'px Syne, system-ui, sans-serif';
+    ctx.fillStyle = tnState.headlineColor;
+    ctx.textBaseline = 'top';
+    hlLines.forEach(function(line, i) {
+      let x = textX + pad;
+      const tw = ctx.measureText(line).width;
+      if (align === 'right') x = textX + textW - tw - pad;
+      else if (align === 'center') x = textX + (textW - tw) / 2;
+      ctx.fillText(line, x, y + i * lineH);
+    });
+
+    if (tnState.kw && tnState.kwpos !== 'hidden') {
+      const kwY = y + hlLines.length * lineH;
+      ctx.fillStyle = tnState.accentColor;
+      let kx = textX + pad;
+      const ktw = ctx.measureText(tnState.kw).width;
+      if (align === 'right') kx = textX + textW - ktw - pad;
+      else if (align === 'center') kx = textX + (textW - ktw) / 2;
+      ctx.fillText(tnState.kw, kx, kwY);
+    }
+
+    if (slLines.length) {
+      ctx.font = '600 ' + slSize + 'px Syne, system-ui, sans-serif';
+      ctx.fillStyle = tnState.sublineColor;
+      const sy = y + hlLines.length * lineH + (tnState.kw && tnState.kwpos === 'after' ? lineH : 0) + 12;
+      slLines.forEach(function(line, i) {
+        let x = textX + pad;
+        const tw = ctx.measureText(line).width;
+        if (align === 'right') x = textX + textW - tw - pad;
+        else if (align === 'center') x = textX + (textW - tw) / 2;
+        ctx.fillText(line, x, sy + i * slLineH);
+      });
+    }
+
+    canvas.toBlob(function(blob) {
+      if (!blob) {
+        toast('PNG-Export fehlgeschlagen.');
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'thumbnail-1280x720.png';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('Thumbnail als PNG gespeichert.');
+      closeTnExportModal();
+    }, 'image/png');
+  } catch (e) {
+    toast('Export fehlgeschlagen: ' + (e.message || 'Unbekannter Fehler'));
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 function buildSidebar() {
   const sidebar = $('tn-sidebar');
   if (!sidebar || sidebar.dataset.built) return;
   sidebar.dataset.built = '1';
+
+  const swatchHtml = BRAND_SWATCHES.map(function(s) {
+    return '<button type="button" class="tn-swatch" data-target="' + s.target + '" data-hex="' + s.hex + '" ' +
+      'title="' + s.label + '" style="background:' + s.hex + '"></button>';
+  }).join('');
+
   sidebar.innerHTML =
     '<div class="tn-section" id="sec-presets">' +
       '<div class="tn-section-head" data-sec="sec-presets"><span class="tn-section-title">Schnell-Presets</span><span class="tn-section-arrow">▼</span></div>' +
@@ -205,12 +688,18 @@ function buildSidebar() {
           return '<button type="button" class="tn-preset-btn" data-preset="' + i + '"><strong>' + p.label + '</strong>' + p.sl + '</button>';
         }).join('') +
       '</div></div></div>' +
+    '<div class="tn-section" id="sec-export">' +
+      '<div class="tn-section-head" data-sec="sec-export"><span class="tn-section-title">Export</span><span class="tn-section-arrow">▼</span></div>' +
+      '<div class="tn-section-body">' +
+        '<button type="button" class="btn bp" id="tn-png-btn" style="width:100%">PNG exportieren (1280×720)</button>' +
+        '<p class="tn-ctrl-hint">Direkter Download im Zielformat für YouTube.</p>' +
+      '</div></div>' +
     '<div class="tn-section" id="sec-text">' +
       '<div class="tn-section-head" data-sec="sec-text"><span class="tn-section-title">Text</span><span class="tn-section-arrow">▼</span></div>' +
       '<div class="tn-section-body">' +
-        '<div><label class="tn-ctrl-label">Badge</label><input class="tn-ctrl-input" id="inp-ep" value="#01"></div>' +
+        '<div><label class="tn-ctrl-label">Badge</label><input class="tn-ctrl-input" id="inp-ep"></div>' +
         '<div><label class="tn-ctrl-label">Headline (Zeilenumbruch mit Enter)</label><textarea class="tn-ctrl-textarea" id="inp-hl" rows="2"></textarea></div>' +
-        '<div><label class="tn-ctrl-label">Keyword (Orange-Hervorhebung)</label><input class="tn-ctrl-input" id="inp-kw"></div>' +
+        '<div><label class="tn-ctrl-label">Keyword (Akzentfarbe)</label><input class="tn-ctrl-input" id="inp-kw"></div>' +
         '<div><label class="tn-ctrl-label">Subline</label><input class="tn-ctrl-input" id="inp-sl"></div>' +
         '<div><label class="tn-ctrl-label">Keyword Position</label><select class="tn-ctrl-select" id="inp-kwpos">' +
           '<option value="after">Nach Headline (neue Zeile)</option><option value="inline">In Headline integriert</option><option value="hidden">Kein Keyword</option>' +
@@ -219,41 +708,44 @@ function buildSidebar() {
     '<div class="tn-section collapsed" id="sec-typo">' +
       '<div class="tn-section-head" data-sec="sec-typo"><span class="tn-section-title">Typografie</span><span class="tn-section-arrow">▼</span></div>' +
       '<div class="tn-section-body">' +
-        rangeRow('Headline Größe', 'rng-hlsize', 'val-hlsize', 2, 6, 0.1, 3.2) +
-        rangeRow('Subline Größe', 'rng-slsize', 'val-slsize', 0.8, 2.5, 0.1, 1.6) +
-        rangeRow('Badge Größe', 'rng-epsize', 'val-epsize', 0.8, 2, 0.1, 1.3) +
+        rangeRow('Headline Größe', 'rng-hlsize', 'val-hlsize', 2, 6, 0.1, tnState.hlSizePct) +
+        rangeRow('Subline Größe', 'rng-slsize', 'val-slsize', 0.8, 2.5, 0.1, tnState.slSizePct) +
+        rangeRow('Badge Größe', 'rng-epsize', 'val-epsize', 0.8, 2, 0.1, tnState.epSizePct) +
       '</div></div>' +
     '<div class="tn-section collapsed" id="sec-pos">' +
       '<div class="tn-section-head" data-sec="sec-pos"><span class="tn-section-title">Position & Layout</span><span class="tn-section-arrow">▼</span></div>' +
       '<div class="tn-section-body">' +
-        rangeRow('Text Abstand Links', 'rng-textx', 'val-textx', 2, 60, 0.5, 3.5) +
-        rangeRow('Text Abstand unten', 'rng-texty', 'val-texty', 2, 50, 0.5, 9) +
-        rangeRow('Text Block Breite', 'rng-textw', 'val-textw', 30, 90, 1, 54) +
-        rangeRow('Logo Größe', 'rng-logo', 'val-logo', 6, 22, 0.5, 13) +
-        '<div><label class="tn-ctrl-label">Logo Seite</label><select class="tn-ctrl-select" id="inp-logoside"><option value="right">Rechts</option><option value="left">Links</option></select></div>' +
+        '<div><label class="tn-ctrl-label">Textposition</label><select class="tn-ctrl-select" id="inp-textpos">' +
+          '<option value="right">Rechts (Presenter links)</option><option value="left">Links</option><option value="center">Mitte</option>' +
+        '</select></div>' +
+        '<label class="tn-check-label"><input type="checkbox" id="inp-panel" checked> Text-Panel (Linen-Hintergrund)</label>' +
+        rangeRow('Text Abstand horizontal', 'rng-textx', 'val-textx', 2, 60, 0.5, tnState.textX) +
+        rangeRow('Text Abstand unten', 'rng-texty', 'val-texty', 2, 50, 0.5, tnState.textY) +
+        rangeRow('Text Block Breite', 'rng-textw', 'val-textw', 30, 90, 1, tnState.textW) +
       '</div></div>' +
     '<div class="tn-section collapsed" id="sec-colors">' +
-      '<div class="tn-section-head" data-sec="sec-colors"><span class="tn-section-title">Farben</span><span class="tn-section-arrow">▼</span></div>' +
+      '<div class="tn-section-head" data-sec="sec-colors"><span class="tn-section-title">Farben (Brand)</span><span class="tn-section-arrow">▼</span></div>' +
       '<div class="tn-section-body">' +
-        colorRow('Akzent (Orange)', 'accent', '#EC6A37') +
-        colorRow('Haupttext', 'text', '#FFFFFF') +
-        colorRow('Dunkel (Overlay)', 'dark', '#201C17') +
+        '<div><label class="tn-ctrl-label">Brand-Palette</label><div class="tn-swatch-row">' + swatchHtml + '</div></div>' +
+        colorRow('Akzent', 'accent', tnState.accentColor) +
+        colorRow('Headline', 'headline', tnState.headlineColor) +
+        colorRow('Subline', 'subline', tnState.sublineColor) +
+        colorRow('Panel / Overlay', 'linen', tnState.linenColor) +
         '<div><label class="tn-ctrl-label">Akzent-Bars (oben/unten)</label><select class="tn-ctrl-select" id="inp-bars">' +
-          '<option value="both">Beide sichtbar</option><option value="top">Nur oben</option><option value="bottom">Nur unten</option><option value="none">Keine</option>' +
+          '<option value="none">Keine</option><option value="both">Beide sichtbar</option><option value="top">Nur oben</option><option value="bottom">Nur unten</option>' +
         '</select></div>' +
       '</div></div>' +
     '<div class="tn-section collapsed" id="sec-photo">' +
       '<div class="tn-section-head" data-sec="sec-photo"><span class="tn-section-title">Foto & Overlay</span><span class="tn-section-arrow">▼</span></div>' +
       '<div class="tn-section-body">' +
         '<div><label class="tn-ctrl-label">Hintergrundfoto</label><div class="tn-upload-zone" id="tn-bg-zone">Klicken zum Hochladen · JPG / PNG</div><input type="file" id="file-bg" accept="image/*" hidden></div>' +
-        rangeRow('Foto Helligkeit', 'rng-bright', 'val-bright', 0, 100, 1, 38) +
-        rangeRow('Foto Sättigung', 'rng-sat', 'val-sat', 0, 150, 1, 50) +
+        rangeRow('Foto Helligkeit', 'rng-bright', 'val-bright', 50, 150, 1, tnState.bright) +
+        rangeRow('Foto Sättigung', 'rng-sat', 'val-sat', 0, 150, 1, tnState.sat) +
         '<div><label class="tn-ctrl-label">Foto Position Y</label><select class="tn-ctrl-select" id="inp-bgpos">' +
           '<option value="20%">Oben (20%)</option><option value="50%">Mitte (50%)</option><option value="top">Ganz oben</option><option value="bottom">Ganz unten</option>' +
         '</select></div>' +
-        rangeRow('Overlay Deckkraft (links)', 'rng-overlay', 'val-overlay', 0, 100, 1, 92) +
-        rangeRow('Overlay Reichweite', 'rng-ovreach', 'val-ovreach', 20, 100, 1, 42) +
-        '<div><label class="tn-ctrl-label">Logo Datei</label><div class="tn-upload-zone" id="tn-logo-zone">Klicken zum Hochladen · PNG</div><input type="file" id="file-logo" accept="image/*" hidden></div>' +
+        rangeRow('Overlay Deckkraft', 'rng-overlay', 'val-overlay', 0, 100, 1, tnState.overlayOpacity) +
+        rangeRow('Overlay Reichweite', 'rng-ovreach', 'val-ovreach', 20, 100, 1, tnState.overlayReach) +
       '</div></div>';
 
   sidebar.querySelectorAll('.tn-section-head').forEach(function(head) {
@@ -262,32 +754,92 @@ function buildSidebar() {
   sidebar.querySelectorAll('[data-preset]').forEach(function(btn) {
     btn.addEventListener('click', function() { applyPreset(parseInt(btn.dataset.preset, 10)); });
   });
+  sidebar.querySelectorAll('.tn-swatch').forEach(function(btn) {
+    btn.addEventListener('click', function() { applySwatch(btn.dataset.target, btn.dataset.hex); });
+  });
 
+  $('tn-png-btn').addEventListener('click', exportTnPng);
   $('inp-ep').addEventListener('input', function() { updateEp(this.value); });
   $('inp-hl').addEventListener('input', updateHeadline);
   $('inp-kw').addEventListener('input', updateHeadline);
   $('inp-kwpos').addEventListener('change', updateHeadline);
   $('inp-sl').addEventListener('input', function() { updateSubline(this.value); });
-  $('rng-hlsize').addEventListener('input', function() { updateHlSize(this.value); });
-  $('rng-slsize').addEventListener('input', function() { updateSlSize(this.value); });
-  $('rng-epsize').addEventListener('input', function() { updateEpSize(this.value); });
-  $('rng-textx').addEventListener('input', updateTextPos);
-  $('rng-texty').addEventListener('input', updateTextPos);
-  $('rng-textw').addEventListener('input', updateTextPos);
-  $('rng-logo').addEventListener('input', function() { updateLogoSize(this.value); });
-  $('inp-logoside').addEventListener('change', function() { updateLogoSide(this.value); });
+  $('inp-textpos').addEventListener('change', function() { applyTextPosPreset(this.value); });
+  $('inp-panel').addEventListener('change', function() {
+    tnState.panelMode = this.checked;
+    applyTextLayout();
+    schedulePersist();
+  });
+  $('rng-hlsize').addEventListener('input', function() {
+    tnState.hlSizePct = parseFloat(this.value);
+    $('val-hlsize').textContent = this.value + '%';
+    applyFontSizes();
+    schedulePersist();
+  });
+  $('rng-slsize').addEventListener('input', function() {
+    tnState.slSizePct = parseFloat(this.value);
+    $('val-slsize').textContent = this.value + '%';
+    applyFontSizes();
+    schedulePersist();
+  });
+  $('rng-epsize').addEventListener('input', function() {
+    tnState.epSizePct = parseFloat(this.value);
+    $('val-epsize').textContent = this.value + '%';
+    applyFontSizes();
+    schedulePersist();
+  });
+  $('rng-textx').addEventListener('input', function() {
+    tnState.textX = parseFloat(this.value);
+    $('val-textx').textContent = this.value + '%';
+    applyTextLayout();
+    schedulePersist();
+  });
+  $('rng-texty').addEventListener('input', function() {
+    tnState.textY = parseFloat(this.value);
+    $('val-texty').textContent = this.value + '%';
+    applyTextLayout();
+    schedulePersist();
+  });
+  $('rng-textw').addEventListener('input', function() {
+    tnState.textW = parseFloat(this.value);
+    $('val-textw').textContent = this.value + '%';
+    applyTextLayout();
+    schedulePersist();
+  });
   $('inp-bars').addEventListener('change', function() { updateBars(this.value); });
-  $('rng-bright').addEventListener('input', updatePhotoFilter);
-  $('rng-sat').addEventListener('input', updatePhotoFilter);
-  $('inp-bgpos').addEventListener('change', function() { $('tn-bg').style.objectPosition = 'center ' + this.value; });
-  $('rng-overlay').addEventListener('input', updateOverlay);
-  $('rng-ovreach').addEventListener('input', updateOverlay);
+  $('rng-bright').addEventListener('input', function() {
+    tnState.bright = parseFloat(this.value);
+    $('val-bright').textContent = this.value + '%';
+    updatePhotoFilter();
+    schedulePersist();
+  });
+  $('rng-sat').addEventListener('input', function() {
+    tnState.sat = parseFloat(this.value);
+    $('val-sat').textContent = this.value + '%';
+    updatePhotoFilter();
+    schedulePersist();
+  });
+  $('inp-bgpos').addEventListener('change', function() {
+    tnState.bgPos = this.value;
+    $('tn-bg').style.objectPosition = 'center ' + this.value;
+    schedulePersist();
+  });
+  $('rng-overlay').addEventListener('input', function() {
+    tnState.overlayOpacity = parseFloat(this.value);
+    $('val-overlay').textContent = this.value + '%';
+    updateOverlay();
+    schedulePersist();
+  });
+  $('rng-ovreach').addEventListener('input', function() {
+    tnState.overlayReach = parseFloat(this.value);
+    $('val-ovreach').textContent = this.value + '%';
+    updateOverlay();
+    schedulePersist();
+  });
   $('tn-bg-zone').addEventListener('click', function() { $('file-bg').click(); });
   $('file-bg').addEventListener('change', function() { loadBg(this); });
-  $('tn-logo-zone').addEventListener('click', function() { $('file-logo').click(); });
-  $('file-logo').addEventListener('change', function() { loadLogo(this); });
 
-  ['accent', 'text', 'dark'].forEach(function(name) {
+  ['accent', 'headline', 'subline', 'linen'].forEach(function(name) {
     const picker = $('color-' + name);
     const hex = $('hex-' + name);
     if (picker) picker.addEventListener('input', function() { updateColor(name, this.value, 'hex-' + name); });
@@ -314,21 +866,28 @@ export function initThumbnailEditor() {
   }
   _inited = true;
 
-  document.documentElement.style.setProperty('--tn-accent', '#EC6A37');
-  document.documentElement.style.setProperty('--tn-text', '#FFFFFF');
-  document.documentElement.style.setProperty('--tn-dark', '#201C17');
-  darkRgb = hexToRgb('#201C17');
-
+  applyBrandCssVars();
   buildSidebar();
-  $('tn-logo-img').src = RAIS_LOGO;
-  $('tn-export-btn').addEventListener('click', openTnExportModal);
+  applyBgImage();
 
-  applyPreset(0);
-  updateTextPos();
-  updateLogoSize(13);
-  updateOverlay();
-  updatePhotoFilter();
-  updateBars('both');
+  $('tn-export-btn').addEventListener('click', exportTnPng);
+  const modalPng = $('tn-modal-png-btn');
+  if (modalPng) modalPng.addEventListener('click', exportTnPng);
+
+  if (!localStorage.getItem(TN_STORAGE_KEY)) {
+    applyPreset(0);
+  } else {
+    syncControlsFromState();
+    updateEp(tnState.ep);
+    updateSubline(tnState.subline);
+    renderHeadline(tnState.headline, tnState.kw, tnState.kwpos);
+    applyTextLayout();
+    updateOverlay();
+    updatePhotoFilter();
+    updateBars(tnState.bars);
+    const presetLabel = $('tn-preset-label');
+    if (presetLabel) presetLabel.textContent = 'Eigene Einstellungen';
+  }
 
   window.addEventListener('resize', applyFontSizes);
   applyFontSizes();

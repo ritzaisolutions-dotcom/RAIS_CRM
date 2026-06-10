@@ -296,32 +296,29 @@
   <div id="content-view-thumbnail" class="tn-editor" hidden>
     <header class="tn-app-header">
       <div>
-        <div class="tn-app-title">RAIS Content · Thumbnail</div>
-        <div class="tn-app-subtitle" id="tn-preset-label">Variante 1 aktiv</div>
+        <div class="tn-app-title">Content · Thumbnail</div>
+        <div class="tn-app-subtitle" id="tn-preset-label">Farben aus Brand-Palette · kein festes Logo</div>
       </div>
-      <button type="button" class="btn bp" id="tn-export-btn">Export-Anleitung</button>
+      <button type="button" class="btn bp" id="tn-export-btn">PNG exportieren</button>
     </header>
     <div class="tn-app-body">
       <div class="tn-canvas-area">
         <div class="tn-canvas-label">Vorschau — 16:9 · 1280 × 720px Zielformat</div>
         <div class="tn-outer">
           <div class="tn" id="tn-preview">
-            <img class="tn-bg" id="tn-bg" src="" alt="" />
-            <div class="tn-overlay" id="tn-overlay"></div>
-            <div class="tn-bar-top" id="tn-bar-top"></div>
-            <div class="tn-bar-bottom" id="tn-bar-bottom"></div>
-            <div class="tn-ep" id="tn-ep">#01</div>
-            <div class="tn-text" id="tn-text">
+            <img class="tn-bg" id="tn-bg" src="./0610.png" alt="" />
+            <div class="tn-overlay tn-overlay--right" id="tn-overlay"></div>
+            <div class="tn-bar-top" id="tn-bar-top" style="display:none"></div>
+            <div class="tn-bar-bottom" id="tn-bar-bottom" style="display:none"></div>
+            <div class="tn-ep" id="tn-ep">VIDEO</div>
+            <div class="tn-text tn-text--right tn-text--panel" id="tn-text">
               <div class="tn-rule" id="tn-rule"></div>
               <div class="tn-headline" id="tn-headline"></div>
               <div class="tn-subline" id="tn-subline"></div>
             </div>
-            <div class="tn-logo" id="tn-logo">
-              <img src="" id="tn-logo-img" alt="RAIS Logo" />
-            </div>
           </div>
         </div>
-        <p class="tn-hint">Live-Vorschau. Änderungen sind sofort sichtbar. Export über „Export-Anleitung“ oder Screenshot des Vorschaubereichs.</p>
+        <p class="tn-hint">Live-Vorschau · 16:9 · PNG-Export 1280×720 über den Button oben oder in der Sidebar.</p>
       </div>
       <aside class="tn-sidebar" id="tn-sidebar"></aside>
     </div>
@@ -414,16 +411,12 @@
   <div class="modal" style="max-width:440px">
     <div class="mh"><h2>Thumbnail exportieren</h2><button class="btn bg" onclick="closeTnExportModal()">✕</button></div>
     <div class="mb" style="font-size:13px;color:var(--st);line-height:1.7">
-      <p>So exportierst du das Thumbnail (1280 × 720px):</p>
-      <ol style="padding-left:20px;margin-top:10px">
-        <li style="margin-bottom:6px">Screenshot nur des Vorschaubereichs (16:9-Box)</li>
-        <li style="margin-bottom:6px">Oder in Canva/Figma: <code style="background:#F5F2ED;padding:1px 6px;border-radius:4px">1280 × 720px</code> anlegen</li>
-        <li style="margin-bottom:6px">Design mit den Werten aus dem Editor nachbauen</li>
-        <li>Schriften: <strong>Syne Bold</strong> (Headline, Badge) · <strong>Syne Regular</strong> (Subline)</li>
-      </ol>
+      <p>Export als fertige PNG-Datei im YouTube-Format <code style="background:#F5F2ED;padding:1px 6px;border-radius:4px">1280 × 720px</code>.</p>
+      <p style="margin-top:10px">Alternativ: Screenshot der Vorschau oder Nachbau in Canva/Figma. Schriften: <strong>Syne Bold</strong> (Headline, Badge) · <strong>Syne Semibold</strong> (Subline).</p>
     </div>
-    <div class="mf">
-      <button class="btn bp" onclick="closeTnExportModal()">Verstanden</button>
+    <div class="mf" style="gap:8px">
+      <button type="button" class="btn bp" id="tn-modal-png-btn">PNG herunterladen</button>
+      <button type="button" class="btn bg" onclick="closeTnExportModal()">Schließen</button>
     </div>
   </div>
 </div>
@@ -908,7 +901,7 @@ import { openCalPop, closeCalPop, calCreate, maybeOfferCalendar } from './src/ca
 import { initContextMenu, ctxAction, showCtxMenuAtEvent } from './src/contextmenu.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
 import { initContentPage, renderContent, openContentAdd, openContentEdit, closeContentModal, saveContent, delContent, filterContent, switchContentView } from './src/content.js';
-import { openTnExportModal, closeTnExportModal } from './src/thumbnail.js';
+import { openTnExportModal, closeTnExportModal, exportTnPng } from './src/thumbnail.js';
 import { showDemoTodoPopup, saveDemoTodos, closeDemoTodoPop, openQuickTodo, saveQuickTodo, closeQuickTodo } from './src/todopop.js';
 import { openSalesRepPop, closeSalesRepPop, salesRepRun, salesRepApplyToContact, initSalesRepPage } from './src/salesrep.js';
 import { initSidebar } from './src/sidebar.js';
@@ -978,7 +971,7 @@ document.addEventListener('click', function(e) {
 Object.assign(window, {
   addTouch, calCreate, closeCalPop, closeClientModal, closeClPanel, closeContentModal, closeDemoTodoPop, closeE, closeMailCompose, closeSalesRepPop,
   closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, ctxAction, del, delClient, delContent, doImport, doSort,
-  dzDr, dzLv, dzOv, exportCSV, filterContent, filterDue, goPg, switchContentView, openTnExportModal, closeTnExportModal,
+  dzDr, dzLv, dzOv, exportCSV, exportTnPng, filterContent, filterDue, goPg, switchContentView, openTnExportModal, closeTnExportModal,
   inlineFU, inlineFUFocus, inlineFUBlur, inlineROI, inlineST,
   mailComposeGenerate, mailComposeSend, mailComposeSetMode,
   markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit, openContentAdd, openContentEdit,

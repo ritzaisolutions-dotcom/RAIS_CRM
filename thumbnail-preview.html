@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thumbnail Vorschau</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2F2A24;
+    padding: 24px;
+    box-sizing: border-box;
+  }
+  .wrap { width: min(1280px, 100%); }
+  .label {
+    color: #D9D1C7;
+    font: 700 11px/1 Syne, system-ui, sans-serif;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .tn-outer { max-width: 100%; }
+  .tn { width: 100%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="label">Vorschau · Studio-Preset · 1280×720 Zielformat</div>
+  <div class="tn-outer">
+    <div class="tn" id="tn-preview" style="--tn-accent:#EC6A37;--tn-headline:#2F2A24;--tn-subline:#789464;--tn-linen:#FBF8F3;--tn-cloud:#F5F2EC">
+      <img class="tn-bg" src="./0610.png" alt="" style="object-position:center 50%;filter:brightness(1) saturate(1)" />
+      <div class="tn-overlay tn-overlay--right" style="background:linear-gradient(90deg,transparent 0%,transparent 44%,rgba(251,248,243,0.49) 62%,rgba(245,242,236,0.69) 90%,rgba(245,242,236,0.69) 100%)"></div>
+      <div class="tn-ep" style="font-size:2.6%">VIDEO</div>
+      <div class="tn-text tn-text--right tn-text--panel" style="left:48%;bottom:12%;width:48%">
+        <div class="tn-rule" style="margin-left:auto;margin-right:0"></div>
+        <div class="tn-headline" style="font-size:5.8%">Deine Headline<br>hier</div>
+        <div class="tn-subline" style="font-size:2.9%">Untertitel · Thema</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
