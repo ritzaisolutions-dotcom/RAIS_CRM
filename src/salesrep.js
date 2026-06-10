@@ -2,21 +2,12 @@ import { S } from './state.js';
 import { markDirty, persist, pushDirty } from './sync.js';
 import { esc, toast } from './ui.js';
 import { td, normalizeWebsite } from './utils.js';
-
-const WH_BASE  = 'https://n8n.ritz-ai.solutions/webhook/';
-const WH_TOKEN = 'ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc';
-const WH = { salesrep: WH_BASE + 'wf9-salesrep' };
+import { whFetch } from './wh.js';
 const HISTORY_KEY = 'rais_salesrep_history';
 const HISTORY_MAX = 10;
 
 const CHAT_WELCOME =
   'Firmendaten unten eingeben und „Recherche starten“ — deine Anfrage und die Recherche-Antwort erscheinen hier im Chat.';
-
-function whFetch(url, opts) {
-  opts = opts || {};
-  opts.headers = Object.assign({ 'Content-Type': 'application/json', 'X-RAIS-Token': WH_TOKEN }, opts.headers || {});
-  return fetch(url, opts);
-}
 
 async function parseSalesRepResponse(resp) {
   const text = await resp.text();
@@ -309,17 +300,14 @@ export async function salesRepRun(fromPage) {
   setLoading(true, prefix);
 
   try {
-    const resp = await whFetch(WH.salesrep, {
-      method: 'POST',
-      body: JSON.stringify({
-        mode: mode,
-        contact_id: contactId || '',
-        firma: form.firma,
-        website: form.website,
-        stadt: form.stadt,
-        gewerk: form.gewerk,
-        notiz: c ? (c.notiz || c.besonderheit || '').trim() : '',
-      }),
+    const resp = await whFetch('wf9-salesrep', {
+      mode: mode,
+      contact_id: contactId || '',
+      firma: form.firma,
+      website: form.website,
+      stadt: form.stadt,
+      gewerk: form.gewerk,
+      notiz: c ? (c.notiz || c.besonderheit || '').trim() : '',
     });
     const report = await parseSalesRepResponse(resp);
 

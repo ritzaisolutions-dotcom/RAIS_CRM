@@ -29,12 +29,13 @@ This is a **static, no-build CRM** — a single `index.html` entry point that lo
 | `prospecting.js` | Main contact list (filtering, sorting, pagination, detail panel, edit/add/delete, touch history, call counter) |
 | `leadgen.js` | Lead-Gen tab; n8n webhook calls for WF1–WF3 (discover/qualify/enrich); listens on `rais:page-change` for lazy init |
 | `email.js` | Compose modal + send via n8n WF7 (`wf7-compose`); legacy WF4–WF6 removed from UI |
-| `calendar.js` | Demo/Rückruf Google Calendar via WF8 (`wf8-calendar`, ritzaisolutions@gmail.com) |
-| `termine.js` | Termine tab — CRM-Agenda (Demo/Rückruf aus Kontakten); lazy init on `rais:page-change` |
+| `calendar.js` | Google Calendar via WF8 (`wf8-calendar`, ritzaisolutions@gmail.com): Demo/Sales, Rückruf, Kundentermin (je 15 Min); Rechtsklick + Popup; syncs `followup` + `extra.google_cal` |
+| `termine.js` | Termine tab — Agenda aus `extra.google_cal` aller Kontakte; Filter Kundentermin / Demo / Rückruf |
 | `contextmenu.js` | Right-click menu on contact rows/cards (mark, email, sales rep, delete) |
 | `salesrep.js` | Sales Rep Assistant — modal + tab, WF9 (`wf9-salesrep`), history in `rais_salesrep_history` |
 | `content.js` | Content-Pipeline (crm_content): CRUD, Filter, Stats; Sub-Tabs Pipeline / Thumbnail |
 | `thumbnail.js` | YouTube-Thumbnail-Editor unter Content → Thumbnail; RAIS-Branding, lazy init |
+| `mobile.js` | Mobile-native Kaltakquise: Call Mode Overlay, Quick-Log Bottom-Sheet, Long-Press Action Sheet; init via `initMobile()` nach Auth |
 | `clients.js` | Clients tab — CRUD for signed clients stored in `crm_clients`; listens on `rais:page-change` for lazy init |
 | `calls.js` | Daily/weekly call counter stored in a separate `localStorage` key |
 | `import.js` | CSV import — flexible column-name matching, deduplication by phone/website |
@@ -76,7 +77,7 @@ window.addEventListener('rais:page-change', function(e) {
 
 ### n8n integration
 
-Lead Gen and email sequences call n8n webhooks at `https://n8n.ritz-ai.solutions/webhook/`. Webhook token is in `leadgen.js` (`WH_TOKEN`). Workflow definitions live in `lead pipeline/`, `email automation/`, `n8n-workflows/`, and `supabase workflows/` as `.json` exports.
+WF7/WF8/WF9 (Email, Kalender, Sales Rep) call n8n via `src/wh.js` → Vercel `api/n8n-proxy.js` (requires Supabase JWT; token only in `RAIS_N8N_TOKEN` env). Workflow definitions live in `lead pipeline/`, `email automation/`, `n8n-workflows/`, and `supabase workflows/` as `.json` exports.
 
 ## Key conventions
 

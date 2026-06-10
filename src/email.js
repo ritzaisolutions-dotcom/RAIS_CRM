@@ -3,12 +3,7 @@ import { markDirty, persist, pushDirty, syncCloud } from './sync.js';
 import { esc, toast } from './ui.js';
 import { td } from './utils.js';
 import { openP } from './prospecting.js';
-
-const WH_BASE  = 'https://n8n.ritz-ai.solutions/webhook/';
-const WH_TOKEN = 'ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc';
-const WH = {
-  compose: WH_BASE + 'wf7-compose',
-};
+import { whFetch } from './wh.js';
 
 const MAIL_ANLASS = [
   { value: 'nach_call', label: 'Nach Telefonat / Rückruf' },
@@ -29,12 +24,6 @@ const OUTLINE_BODY =
   'Mit freundlichen Grüßen\nKevin Ritz\nkevin@ritz-ai.solutions';
 
 const SIGNATURE = '\n\nMit freundlichen Grüßen\nKevin Ritz\nkevin@ritz-ai.solutions';
-
-function whFetch(url, opts) {
-  opts = opts || {};
-  opts.headers = Object.assign({ 'Content-Type': 'application/json', 'X-RAIS-Token': WH_TOKEN }, opts.headers || {});
-  return fetch(url, opts);
-}
 
 function getContact(id) {
   return S.contacts.find(function(x) { return x.id === id; });
@@ -215,19 +204,16 @@ export async function mailComposeGenerate() {
   const anlass = document.getElementById('mcAnlass').value;
   _setComposeStep('loading');
   try {
-    const resp = await whFetch(WH.compose, {
-      method: 'POST',
-      body: JSON.stringify({
-        contact_id: c.id,
-        anlass: anlass,
-        notiz: c.notiz || c.besonderheit || '',
-        einwand: einwandText(c),
-        firma: c.firma,
-        kontakt: c.kontakt || '',
-        email: c.email,
-        website: c.website || '',
-        preview_only: true,
-      }),
+    const resp = await whFetch('wf7-compose', {
+      contact_id: c.id,
+      anlass: anlass,
+      notiz: c.notiz || c.besonderheit || '',
+      einwand: einwandText(c),
+      firma: c.firma,
+      kontakt: c.kontakt || '',
+      email: c.email,
+      website: c.website || '',
+      preview_only: true,
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
@@ -254,17 +240,14 @@ export async function mailComposeSend() {
   const btn = document.getElementById('mcSendBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Sende…'; }
   try {
-    const resp = await whFetch(WH.compose, {
-      method: 'POST',
-      body: JSON.stringify({
-        contact_id: c.id,
-        to: c.email,
-        subject: subject,
-        body: body,
-        firma: c.firma,
-        kontakt: c.kontakt || '',
-        approved: true,
-      }),
+    const resp = await whFetch('wf7-compose', {
+      contact_id: c.id,
+      to: c.email,
+      subject: subject,
+      body: body,
+      firma: c.firma,
+      kontakt: c.kontakt || '',
+      approved: true,
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     logEmailOnContact(c, subject, body);

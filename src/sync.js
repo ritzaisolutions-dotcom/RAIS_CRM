@@ -1,6 +1,12 @@
-import { S, KEY } from './state.js';
-import { sbGet, sbUpsert } from './supabase.js';
+import { S, KEY, CC_KEY } from './state.js';
+import { sbGet, sbUpsert, isAuthenticated } from './supabase.js';
 import { toast } from './ui.js';
+
+export function clearLocalCrmData() {
+  localStorage.removeItem(KEY);
+  localStorage.removeItem('rais_crm_colvis');
+  localStorage.removeItem(CC_KEY);
+}
 
 export function isDirtyContact(c) { return !!(c && !c.synced_at); }
 
@@ -75,6 +81,10 @@ export function load() {
 }
 
 export async function syncCloud(silent) {
+  if (!isAuthenticated()) {
+    if (!silent) toast('Bitte anmelden.');
+    return;
+  }
   if (S.syncInProgress) { if (!silent) toast('Sync läuft bereits…'); return; }
   S.syncInProgress = true;
   if (S.autoSyncTimer) { clearTimeout(S.autoSyncTimer); S.autoSyncTimer = null; }
@@ -150,6 +160,7 @@ export async function syncCloud(silent) {
 }
 
 export async function pushDirty() {
+  if (!isAuthenticated()) return;
   if (S.syncInProgress) return;
   const dirty = S.contacts.filter(isDirtyContact);
   if (!dirty.length) return;

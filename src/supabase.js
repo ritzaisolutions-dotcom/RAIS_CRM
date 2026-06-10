@@ -2,8 +2,16 @@ export const SB_URL  = 'https://qdywaenmojdxhfxqbvun.supabase.co';
 export const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkeXdhZW5tb2pkeGhmeHFidnVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDYwMTYsImV4cCI6MjA5MDk4MjAxNn0.rfIzS2eY3yZCvap0pKdB7V-AfKmnvQLx_QLaFEi1gts';
 
 let _token = SB_KEY;
+let _sbClient = null;
+
 export function setAuthToken(t) { _token = t; }
 export function getAuthToken() { return _token; }
+export function setSupabaseClient(c) { _sbClient = c; }
+export function getSupabase() { return _sbClient; }
+
+export function isAuthenticated() {
+  return !!(_token && _token !== SB_KEY);
+}
 
 /** Authenticated user UUID from JWT (null when not logged in). */
 export function getAuthUserId() {

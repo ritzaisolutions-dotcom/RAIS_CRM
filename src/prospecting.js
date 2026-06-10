@@ -231,7 +231,12 @@ function renderMobileCards(slice) {
           '<div class="mc-firma">' + esc(c.firma) +
             (c.website ? ' <a class="mc-globe" href="' + webHref(c.website) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + webHref(c.website) + '">&#127760;</a>' : '') +
           '</div>' +
-          '<div class="mc-right" onclick="event.stopPropagation()">' + statusSelectHtml(c) + roi + '</div>' +
+          '<div class="mc-right" onclick="event.stopPropagation()">' +
+            '<span class="badge ' + (STATUS[c.status || 'neu'] ? STATUS[c.status || 'neu'].cls : 'b-neu') + ' mc-status-badge" onclick="openQuickStatusSheet(\'' + c.id + '\')">' +
+              (STATUS[c.status || 'neu'] ? STATUS[c.status || 'neu'].label : 'Neu') +
+            '</span>' +
+            roi +
+          '</div>' +
         '</div>' +
         '<div class="mc-mid">' + gwBadge + stadtStr + fuPill + touchPill + '</div>' +
         (note ? '<div class="mc-note">' + esc(note) + '</div>' : '') +

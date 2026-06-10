@@ -5,6 +5,18 @@ import { td } from './utils.js';
 let _listenersBound = false;
 let _currentFilter = 'all';
 
+const KIND_LABELS = {
+  demo: 'Demo / Sales',
+  rueckruf: 'Rückruf',
+  kundentermin: 'Kundentermin',
+};
+
+const KIND_BADGE_CLS = {
+  demo: 'termine-badge-demo',
+  rueckruf: 'termine-badge-cb',
+  kundentermin: 'termine-badge-kunde',
+};
+
 function formatTimeFromIso(iso) {
   if (!iso) return '10:00';
   const m = String(iso).match(/T(\d{2}):(\d{2})/);
@@ -18,49 +30,56 @@ function formatTimeFromIso(iso) {
   return '10:00';
 }
 
-function lastScheduledStart(c, kind) {
-  const logs = c.extra && Array.isArray(c.extra.google_cal) ? c.extra.google_cal : [];
-  for (let i = logs.length - 1; i >= 0; i--) {
-    const row = logs[i];
-    if (!row) continue;
-    if (kind && row.type !== kind) continue;
-    if (row.scheduled_start) return row.scheduled_start;
-  }
+function dateFromIso(iso) {
+  if (!iso) return null;
+  const m = String(iso).match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  try {
+    const d = new Date(iso);
+    if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+  } catch (e) { /* ignore */ }
   return null;
 }
 
-function itemKind(c) {
-  if (c.status === 'demo_termin') return 'demo';
-  if (c.status === 'callback') return 'rueckruf';
-  return null;
+function titleForKind(kind, firma) {
+  const name = firma || '—';
+  if (kind === 'demo') return 'Demo: ' + name;
+  if (kind === 'kundentermin') return 'Kundentermin: ' + name;
+  return 'Rückruf: ' + name;
 }
 
 export function getTermineItems() {
   const items = [];
+  const seenEvents = new Set();
+
   S.contacts.forEach(function(c) {
-    const kind = itemKind(c);
-    if (!kind || !c.followup) return;
-    const title = kind === 'demo'
-      ? 'Demo: ' + (c.firma || '—')
-      : 'Rückruf: ' + (c.firma || '—');
-    const scheduled = lastScheduledStart(c, kind);
-    items.push({
-      id: c.id,
-      kind: kind,
-      date: c.followup,
-      time: formatTimeFromIso(scheduled),
-      title: title,
-      firma: c.firma || '',
-      telefon: c.telefon || '',
-      htmlLink: (function() {
-        const logs = c.extra && Array.isArray(c.extra.google_cal) ? c.extra.google_cal : [];
-        for (let i = logs.length - 1; i >= 0; i--) {
-          if (logs[i] && logs[i].htmlLink && (!kind || logs[i].type === kind)) return logs[i].htmlLink;
-        }
-        return null;
-      })(),
+    const logs = c.extra && Array.isArray(c.extra.google_cal) ? c.extra.google_cal : [];
+    logs.forEach(function(row) {
+      if (!row) return;
+      const kind = row.type;
+      if (!KIND_LABELS[kind]) return;
+
+      const eventKey = row.event_id || (c.id + '|' + kind + '|' + (row.scheduled_start || row.at || ''));
+      if (seenEvents.has(eventKey)) return;
+      seenEvents.add(eventKey);
+
+      const scheduled = row.scheduled_start || null;
+      const date = dateFromIso(scheduled) || c.followup;
+      if (!date) return;
+
+      items.push({
+        id: c.id,
+        kind: kind,
+        date: date,
+        time: formatTimeFromIso(scheduled),
+        title: titleForKind(kind, c.firma),
+        firma: c.firma || '',
+        telefon: c.telefon || '',
+        htmlLink: row.htmlLink || null,
+      });
     });
   });
+
   items.sort(function(a, b) {
     if (a.date !== b.date) return a.date < b.date ? -1 : 1;
     if (a.time !== b.time) return a.time < b.time ? -1 : 1;
@@ -87,6 +106,7 @@ export function renderTermineAgenda(filter) {
   let items = getTermineItems();
   if (_currentFilter === 'demo') items = items.filter(function(x) { return x.kind === 'demo'; });
   if (_currentFilter === 'rueckruf') items = items.filter(function(x) { return x.kind === 'rueckruf'; });
+  if (_currentFilter === 'kundentermin') items = items.filter(function(x) { return x.kind === 'kundentermin'; });
 
   document.querySelectorAll('.termine-filter-chip').forEach(function(btn) {
     btn.classList.toggle('on', btn.dataset.filter === _currentFilter);
@@ -95,8 +115,8 @@ export function renderTermineAgenda(filter) {
   if (!items.length) {
     root.innerHTML =
       '<div class="termine-empty">' +
-      '<p>Keine Demo- oder Rückruf-Termine mit Follow-up-Datum.</p>' +
-      '<p class="termine-empty-hint">Status „Demo Termin“ oder „Callback“ setzen und Follow-up-Datum pflegen — oder Termin per Rechtsklick in Google Kalender anlegen.</p>' +
+      '<p>Keine Kalender-Termine im CRM.</p>' +
+      '<p class="termine-empty-hint">Per Rechtsklick auf einen Lead: Rückruf, Demo oder Kundentermin planen — Einträge erscheinen hier automatisch.</p>' +
       '</div>';
     return;
   }
@@ -114,8 +134,8 @@ export function renderTermineAgenda(filter) {
     html += '<h3 class="termine-day-title">' + esc(formatDayLabel(day)) + '</h3>';
     html += '<ul class="termine-day-list">';
     byDay[day].forEach(function(it) {
-      const badgeCls = it.kind === 'demo' ? 'termine-badge-demo' : 'termine-badge-cb';
-      const badge = it.kind === 'demo' ? 'Demo / Sales' : 'Rückruf';
+      const badgeCls = KIND_BADGE_CLS[it.kind] || 'termine-badge-cb';
+      const badge = KIND_LABELS[it.kind] || it.kind;
       html += '<li class="termine-row" data-id="' + esc(it.id) + '" role="button" tabindex="0">';
       html += '<span class="termine-time">' + esc(it.time) + '</span>';
       html += '<span class="termine-badge ' + badgeCls + '">' + badge + '</span>';

@@ -1,7 +1,9 @@
 import { S } from './state.js';
-import { SB_URL, SB_KEY } from './supabase.js';
+import { isAuthenticated, getSupabase } from './supabase.js';
 import { isDirtyContact, persist } from './sync.js';
 import { render } from './prospecting.js';
+
+let _channel = null;
 
 export function handleRealtimeChange(payload) {
   if (S.syncInProgress) return;
@@ -32,14 +34,28 @@ export function handleRealtimeChange(payload) {
   }
 }
 
+export function teardownRealtime() {
+  const sb = getSupabase();
+  if (_channel && sb) {
+    sb.removeChannel(_channel);
+    _channel = null;
+  }
+}
+
 export async function initRealtime() {
+  if (!isAuthenticated()) return;
+  const sb = getSupabase();
+  if (!sb) return;
+  if (_channel) return;
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return;
+
   try {
-    const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
-    const sbRt = createClient(SB_URL, SB_KEY);
-    sbRt.channel('crm_realtime')
+    _channel = sb.channel('crm_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'crm_contacts' }, handleRealtimeChange)
       .subscribe();
-  } catch(e) {
+  } catch (e) {
     console.warn('Realtime init failed:', e.message);
   }
 }

@@ -1,24 +1,16 @@
 import { S } from './state.js';
 import { markDirty, persist, pushDirty } from './sync.js';
 import { toast } from './ui.js';
-import { td } from './utils.js';
-
-const WH_BASE  = 'https://n8n.ritz-ai.solutions/webhook/';
-const WH_TOKEN = 'ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc';
-const WH = {
-  calendar: WH_BASE + 'wf8-calendar',
-};
+import { td, normalizeWebsite } from './utils.js';
+import { whFetch } from './wh.js';
 
 const CAL_LABELS = {
-  demo: { title: 'Demo-Termin (15 Min)', duration: 15 },
-  rueckruf: { title: 'Rückruf (5 Min)', duration: 5 },
+  demo:         { title: 'Demo / Sales Call (15 Min)', duration: 15 },
+  rueckruf:     { title: 'Rückruf (15 Min)', duration: 15 },
+  kundentermin: { title: 'Kundentermin (15 Min)', duration: 15 },
 };
 
-function whFetch(url, opts) {
-  opts = opts || {};
-  opts.headers = Object.assign({ 'Content-Type': 'application/json', 'X-RAIS-Token': WH_TOKEN }, opts.headers || {});
-  return fetch(url, opts);
-}
+const STATUS_PROTECTED = ['gewonnen', 'disqualified', 'archiviert', 'ghost', 'nicht_passend'];
 
 function getContact(id) {
   return S.contacts.find(function(x) { return x.id === id; });
@@ -47,6 +39,39 @@ export function localIsoFromDateAndTime(dateStr, timeStr) {
   const oh = pad(Math.floor(abs / 60));
   const om = pad(abs % 60);
   return y + '-' + pad(m) + '-' + pad(d) + 'T' + pad(hh) + ':' + pad(mm) + ':00' + sign + oh + ':' + om;
+}
+
+function buildCalPreview(c) {
+  const web = normalizeWebsite(c.website) || '—';
+  return [
+    'Firma: ' + (c.firma || '—'),
+    'Ansprechpartner: ' + (c.kontakt || '—'),
+    'E-Mail: ' + (c.email || '—'),
+    'Telefon: ' + (c.telefon || '—'),
+    'Website: ' + web,
+  ].join('\n');
+}
+
+function calHintForType(type) {
+  if (type === 'demo') {
+    return 'Interner Kalender (ritzaisolutions@gmail.com). Kunden-Einladung separat von kevin@ritz-ai.solutions senden.';
+  }
+  if (type === 'kundentermin') {
+    return 'Kundentermin im internen Google-Kalender — alle Kontaktdaten in der Beschreibung.';
+  }
+  return 'Rückruf-Termin im internen Google-Kalender — Kontaktdaten für den Anruf in der Beschreibung.';
+}
+
+function applyFollowupAndStatus(c, type, dateStr) {
+  if (dateStr) c.followup = dateStr;
+  if (STATUS_PROTECTED.indexOf(c.status) >= 0) return;
+  if (type === 'rueckruf' && c.status !== 'demo_termin') {
+    c.status = 'callback';
+    c.status_changed_at = td();
+  } else if (type === 'demo') {
+    c.status = 'demo_termin';
+    c.status_changed_at = td();
+  }
 }
 
 function logCalendarOnContact(c, type, eventId, htmlLink, scheduledStart) {
@@ -78,10 +103,10 @@ export function openCalPop(contactId, type) {
 
   document.getElementById('calTitle').textContent = meta.title;
   document.getElementById('calFirma').textContent = c.firma || '—';
-  document.getElementById('calHint').textContent =
-    type === 'demo'
-      ? 'Interner Kalender (Gmail). Kunden-Einladung separat von kevin@ritz-ai.solutions senden.'
-      : 'Interner Erinnerungstermin mit Kontaktdaten für den Anruf.';
+  document.getElementById('calHint').textContent = calHintForType(type);
+
+  const previewEl = document.getElementById('calPreview');
+  if (previewEl) previewEl.textContent = buildCalPreview(c);
 
   const dateEl = document.getElementById('calDate');
   const timeEl = document.getElementById('calTime');
@@ -124,29 +149,28 @@ export async function calCreate() {
   if (btn) { btn.disabled = true; btn.textContent = 'Wird angelegt…'; }
 
   try {
-    const resp = await whFetch(WH.calendar, {
-      method: 'POST',
-      body: JSON.stringify({
-        type: type,
-        start: start,
-        duration_minutes: meta.duration,
-        contact_id: c.id,
-        firma: c.firma || '',
-        kontakt: c.kontakt || '',
-        email: c.email || '',
-        telefon: c.telefon || '',
-        website: c.website || '',
-        notiz: (c.notiz || c.besonderheit || '').trim(),
-      }),
+    const resp = await whFetch('wf8-calendar', {
+      type: type,
+      start: start,
+      duration_minutes: meta.duration,
+      contact_id: c.id,
+      firma: c.firma || '',
+      kontakt: c.kontakt || '',
+      email: c.email || '',
+      telefon: c.telefon || '',
+      website: normalizeWebsite(c.website) || '',
+      notiz: (c.notiz || c.besonderheit || '').trim(),
     });
     const data = await resp.json().catch(function() { return {}; });
     if (!resp.ok || !data.ok) {
       throw new Error(data.error || 'HTTP ' + resp.status);
     }
     logCalendarOnContact(c, type, data.event_id, data.htmlLink, start);
+    applyFollowupAndStatus(c, type, dateStr);
     markDirty(c);
     persist();
     pushDirty();
+    if (typeof window.render === 'function') window.render();
     if (typeof window.refreshTermineAgenda === 'function') window.refreshTermineAgenda();
     toast('Kalendereintrag angelegt: ' + (c.firma || meta.title) + '.');
     if (data.htmlLink) {
@@ -169,9 +193,14 @@ export function maybeOfferCalendar(contact, type) {
   const meta = CAL_LABELS[type];
   if (!meta) return;
   const firma = contact.firma || 'Lead';
-  const msg = type === 'demo'
-    ? 'Kalendereintrag für Demo (15 Min) anlegen?\n\n' + firma + '\n\nInterner Gmail-Kalender — Einladung an Kunden weiterhin per E-Mail.'
-    : 'Kalendereintrag für Rückruf (5 Min) anlegen?\n\n' + firma;
+  let msg;
+  if (type === 'demo') {
+    msg = 'Kalendereintrag für Demo / Sales Call (15 Min) anlegen?\n\n' + firma + '\n\nInterner Gmail-Kalender — Einladung an Kunden weiterhin per E-Mail.';
+  } else if (type === 'kundentermin') {
+    msg = 'Kalendereintrag für Kundentermin (15 Min) anlegen?\n\n' + firma;
+  } else {
+    msg = 'Kalendereintrag für Rückruf (15 Min) anlegen?\n\n' + firma;
+  }
   if (!confirm(msg)) return;
   openCalPop(contact.id, type);
 }

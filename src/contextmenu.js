@@ -52,8 +52,9 @@ function showCtxMenu(x, y, id) {
     '<button type="button" class="ctx-item" data-action="aktion">⚡ Markieren…</button>' +
     '<button type="button" class="ctx-item"' + (hasEmail ? '' : ' disabled') + ' data-action="mail">✉️ Email senden…</button>' +
     '<button type="button" class="ctx-item" data-action="salesrep">🎯 Sales Rep Assistant…</button>' +
-    '<button type="button" class="ctx-item" data-action="cal-demo">📅 Demo in Kalender (15 Min)</button>' +
-    '<button type="button" class="ctx-item" data-action="cal-rueckruf">📅 Rückruf in Kalender (5 Min)</button>' +
+    '<button type="button" class="ctx-item" data-action="cal-rueckruf">📅 Rückruf planen (15 Min)…</button>' +
+    '<button type="button" class="ctx-item" data-action="cal-demo">📅 Demo / Sales Call (15 Min)…</button>' +
+    '<button type="button" class="ctx-item" data-action="cal-kundentermin">📅 Kundentermin (15 Min)…</button>' +
     '<button type="button" class="ctx-item ctx-danger" data-action="del">🗑 Lead entfernen</button>' +
     '<div class="ctx-sep"></div>' +
     '<button type="button" class="ctx-item" data-action="open">Details öffnen</button>' +
@@ -99,6 +100,10 @@ export function ctxAction(action, id) {
   }
   if (action === 'cal-rueckruf') {
     if (typeof window.openCalPop === 'function') window.openCalPop(id, 'rueckruf');
+    return;
+  }
+  if (action === 'cal-kundentermin') {
+    if (typeof window.openCalPop === 'function') window.openCalPop(id, 'kundentermin');
     return;
   }
   if (action === 'del') {

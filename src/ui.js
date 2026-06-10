@@ -24,6 +24,17 @@ export function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+/** Escape für JS-String-Literale in HTML-Attributen (onclick etc.). */
+export function escJs(s) {
+  return String(s || '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/</g, '\\x3c');
+}
+
 export function ir(l, v) {
   return '<div class="ir"><span class="il">' + l + '</span><div class="iv">' + v + '</div></div>';
 }

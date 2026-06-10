@@ -4,7 +4,11 @@
  * WF7: preview only (no email sent). WF8: creates one test calendar event if credentials OK.
  */
 const WH_BASE = 'https://n8n.ritz-ai.solutions/webhook/';
-const WH_TOKEN = 'ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc';
+const WH_TOKEN = process.env.RAIS_N8N_TOKEN;
+if (!WH_TOKEN) {
+  console.error('RAIS_N8N_TOKEN fehlt — z. B. set RAIS_N8N_TOKEN=... && node scripts/test-wf789.js');
+  process.exit(1);
+}
 
 const results = [];
 
