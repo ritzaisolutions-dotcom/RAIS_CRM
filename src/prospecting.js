@@ -305,18 +305,18 @@ export function render() {
     return '<th' + (cls ? ' class="' + cls + '"' : '') + (sty ? ' style="' + sty + '"' : '') + '>' + lbl + '</th>';
   }
   document.getElementById('thead').innerHTML = '<tr>' +
-    thF('#','width:36px;text-align:right;color:#B0A898;font-size:10px','col-sticky-num') +
-    thS('firma','Firma','col-sticky-firma') +
-    thF('Ansprechpartner') + thF('Telefon') +
-    thF('&#127760;','width:36px;text-align:center','col-web') +
-    thS('status','Status') + thS('followup','Follow-up') + thS('roi','ROI') +
-    thF('Notiz') + thF('Aktion','width:40px;text-align:center') +
-    thS('reviews','Reviews') +
-    (S.colVis.stadt   ? thS('stadt','Stadt') : '') +
-    (S.colVis.region  ? thS('region','Region') : '') +
-    (S.colVis.gewerk  ? thS('gewerk','Gewerk') : '') +
-    thF('Email','width:44px;text-align:center') +
-    thF('','width:48px') +
+    thF('#', 'text-align:right', 'col-sticky-num col-c-num') +
+    thS('firma', 'Firma', 'col-sticky-firma col-c-firma') +
+    thF('Ansprechpartner', '', 'col-c-kontakt') + thF('Telefon', '', 'col-c-tel') +
+    thF('&#127760;', 'text-align:center', 'col-web col-c-web') +
+    thS('status', 'Status', 'col-c-status') + thS('followup', 'Follow-up', 'col-c-fu') + thS('roi', 'ROI', 'col-c-roi') +
+    thF('Notiz', '', 'col-c-notiz') + thF('Aktion', 'text-align:center', 'col-c-aktion') +
+    thS('reviews', 'Reviews', 'col-c-reviews') +
+    (S.colVis.stadt   ? thS('stadt', 'Stadt', 'col-c-stadt') : '') +
+    (S.colVis.region  ? thS('region', 'Region', 'col-c-region') : '') +
+    (S.colVis.gewerk  ? thS('gewerk', 'Gewerk', 'col-c-gewerk') : '') +
+    thF('Email', 'text-align:center', 'col-c-email') +
+    thF('', '', 'col-c-ra') +
   '</tr>';
 
   const list = getList();
@@ -345,36 +345,37 @@ export function render() {
       const ageStr = lastTDatum ? relAge(lastTDatum) : (c.created ? relAge(new Date(c.created).toISOString().slice(0,10)) : null);
       const aktionHint = (c.extra && c.extra.aktion_notiz) ? '<span class="aktion-hint">' + esc(c.extra.aktion_notiz) + '</span>' : '';
       const aktionTitle = (c.extra && c.extra.aktion_notiz) ? esc(c.extra.aktion_notiz) : 'Aktion markieren';
+      const notizPreview = (c.notiz || '').trim();
       return '<tr class="' + rowCls.trim() + '" data-id="' + c.id + '" onclick="openP(\'' + c.id + '\')" oncontextmenu="showCtxMenuAtEvent(event,\'' + c.id + '\')">' +
-        '<td class="col-sticky-num" style="text-align:right;font-family:sans-serif;font-size:11px;color:#B0A898;padding-right:10px;user-select:none">' + (pageOffset + i + 1) + '</td>' +
-        '<td class="fc col-sticky-firma">' + esc(c.firma) + (c.gewerk ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>' : '') + '</td>' +
-        '<td>' + esc(c.kontakt || '—') + '</td>' +
-        '<td><a href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()" style="color:#2C5F8A;text-decoration:none;font-family:monospace;font-size:12.5px">' + esc(c.telefon || '—') + '</a></td>' +
-        '<td class="col-web" onclick="event.stopPropagation()" style="text-align:center">' +
+        '<td class="col-sticky-num col-c-num" style="text-align:right;font-family:sans-serif;font-size:11px;color:#B0A898;padding-right:10px;user-select:none">' + (pageOffset + i + 1) + '</td>' +
+        '<td class="fc col-sticky-firma col-c-firma"><div class="col-firma-wrap"><span class="col-trunc" title="' + esc(c.firma) + '">' + esc(c.firma) + '</span>' + (c.gewerk ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>' : '') + '</div></td>' +
+        '<td class="col-c-kontakt"><span class="col-trunc" title="' + esc(c.kontakt || '') + '">' + esc(c.kontakt || '—') + '</span></td>' +
+        '<td class="col-c-tel"><a class="col-trunc col-tel-link" href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()" title="' + esc(c.telefon || '') + '" style="font-family:monospace;font-size:12.5px">' + esc(c.telefon || '—') + '</a></td>' +
+        '<td class="col-web col-c-web" onclick="event.stopPropagation()" style="text-align:center">' +
           (c.website ? '<a class="wlink" href="' + webHref(c.website) + '" target="_blank" rel="noopener" title="' + webHref(c.website) + '">&#127760;</a>' : '<span class="wlink-none">&#127760;</span>') +
         '</td>' +
-        '<td class="st-cell" onclick="event.stopPropagation()">' + statusSelectHtml(c) + '</td>' +
-        '<td onclick="event.stopPropagation()" class="fu-cell"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onfocus="inlineFUFocus(this)" onchange="inlineFU(this)" onblur="inlineFUBlur(this)" title="Follow-up Datum"></td>' +
-        '<td onclick="event.stopPropagation()"><select class="idd roi-dd roi-' + (c.roi||0) + '" data-id="' + c.id + '" onchange="inlineROI(this)">' +
+        '<td class="st-cell col-c-status" onclick="event.stopPropagation()">' + statusSelectHtml(c) + '</td>' +
+        '<td onclick="event.stopPropagation()" class="fu-cell col-c-fu"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onfocus="inlineFUFocus(this)" onchange="inlineFU(this)" onblur="inlineFUBlur(this)" title="Follow-up Datum"></td>' +
+        '<td class="col-c-roi" onclick="event.stopPropagation()"><select class="idd roi-dd roi-' + (c.roi||0) + '" data-id="' + c.id + '" onchange="inlineROI(this)">' +
           '<option value=""'  + (!c.roi?          ' selected':'') + '>— offen</option>' +
           '<option value="1"' + (c.roi==1?' selected':'') + '>① Niedrig</option>' +
           '<option value="2"' + (c.roi==2?' selected':'') + '>② Mittel</option>' +
           '<option value="3"' + (c.roi==3?' selected':'') + '>③ Hoch</option>' +
         '</select></td>' +
-        '<td class="notiz-cell" onclick="event.stopPropagation()">' +
-          '<textarea class="notiz-ta" data-id="' + c.id + '" rows="2" placeholder="Notiz…" onblur="saveNotiz(this)" onkeydown="notizKey(event,this)">' + esc(c.notiz || '') + '</textarea>' +
+        '<td class="notiz-cell col-c-notiz">' +
+          '<span class="col-trunc notiz-preview" title="' + esc(notizPreview) + '">' + esc(notizPreview || '—') + '</span>' +
           (ageStr ? '<span class="age-lbl ' + ageCls + '">' + (lastTDatum ? '&#128222; ' : '') + ageStr + '</span>' : '') +
         '</td>' +
-        '<td class="col-aktion" onclick="event.stopPropagation()" style="text-align:center;white-space:nowrap">' +
+        '<td class="col-aktion col-c-aktion" onclick="event.stopPropagation()" style="text-align:center;white-space:nowrap">' +
           '<button type="button" class="aktion-flag-btn' + (aktion ? ' on' : '') + '" onclick="openAktionPop(\'' + c.id + '\')" title="' + aktionTitle + '">&#9889;</button>' +
           aktionHint +
         '</td>' +
-        '<td style="font-family:sans-serif;font-size:12px;color:#7B746B">' + esc(c.reviews || '—') + '</td>' +
-        (S.colVis.stadt   ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.stadt  || '—') + '</td>' : '') +
-        (S.colVis.region  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.region || '—') + '</td>' : '') +
-        (S.colVis.gewerk  ? '<td style="font-family:sans-serif;font-size:12px">' + esc(c.gewerk || '—') + '</td>' : '') +
-        '<td onclick="event.stopPropagation()" style="white-space:nowrap">' + emailCellHtml(c) + '</td>' +
-        '<td class="ra-cell" onclick="event.stopPropagation()"><div class="ra">' +
+        '<td class="col-c-reviews" style="font-family:sans-serif;font-size:12px;color:#7B746B"><span class="col-trunc" title="' + esc(c.reviews || '') + '">' + esc(c.reviews || '—') + '</span></td>' +
+        (S.colVis.stadt   ? '<td class="col-c-stadt" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.stadt || '') + '">' + esc(c.stadt  || '—') + '</span></td>' : '') +
+        (S.colVis.region  ? '<td class="col-c-region" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.region || '') + '">' + esc(c.region || '—') + '</span></td>' : '') +
+        (S.colVis.gewerk  ? '<td class="col-c-gewerk" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.gewerk || '') + '">' + esc(c.gewerk || '—') + '</span></td>' : '') +
+        '<td class="col-c-email" onclick="event.stopPropagation()" style="white-space:nowrap">' + emailCellHtml(c) + '</td>' +
+        '<td class="ra-cell col-c-ra" onclick="event.stopPropagation()"><div class="ra">' +
           '<button class="btn bg bsm" onclick="openQN(\'' + c.id + '\')" title="Schnellnotiz">&#128221;</button>' +
           '<button class="btn bg bsm" onclick="openE(\'' + c.id + '\')" title="Bearbeiten">&#9998;</button>' +
         '</div></td>' +
@@ -457,6 +458,7 @@ export function openP(id) {
     ir('Follow-up', fdc(c.followup)) +
     ((c.stadt||c.region) ? ir('Ort', esc([c.stadt,c.region].filter(Boolean).join(', '))) : '') +
     (c.gewerk ? ir('Gewerk', esc(c.gewerk)) : '') +
+    (c.notiz ? '<div class="sh">Interne Notiz</div><div class="panel-notiz-full">' + esc(c.notiz) + '</div>' : '') +
     tHtml +
     (c.besonderheit ? '<div class="sh">Website-Analyse</div><div style="font-family:sans-serif;font-size:13px;background:#F5F2EC;border:1px solid #D9D1C7;border-radius:5px;padding:10px 13px;line-height:1.6;margin-bottom:8px">' + esc(c.besonderheit) + '</div>' : '') +
     '<div class="sh">Website-Info</div>' +
