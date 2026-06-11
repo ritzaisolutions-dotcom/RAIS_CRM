@@ -6,7 +6,7 @@ import { whFetch } from './wh.js';
 
 const CAL_LABELS = {
   demo:         { title: 'Demo / Sales Call (15 Min)', duration: 15 },
-  rueckruf:     { title: 'Rückruf (15 Min)', duration: 15 },
+  rueckruf:     { title: 'Rückruf (5 Min)', duration: 5 },
   kundentermin: { title: 'Kundentermin (15 Min)', duration: 15 },
 };
 
@@ -199,7 +199,7 @@ export function maybeOfferCalendar(contact, type) {
   } else if (type === 'kundentermin') {
     msg = 'Kalendereintrag für Kundentermin (15 Min) anlegen?\n\n' + firma;
   } else {
-    msg = 'Kalendereintrag für Rückruf (15 Min) anlegen?\n\n' + firma;
+    msg = 'Kalendereintrag für Rückruf (5 Min) anlegen?\n\n' + firma;
   }
   if (!confirm(msg)) return;
   openCalPop(contact.id, type);

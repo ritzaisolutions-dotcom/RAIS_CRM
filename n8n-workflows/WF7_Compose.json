@@ -145,6 +145,6 @@
   },
   "settings": { "executionOrder": "v1" },
   "meta": {
-    "description": "CRM Rechtsklick-Email: preview_only liefert subject/body; approved sendet via Hostinger SMTP. Webhook-Auth Header X-RAIS-Token in n8n aktivieren (wie WF4–WF6)."
+    "description": "CRM Rechtsklick-Email: preview_only liefert subject/body; approved sendet via Hostinger SMTP. CRM ruft nur über /api/n8n-proxy auf (Supabase-JWT)."
   }
 }

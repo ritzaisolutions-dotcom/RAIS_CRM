@@ -16,7 +16,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst headers = item.headers || {};\nconst body = item.body || item;\n\nconst TOKEN = 'ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc';\nconst got = (headers['x-rais-token'] || headers['X-RAIS-Token'] || body.token || '').toString();\nif (got !== TOKEN) {\n  return [{ json: { mode: 'error', message: 'Nicht autorisiert' } }];\n}\n\nconst firma = (body.firma || '').trim();\nif (!firma) {\n  return [{ json: { mode: 'error', message: 'Firma fehlt' } }];\n}\n\nlet website = (body.website || '').trim();\nif (website && !/^https?:\\/\\//i.test(website)) website = 'https://' + website;\n\nreturn [{\n  json: {\n    mode: 'research',\n    contact_id: body.contact_id || '',\n    crm_mode: body.mode || 'free',\n    firma,\n    website,\n    stadt: (body.stadt || '').trim(),\n    gewerk: (body.gewerk || '').trim(),\n    notiz: (body.notiz || '').trim(),\n    website_ok: false,\n    http_status: null\n  }\n}];"
+        "jsCode": "const item = $input.first().json;\nconst body = item.body || item;\n\nconst firma = (body.firma || '').trim();\nif (!firma) {\n  return [{ json: { mode: 'error', message: 'Firma fehlt' } }];\n}\n\nlet website = (body.website || '').trim();\nif (website && !/^https?:\\/\\//i.test(website)) website = 'https://' + website;\n\nreturn [{\n  json: {\n    mode: 'research',\n    contact_id: body.contact_id || '',\n    crm_mode: body.mode || 'free',\n    firma,\n    website,\n    stadt: (body.stadt || '').trim(),\n    gewerk: (body.gewerk || '').trim(),\n    notiz: (body.notiz || '').trim(),\n    website_ok: false,\n    http_status: null\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -270,6 +270,6 @@
     "executionOrder": "v1"
   },
   "meta": {
-    "description": "CRM Sales Rep Assistant: Firmenrecherche für Cold Calls via Gemini + Google Search. Optional HTTP-Check der Website. Webhook POST wf9-salesrep, Header X-RAIS-Token. Response: { ok, report }."
+    "description": "CRM Sales Rep Assistant: Firmenrecherche für Cold Calls via Gemini + Google Search. Optional HTTP-Check der Website. Webhook POST wf9-salesrep (CRM nur via /api/n8n-proxy). Response: { ok, report }."
   }
 }

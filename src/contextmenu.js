@@ -52,7 +52,7 @@ function showCtxMenu(x, y, id) {
     '<button type="button" class="ctx-item" data-action="aktion">⚡ Markieren…</button>' +
     '<button type="button" class="ctx-item"' + (hasEmail ? '' : ' disabled') + ' data-action="mail">✉️ Email senden…</button>' +
     '<button type="button" class="ctx-item" data-action="salesrep">🎯 Sales Rep Assistant…</button>' +
-    '<button type="button" class="ctx-item" data-action="cal-rueckruf">📅 Rückruf planen (15 Min)…</button>' +
+    '<button type="button" class="ctx-item" data-action="cal-rueckruf">📅 Rückruf planen (5 Min)…</button>' +
     '<button type="button" class="ctx-item" data-action="cal-demo">📅 Demo / Sales Call (15 Min)…</button>' +
     '<button type="button" class="ctx-item" data-action="cal-kundentermin">📅 Kundentermin (15 Min)…</button>' +
     '<button type="button" class="ctx-item ctx-danger" data-action="del">🗑 Lead entfernen</button>' +

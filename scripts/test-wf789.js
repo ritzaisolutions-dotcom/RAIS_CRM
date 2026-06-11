@@ -4,20 +4,12 @@
  * WF7: preview only (no email sent). WF8: creates one test calendar event if credentials OK.
  */
 const WH_BASE = 'https://n8n.ritz-ai.solutions/webhook/';
-const WH_TOKEN = process.env.RAIS_N8N_TOKEN;
-if (!WH_TOKEN) {
-  console.error('RAIS_N8N_TOKEN fehlt — z. B. set RAIS_N8N_TOKEN=... && node scripts/test-wf789.js');
-  process.exit(1);
-}
 
 const results = [];
 
 async function call(name, url, body, opts) {
   opts = opts || {};
-  const headers = Object.assign(
-    { 'Content-Type': 'application/json', 'X-RAIS-Token': opts.token !== undefined ? opts.token : WH_TOKEN },
-    opts.headers || {}
-  );
+  const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
   const timeout = opts.timeoutMs || 90000;
   const ctrl = new AbortController();
   const timer = setTimeout(function() { ctrl.abort(); }, timeout);
@@ -72,7 +64,6 @@ function verdict(r, checks) {
 async function main() {
   console.log('Testing WF7 / WF8 / WF9 @ ' + WH_BASE + '\n');
 
-  // ── WF7 Preview ──
   const wf7preview = await call('WF7 preview', WH_BASE + 'wf7-compose', {
     contact_id: 'test-contact',
     anlass: 'nach_call',
@@ -93,7 +84,6 @@ async function main() {
     { ok: wf7preview.data && (wf7preview.data.ok === true || wf7preview.data.ok === undefined), msg: 'ok !== true' },
   ]));
 
-  // ── WF7 Error path ──
   const wf7err = await call('WF7 invalid', WH_BASE + 'wf7-compose', { firma: 'X' }, { timeoutMs: 15000 });
   results.push(verdict(wf7err, [
     { ok: wf7err.status === 400, msg: 'HTTP ' + wf7err.status + ' (erwartet 400)' },
@@ -101,16 +91,14 @@ async function main() {
     { ok: wf7err.data && wf7err.data.error, msg: 'Keine error-Meldung' },
   ]));
 
-  // ── WF8 Auth fail ──
-  const wf8auth = await call('WF8 auth fail', WH_BASE + 'wf8-calendar', {
-    type: 'demo', start: '2026-06-15T10:00:00+02:00', duration_minutes: 15, firma: 'Test',
-  }, { token: 'bad', timeoutMs: 15000 });
-  results.push(verdict(wf8auth, [
-    { ok: wf8auth.status === 400, msg: 'HTTP ' + wf8auth.status + ' (erwartet 400)' },
-    { ok: wf8auth.data && wf8auth.data.error, msg: 'Keine error-Meldung' },
+  const wf8invalid = await call('WF8 invalid type', WH_BASE + 'wf8-calendar', {
+    type: 'ungueltig', start: '2026-06-15T10:00:00+02:00', duration_minutes: 15, firma: 'Test',
+  }, { timeoutMs: 15000 });
+  results.push(verdict(wf8invalid, [
+    { ok: wf8invalid.status === 400, msg: 'HTTP ' + wf8invalid.status + ' (erwartet 400)' },
+    { ok: wf8invalid.data && wf8invalid.data.error, msg: 'Keine error-Meldung' },
   ]));
 
-  // ── WF8 Demo create (side effect: Kalender-Eintrag) ──
   const wf8demo = await call('WF8 demo create', WH_BASE + 'wf8-calendar', {
     type: 'demo',
     start: '2026-06-15T10:00:00+02:00',
@@ -130,16 +118,14 @@ async function main() {
     { ok: wf8demo.data && wf8demo.data.event_id, msg: 'Kein event_id' },
   ]));
 
-  // ── WF9 Auth fail ──
-  const wf9auth = await call('WF9 auth fail', WH_BASE + 'wf9-salesrep', {
-    mode: 'free', firma: 'Test GmbH',
-  }, { token: 'bad', timeoutMs: 15000 });
-  results.push(verdict(wf9auth, [
-    { ok: wf9auth.status === 400, msg: 'HTTP ' + wf9auth.status + ' (erwartet 400)' },
-    { ok: wf9auth.data && wf9auth.data.error, msg: 'Keine error-Meldung' },
+  const wf9invalid = await call('WF9 missing firma', WH_BASE + 'wf9-salesrep', {
+    mode: 'free', firma: '',
+  }, { timeoutMs: 15000 });
+  results.push(verdict(wf9invalid, [
+    { ok: wf9invalid.status === 400, msg: 'HTTP ' + wf9invalid.status + ' (erwartet 400)' },
+    { ok: wf9invalid.data && wf9invalid.data.error, msg: 'Keine error-Meldung' },
   ]));
 
-  // ── WF9 Research ──
   const wf9research = await call('WF9 research', WH_BASE + 'wf9-salesrep', {
     mode: 'free',
     firma: 'Elektro Lenz und Mildenberger GmbH',
@@ -155,7 +141,6 @@ async function main() {
     { ok: wf9research.data && wf9research.data.report && wf9research.data.report.summary, msg: 'Kein report.summary' },
   ]));
 
-  // ── Report ──
   let passed = 0;
   results.forEach(function(r) {
     const mark = r.pass ? 'PASS' : 'FAIL';

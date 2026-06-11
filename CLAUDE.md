@@ -77,7 +77,7 @@ window.addEventListener('rais:page-change', function(e) {
 
 ### n8n integration
 
-WF7/WF8/WF9 (Email, Kalender, Sales Rep) call n8n via `src/wh.js` → Vercel `api/n8n-proxy.js` (requires Supabase JWT; token only in `RAIS_N8N_TOKEN` env). Workflow definitions live in `lead pipeline/`, `email automation/`, `n8n-workflows/`, and `supabase workflows/` as `.json` exports.
+WF7/WF8/WF9 (Email, Kalender, Sales Rep) call n8n via `src/wh.js` → Vercel `api/n8n-proxy.js` (Supabase JWT only, no webhook token). Workflow definitions live in `lead pipeline/`, `email automation/`, `n8n-workflows/`, and `supabase workflows/` as `.json` exports.
 
 ## Key conventions
 

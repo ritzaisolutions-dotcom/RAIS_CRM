@@ -30,7 +30,7 @@ Basis-URL: `https://n8n.ritz-ai.solutions/webhook/`
 | WF8 | `wf8-calendar` |
 | WF9 | `wf9-salesrep` |
 
-**Auth:** Alle Webhooks erwarten Header `X-RAIS-Token: <token>` (Phase 1.5).
+**Auth (WF7–WF9):** Das CRM ruft n8n nur über `api/n8n-proxy.js` auf — gültige Supabase-Session erforderlich, kein separates Webhook-Token. WF1–WF6 laufen serverseitig in n8n.
 
 ## Workflow nach n8n deployen
 

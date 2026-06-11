@@ -9,11 +9,6 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const n8nToken = process.env.RAIS_N8N_TOKEN;
-  if (!n8nToken) {
-    return res.status(500).json({ error: 'Webhook-Proxy nicht konfiguriert (RAIS_N8N_TOKEN).' });
-  }
-
   const auth = req.headers.authorization || '';
   if (!auth.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Nicht angemeldet' });
@@ -44,10 +39,7 @@ export default async function handler(req, res) {
 
   const n8nRes = await fetch(target, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-RAIS-Token': n8nToken,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
 
