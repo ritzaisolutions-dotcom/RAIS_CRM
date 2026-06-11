@@ -35,34 +35,46 @@ function spl(l) {
   r.push(c); return r;
 }
 
+function normHead(h) {
+  return String(h || '').trim().toLowerCase().replace(/^\ufeff/, '').replace(/\s+/g, ' ');
+}
+
+/** Exact header match first, then substring (e.g. Unternehmen → firma). */
+function colIndex(heads, aliases) {
+  let i;
+  for (i = 0; i < aliases.length; i++) {
+    const idx = heads.findIndex(function(h) { return h === aliases[i]; });
+    if (idx >= 0) return idx;
+  }
+  for (i = 0; i < aliases.length; i++) {
+    const idx = heads.findIndex(function(h) { return h.includes(aliases[i]); });
+    if (idx >= 0) return idx;
+  }
+  return -1;
+}
+
 function parseCSV(txt) {
-  const lines = txt.replace(/\r/g, '').split('\n').filter(function(l) { return l.trim(); });
+  const lines = txt.replace(/^\ufeff/, '').replace(/\r/g, '').split('\n').filter(function(l) { return l.trim(); });
   if (lines.length < 2) { toast('CSV leer.'); return; }
-  const heads = spl(lines[0]).map(function(h) { return h.trim().toLowerCase(); });
-  // Match first column whose header contains any of the given substrings
-  const ci = function() {
-    const names = Array.prototype.slice.call(arguments);
-    for (let n = 0; n < names.length; n++) {
-      const idx = heads.findIndex(function(h) { return h.includes(names[n]); });
-      if (idx >= 0) return idx;
-    }
-    return -1;
-  };
-  const iF   = ci('firma', 'company_name', 'company');
-  const iK   = ci('ansprechpartner', 'person_name', 'kontakt');
-  const iT   = ci('telefon', 'phone', 'tel');
-  const iS   = ci('status');
-  const iFu  = ci('follow');
-  const iSt  = ci('stadt', 'city');
-  const iReg = ci('region');
-  const iEm  = ci('email');
-  const iWeb = ci('webseite', 'website', 'web');
-  const iHl  = ci('hauptleistung');
-  const iBes = ci('besonderheit');
-  const iTit = ci('title', 'titel');
-  const iGew = ci('gewerk');
-  const iRoi = ci('roi');
-  if (iF < 0) { toast('Keine Firma-Spalte gefunden.'); return; }
+  const heads = spl(lines[0]).map(normHead);
+  const iF   = colIndex(heads, ['unternehmen', 'firma', 'firmenname', 'company_name', 'company']);
+  const iK   = colIndex(heads, ['ansprechpartner', 'kontakt', 'person_name', 'name']);
+  const iT   = colIndex(heads, ['telefon', 'phone', 'tel']);
+  const iS   = colIndex(heads, ['status']);
+  const iFu  = colIndex(heads, ['follow-up', 'followup', 'follow']);
+  const iSt  = colIndex(heads, ['stadt', 'city', 'adresse', 'ort']);
+  const iReg = colIndex(heads, ['region', 'bundesland']);
+  const iEm  = colIndex(heads, ['email', 'e-mail']);
+  const iWeb = colIndex(heads, ['website', 'webseite', 'web']);
+  const iHl  = colIndex(heads, ['hauptleistung']);
+  const iBes = colIndex(heads, ['besonderheit']);
+  const iTit = colIndex(heads, ['title', 'titel']);
+  const iGew = colIndex(heads, ['gewerk']);
+  const iRoi = colIndex(heads, ['prio', 'priorität', 'priority', 'roi']);
+  if (iF < 0) {
+    toast('Keine Firma-Spalte (Unternehmen/Firma). Gefunden: ' + heads.join(', '));
+    return;
+  }
   const sm2 = {
     'neu': 'neu',
     'callback': 'callback', 'rückruf': 'callback',
