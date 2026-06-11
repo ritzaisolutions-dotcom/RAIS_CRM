@@ -1,3 +1,5 @@
+import { SB_URL, SB_KEY } from '../src/supabase.js';
+
 const N8N = {
   'wf7-compose': 'https://n8n.ritz-ai.solutions/webhook/wf7-compose',
   'wf8-calendar': 'https://n8n.ritz-ai.solutions/webhook/wf8-calendar',
@@ -14,11 +16,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'Nicht angemeldet' });
   }
 
-  const sbUrl = process.env.SUPABASE_URL || 'https://qdywaenmojdxhfxqbvun.supabase.co';
-  const sbKey = process.env.SUPABASE_ANON_KEY || process.env.SB_KEY;
-  if (!sbKey) {
-    return res.status(500).json({ error: 'Supabase-Konfiguration fehlt.' });
-  }
+  const sbUrl = process.env.SUPABASE_URL || SB_URL;
+  const sbKey = process.env.SUPABASE_ANON_KEY || process.env.SB_KEY || SB_KEY;
 
   const userRes = await fetch(sbUrl + '/auth/v1/user', {
     headers: { apikey: sbKey, Authorization: auth },
