@@ -1,5 +1,5 @@
 import { S } from './state.js';
-import { gid, td, normalizeWebsite } from './utils.js';
+import { gid, td, normalizeWebsite, normalizeGewerk } from './utils.js';
 import { persist } from './sync.js';
 import { toast } from './ui.js';
 
@@ -109,7 +109,7 @@ function parseCSV(txt) {
       region: g(iReg),
       hauptleistung: g(iHl),
       besonderheit: g(iBes),
-      gewerk: g(iGew),
+      gewerk: normalizeGewerk(g(iGew)),
       roi: iRoi >= 0 ? (parseInt(g(iRoi), 10) || 1) : 1,
       touches: [{status:'', datum:'', notiz:''}]
     };

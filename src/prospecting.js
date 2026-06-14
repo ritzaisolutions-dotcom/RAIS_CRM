@@ -1,5 +1,5 @@
 import { S, PG, STATUS, TSTAT, TSCLS } from './state.js';
-import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite } from './utils.js';
+import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite, normalizeGewerk } from './utils.js';
 import { sbadge, roib, fdc, esc, ir, toast } from './ui.js';
 import { markDirty, persist, pushDirty, isAktionNoetig } from './sync.js';
 import { sbDelete, sbUpsert } from './supabase.js';
@@ -718,7 +718,7 @@ export function save() {
     reviews:     document.getElementById('erev').value.trim(),
     stadt:       document.getElementById('estad').value.trim(),
     region:      document.getElementById('ereg').value.trim(),
-    gewerk:      document.getElementById('egew').value,
+    gewerk:      normalizeGewerk(document.getElementById('egew').value),
     besonderheit:document.getElementById('en').value.trim(),
     notiz:       document.getElementById('en').value.trim(),
   };

@@ -24,12 +24,23 @@ export function relAge(dateStr) {
 export const GKUERZEL = {
   'Fliesenleger':'FL','Elektriker':'EL','Sanitär':'SAN','Heizung':'HZG',
   'Maler':'MAL','Zimmerer':'ZIM','Dachdecker':'DACH','Schreiner':'SCHR',
-  'Schlosser':'SLS','Gerüstbauer':'GRST','Gartenbau':'GAR','Reinigung':'REI','Sonstiges':'SON'
+  'Schlosser':'SLS','Gerüstbauer':'GRST','Gartenbau':'GAR','Reinigung':'REI',
+  'Hausverwaltung':'HV','Sonstiges':'SON'
 };
 export const GSLUG = {
   'Fliesenleger':'fl','Elektriker':'el','Sanitär':'san','Heizung':'hzg',
   'Maler':'mal','Zimmerer':'zim','Dachdecker':'dach','Schreiner':'schr',
-  'Schlosser':'sls','Gerüstbauer':'grst','Gartenbau':'gar','Reinigung':'rei','Sonstiges':'son'
+  'Schlosser':'sls','Gerüstbauer':'grst','Gartenbau':'gar','Reinigung':'rei',
+  'Hausverwaltung':'hv','Sonstiges':'son'
 };
+
+/** Einheitliche Gewerk-Schreibweise (z. B. hausverwaltung → Hausverwaltung). */
+export function normalizeGewerk(g) {
+  const t = (g || '').trim();
+  if (!t) return '';
+  const key = t.toLowerCase().replace(/\s+/g, '');
+  if (key === 'hausverwaltung' || key === 'hausverwaltungen') return 'Hausverwaltung';
+  return t;
+}
 export function gewerkKuerzel(g) { return GKUERZEL[g] || g.slice(0,3).toUpperCase(); }
 export function gewerkSlug(g)    { return GSLUG[g]    || 'son'; }
