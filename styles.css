@@ -195,13 +195,12 @@ td { padding: 10px 13px; vertical-align: middle; overflow: hidden; }
 
 /* Feste Spaltenbreiten — ändern sich nicht bei Filter/Sortierung */
 .tw .col-c-num     { width: 36px;  min-width: 36px;  max-width: 36px; }
-.tw .col-c-firma   { width: 168px; min-width: 168px; max-width: 168px; }
+.tw .col-c-firma   { width: 256px; min-width: 256px; max-width: 256px; }
 .tw .col-c-kontakt { width: 118px; min-width: 118px; max-width: 118px; }
 .tw .col-c-tel     { width: 108px; min-width: 108px; max-width: 108px; }
 .tw .col-c-web     { width: 36px;  min-width: 36px;  max-width: 36px; }
 .tw .col-c-status  { width: 128px; min-width: 128px; max-width: 128px; }
 .tw .col-c-fu      { width: 118px; min-width: 118px; max-width: 118px; }
-.tw .col-c-roi     { width: 96px;  min-width: 96px;  max-width: 96px; }
 .tw .col-c-notiz   { width: 140px; min-width: 140px; max-width: 140px; }
 .tw .col-c-aktion  { width: 44px;  min-width: 44px;  max-width: 44px; }
 .tw .col-c-reviews { width: 72px;  min-width: 72px;  max-width: 72px; }
@@ -454,7 +453,6 @@ textarea { resize: vertical; min-height: 68px; }
 /* Follow-up inline date */
 .fu-cell { padding: 4px 8px !important; }
 .tw .col-c-fu .idd-date { width: 100%; max-width: 100%; box-sizing: border-box; }
-.tw .col-c-roi .roi-dd { width: 100%; max-width: 100%; box-sizing: border-box; }
 .idd-date { border: 1px solid var(--bd); border-radius: 4px; font-size: 11px; font-family: 'JetBrains Mono', ui-monospace, monospace; padding: 2px 4px; background: var(--sf); color: var(--ch); cursor: pointer; outline: none; width: 116px; }
 .idd-date:focus { border-color: var(--or); }
 

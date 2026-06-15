@@ -63,8 +63,8 @@ function statusSelectHtml(c) {
 export function getList() {
   const q      = document.getElementById('srch').value.toLowerCase();
   const roi    = document.getElementById('roiF').value;
-  const stadtF = document.getElementById('stadtF').value;
-  const gewF   = document.getElementById('gewerkF').value;
+  const regionF = document.getElementById('regionF').value;
+  const gewF    = document.getElementById('gewerkF').value;
   const srt    = document.getElementById('sortS').value;
   let list = S.contacts.filter(function(c) {
     if (S.flt === 'heute') { const t = td(); return c.followup && c.followup <= t; }
@@ -72,7 +72,7 @@ export function getList() {
     if (S.flt !== 'all' && c.status !== S.flt) return false;
     if (roi === '0' && c.roi) return false;
     if (roi && roi !== '0' && String(c.roi||'') !== roi) return false;
-    if (stadtF && (c.stadt || '') !== stadtF) return false;
+    if (regionF && (c.region || '') !== regionF) return false;
     if (gewF && (c.gewerk || '') !== gewF) return false;
     if (S.dueMode) { const t = td(); return c.followup && c.followup <= t; }
     if (q) {
@@ -261,7 +261,7 @@ function populateSelectFilter(id, label, field) {
 }
 
 export function render() {
-  populateSelectFilter('stadtF', 'Stadt', 'stadt');
+  populateSelectFilter('regionF', 'Region', 'region');
   populateSelectFilter('gewerkF', 'Gewerk', 'gewerk');
   const t = td();
   const cnt = {all: S.contacts.length};
@@ -309,7 +309,7 @@ export function render() {
     thS('firma', 'Firma', 'col-sticky-firma col-c-firma') +
     thF('Ansprechpartner', '', 'col-c-kontakt') + thF('Telefon', '', 'col-c-tel') +
     thF('&#127760;', 'text-align:center', 'col-web col-c-web') +
-    thS('status', 'Status', 'col-c-status') + thS('followup', 'Follow-up', 'col-c-fu') + thS('roi', 'ROI', 'col-c-roi') +
+    thS('status', 'Status', 'col-c-status') + thS('followup', 'Follow-up', 'col-c-fu') +
     thF('Notiz', '', 'col-c-notiz') + thF('Aktion', 'text-align:center', 'col-c-aktion') +
     thS('reviews', 'Reviews', 'col-c-reviews') +
     (S.colVis.stadt   ? thS('stadt', 'Stadt', 'col-c-stadt') : '') +
@@ -356,12 +356,6 @@ export function render() {
         '</td>' +
         '<td class="st-cell col-c-status" onclick="event.stopPropagation()">' + statusSelectHtml(c) + '</td>' +
         '<td onclick="event.stopPropagation()" class="fu-cell col-c-fu"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onfocus="inlineFUFocus(this)" onchange="inlineFU(this)" onblur="inlineFUBlur(this)" title="Follow-up Datum"></td>' +
-        '<td class="col-c-roi" onclick="event.stopPropagation()"><select class="idd roi-dd roi-' + (c.roi||0) + '" data-id="' + c.id + '" onchange="inlineROI(this)">' +
-          '<option value=""'  + (!c.roi?          ' selected':'') + '>— offen</option>' +
-          '<option value="1"' + (c.roi==1?' selected':'') + '>① Niedrig</option>' +
-          '<option value="2"' + (c.roi==2?' selected':'') + '>② Mittel</option>' +
-          '<option value="3"' + (c.roi==3?' selected':'') + '>③ Hoch</option>' +
-        '</select></td>' +
         '<td class="notiz-cell col-c-notiz">' +
           '<span class="col-trunc notiz-preview" title="' + esc(notizPreview) + '">' + esc(notizPreview || '—') + '</span>' +
           (ageStr ? '<span class="age-lbl ' + ageCls + '">' + (lastTDatum ? '&#128222; ' : '') + ageStr + '</span>' : '') +
