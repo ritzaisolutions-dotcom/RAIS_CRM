@@ -1,6 +1,7 @@
 import { S, KEY, CC_KEY } from './state.js';
 import { sbGet, sbUpsert, isAuthenticated } from './supabase.js';
 import { toast } from './ui.js';
+import { getCustomGewerke, addCustomGewerk, CUSTOM_GEWERKE_KEY } from './utils.js';
 
 export function clearLocalCrmData() {
   localStorage.removeItem(KEY);
@@ -146,6 +147,7 @@ export async function syncCloud(silent) {
     }
 
     persist();
+    await syncGewerkeCloud();
     render();
     toast('☁ Sync erfolgreich — ' + S.contacts.length + ' Kontakte.');
   } catch(e) {
@@ -183,4 +185,21 @@ export async function pushDirty() {
     S.syncInProgress = false;
     if (btn) { btn.textContent = '☁ Sync'; btn.style.opacity = '1'; btn.disabled = false; }
   }
+}
+
+/** Fetch all crm_gewerke rows and merge names into localStorage. */
+export async function syncGewerkeCloud() {
+  if (!isAuthenticated()) return;
+  try {
+    const rows = await sbGet('/rest/v1/crm_gewerke?select=name&order=name.asc');
+    rows.forEach(function(r) { if (r.name) addCustomGewerk(r.name); });
+  } catch (e) {}
+}
+
+/** Upsert a single Gewerk name to crm_gewerke. Fire-and-forget. */
+export async function pushGewerkCloud(name) {
+  if (!isAuthenticated() || !name) return;
+  try {
+    await sbUpsert('/rest/v1/crm_gewerke', { name: name });
+  } catch (e) {}
 }

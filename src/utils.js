@@ -44,3 +44,19 @@ export function normalizeGewerk(g) {
 }
 export function gewerkKuerzel(g) { return GKUERZEL[g] || g.slice(0,3).toUpperCase(); }
 export function gewerkSlug(g)    { return GSLUG[g]    || 'son'; }
+
+export const CUSTOM_GEWERKE_KEY = 'rais_custom_gewerke';
+export function getCustomGewerke() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_GEWERKE_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+export function addCustomGewerk(name) {
+  const trimmed = (name || '').trim();
+  if (!trimmed) return '';
+  const list = getCustomGewerke();
+  if (!list.includes(trimmed)) {
+    list.push(trimmed);
+    localStorage.setItem(CUSTOM_GEWERKE_KEY, JSON.stringify(list));
+  }
+  return trimmed;
+}

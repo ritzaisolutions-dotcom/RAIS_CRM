@@ -510,22 +510,34 @@
         <div><label>Reviews</label><input type="text" id="erev"></div>
       </div>
       <div class="fr2"><div><label>Stadt</label><input type="text" id="estad"></div><div><label>Region</label><input type="text" id="ereg"></div></div>
-      <div class="fr2"><div><label>Gewerk</label><select class="fs2" id="egew">
-        <option value="">— kein —</option>
-        <option value="Fliesenleger">Fliesenleger</option>
-        <option value="Elektriker">Elektriker</option>
-        <option value="Sanitär">Sanitär</option>
-        <option value="Heizung">Heizung</option>
-        <option value="Maler">Maler</option>
-        <option value="Zimmerer">Zimmerer</option>
-        <option value="Dachdecker">Dachdecker</option>
-        <option value="Schreiner">Schreiner</option>
-        <option value="Schlosser">Schlosser</option>
-        <option value="Gerüstbauer">Gerüstbauer</option>
-        <option value="Gartenbau">Gartenbau</option>
-        <option value="Reinigung">Reinigung</option>
-        <option value="Sonstiges">Sonstiges</option>
-      </select></div><div></div></div>
+      <div class="fr2"><div><label>Gewerk</label>
+        <div style="display:flex;gap:6px;align-items:center">
+          <select class="fs2" id="egew" style="flex:1;min-width:0">
+            <option value="">— kein —</option>
+            <option value="Fliesenleger">Fliesenleger</option>
+            <option value="Elektriker">Elektriker</option>
+            <option value="Sanitär">Sanitär</option>
+            <option value="Heizung">Heizung</option>
+            <option value="Maler">Maler</option>
+            <option value="Zimmerer">Zimmerer</option>
+            <option value="Dachdecker">Dachdecker</option>
+            <option value="Schreiner">Schreiner</option>
+            <option value="Schlosser">Schlosser</option>
+            <option value="Gerüstbauer">Gerüstbauer</option>
+            <option value="Gartenbau">Gartenbau</option>
+            <option value="Reinigung">Reinigung</option>
+            <option value="Sonstiges">Sonstiges</option>
+          </select>
+          <button type="button" class="btn bs bsm" onclick="showNewGewerkInput()" title="Neues Gewerk anlegen" style="flex-shrink:0;padding:0 10px;font-size:16px;line-height:1">+</button>
+        </div>
+        <div id="newGewerkRow" style="display:none;margin-top:6px">
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="text" id="newGewerkInput" class="fs2" placeholder="z. B. Estrichleger" style="flex:1;min-width:0" onkeydown="if(event.key==='Enter')confirmNewGewerk();if(event.key==='Escape')cancelNewGewerk()">
+            <button type="button" class="btn bp bsm" onclick="confirmNewGewerk()" title="Anlegen" style="flex-shrink:0">✓</button>
+            <button type="button" class="btn bs bsm" onclick="cancelNewGewerk()" title="Abbrechen" style="flex-shrink:0">✕</button>
+          </div>
+        </div>
+      </div><div></div></div>
       <div class="fr"><label>Interne Notiz</label><textarea id="en"></textarea></div>
     </div>
     <div class="mf">

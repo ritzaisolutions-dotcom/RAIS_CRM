@@ -1,7 +1,7 @@
 import { S, PG, STATUS, TSTAT, TSCLS } from './state.js';
-import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite, normalizeGewerk } from './utils.js';
+import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite, normalizeGewerk, getCustomGewerke, addCustomGewerk } from './utils.js';
 import { sbadge, roib, fdc, esc, ir, toast } from './ui.js';
-import { markDirty, persist, pushDirty, isAktionNoetig } from './sync.js';
+import { markDirty, persist, pushDirty, isAktionNoetig, pushGewerkCloud } from './sync.js';
 import { sbDelete, sbUpsert } from './supabase.js';
 import { emailCellHtml, emailPanelHtml } from './email.js';
 import { renderCalls, bumpCall } from './calls.js';
@@ -656,12 +656,52 @@ export function inlineST(sel) {
   }
 }
 
+function injectCustomGewerke() {
+  const sel = document.getElementById('egew');
+  if (!sel) return;
+  Array.from(sel.options).forEach(function(opt) { if (opt.dataset.custom) sel.removeChild(opt); });
+  const customs = getCustomGewerke();
+  if (!customs.length) return;
+  const anchor = Array.from(sel.options).find(function(o) { return o.value === 'Sonstiges'; });
+  customs.forEach(function(name) {
+    const opt = document.createElement('option');
+    opt.value = name; opt.textContent = name; opt.dataset.custom = '1';
+    anchor ? sel.insertBefore(opt, anchor) : sel.appendChild(opt);
+  });
+}
+
+window.showNewGewerkInput = function() {
+  const row = document.getElementById('newGewerkRow');
+  if (row) { row.style.display = 'block'; document.getElementById('newGewerkInput').focus(); }
+};
+
+window.cancelNewGewerk = function() {
+  const row = document.getElementById('newGewerkRow');
+  if (row) row.style.display = 'none';
+  const input = document.getElementById('newGewerkInput');
+  if (input) input.value = '';
+};
+
+window.confirmNewGewerk = function() {
+  const input = document.getElementById('newGewerkInput');
+  const name = (input ? input.value : '').trim();
+  if (!name) { toast('Bitte einen Gewerk-Namen eingeben.'); return; }
+  addCustomGewerk(name);
+  pushGewerkCloud(name);
+  injectCustomGewerke();
+  const sel = document.getElementById('egew');
+  if (sel) sel.value = name;
+  window.cancelNewGewerk();
+  toast('Gewerk „' + name + '" angelegt.');
+};
+
 export function openAdd() {
   S.eid = null;
   document.getElementById('mt').textContent = 'Kontakt hinzufügen';
   const delBtn = document.getElementById('deleteContactBtn');
   if (delBtn) delBtn.style.display = 'none';
   clrF();
+  injectCustomGewerke();
   const tm = new Date(); tm.setDate(tm.getDate() + 1);
   document.getElementById('efu').value = tm.toISOString().slice(0,10);
   document.getElementById('eo').classList.add('on');
@@ -686,6 +726,7 @@ export function openE(id) {
   document.getElementById('erev').value        = c.reviews      || '';
   document.getElementById('estad').value       = c.stadt        || '';
   document.getElementById('ereg').value        = c.region       || '';
+  injectCustomGewerke();
   document.getElementById('egew').value        = c.gewerk       || '';
   document.getElementById('en').value          = c.besonderheit || c.notiz || '';
   document.getElementById('eo').classList.add('on');
