@@ -58,6 +58,9 @@ function contactToRow(c, now) {
     socials: socials,
     plz: c.plz || null,
     strasse: c.strasse || null,
+    last_contacted_at: c.last_contacted_at || null,
+    deal_value_eur: c.deal_value_eur != null ? c.deal_value_eur : null,
+    consent_basis: c.consent_basis || null,
     synced_at: now,
   };
   const extra = buildExtra(c);
@@ -120,7 +123,8 @@ export async function syncCloud(silent) {
 
     const LOCAL_WINS = ['status','followup','roi','notiz','kontakt','title','telefon',
       'email','touches','status_changed_at','firma','website','gewerk','stadt','region',
-      'source','lead_origin','lead_temp','is_external','lebensbereich','socials','plz','strasse'];
+      'source','lead_origin','lead_temp','is_external','lebensbereich','socials','plz','strasse',
+      'last_contacted_at','deal_value_eur','consent_basis'];
 
     const dirtyLocalById = {};
     S.contacts.filter(isDirtyContact).forEach(function(c) { dirtyLocalById[c.id] = c; });

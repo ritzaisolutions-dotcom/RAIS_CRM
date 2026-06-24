@@ -1,62 +1,21 @@
-import { S, LEAD_ORIGIN, LEAD_TEMP } from './state.js';
-import { isColdLead, deriveLeadTemp } from './utils.js';
+import { S } from './state.js';
+import { isColdLead } from './utils.js';
 import { loadClients } from './clients.js';
+import { loadProjects, getProjectsSnapshot } from './projects.js';
 import { esc } from './ui.js';
 import { navigateTo } from './sidebar.js';
 import { setF, filterDue } from './prospecting.js';
+import { getSessionStats } from './sessions.js';
+import { fetchCalendarWeek } from './integrations.js';
+import {
+  computeFunnel, dailyTouchSeries, renderFunnelChart, renderTrendChart, deltaHtml,
+} from './analytics.js';
 
 let _inited = false;
 
 window.addEventListener('rais:page-change', function(e) {
   if (e.detail.page === 'dashboard') initDashboard();
 });
-
-function weekStart(d) {
-  const x = new Date(d);
-  const day = x.getDay() || 7;
-  x.setDate(x.getDate() - day + 1);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-function monthStart(d) {
-  return new Date(d.getFullYear(), d.getMonth(), 1);
-}
-
-function contactCreatedDate(c) {
-  if (!c.created) return null;
-  if (typeof c.created === 'number') return new Date(c.created);
-  const s = String(c.created);
-  if (/^\d+$/.test(s)) return new Date(parseInt(s, 10));
-  return new Date(s);
-}
-
-function countNewSince(contacts, since) {
-  return contacts.filter(function(c) {
-    const d = contactCreatedDate(c);
-    return d && d >= since;
-  }).length;
-}
-
-function distBar(items) {
-  if (!items.length) return '<p class="dash-empty">Keine Daten</p>';
-  const max = Math.max.apply(null, items.map(function(x) { return x.n; })) || 1;
-  return items.map(function(x) {
-    const pct = Math.round((x.n / max) * 100);
-    return '<div class="dash-bar-row">' +
-      '<span class="dash-bar-label">' + esc(x.label) + '</span>' +
-      '<div class="dash-bar-track"><div class="dash-bar-fill" style="width:' + pct + '%"></div></div>' +
-      '<span class="dash-bar-n">' + x.n + '</span>' +
-    '</div>';
-  }).join('');
-}
-
-function kpiCard(n, label, action) {
-  const click = action ? ' dash-kpi-click" role="button" tabindex="0" onclick="' + action + '"' : '"';
-  return '<div class="dash-kpi' + click + '>' +
-    '<span class="dash-kpi-n">' + n + '</span>' +
-    '<span class="dash-kpi-l">' + label + '</span></div>';
-}
 
 export function dashGoProspecting(filter) {
   navigateTo('prospecting');
@@ -68,79 +27,115 @@ export function dashGoClients() {
   navigateTo('clients');
 }
 
+export function dashGoProjects() {
+  navigateTo('projects');
+}
+
+function kpiCard(n, label, delta, action) {
+  const click = action ? ' dash-kpi-click" role="button" tabindex="0" onclick="' + action + '"' : '"';
+  return '<div class="dash-kpi' + click + '>' +
+    '<span class="dash-kpi-n">' + n + '</span>' +
+    (delta ? '<span class="dash-kpi-d">' + delta + '</span>' : '') +
+    '<span class="dash-kpi-l">' + label + '</span></div>';
+}
+
+function formatEur(n) {
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n);
+}
+
 export function initDashboard() {
   if (!_inited) {
     _inited = true;
-    loadClients().then(renderDashboard);
+    Promise.all([loadClients(), loadProjects()]).then(renderDashboard);
   } else {
     renderDashboard();
   }
 }
 
-export function renderDashboard() {
+export async function renderDashboard() {
   const root = document.getElementById('dashboard-root');
   if (!root) return;
 
-  const now = new Date();
-  const ws = weekStart(now);
-  const ms = monthStart(now);
+  const week = computeFunnel('week');
+  const prevWeek = computeFunnel('prev_week');
   const contacts = S.contacts || [];
-
-  const newWeek = countNewSince(contacts, ws);
-  const newMonth = countNewSince(contacts, ms);
   const cold = contacts.filter(isColdLead).length;
-  let warm = 0, hot = 0, tempCold = 0;
-  contacts.forEach(function(c) {
-    const t = deriveLeadTemp(c);
-    if (t === 'warm') warm++;
-    else if (t === 'hot') hot++;
-    else tempCold++;
-  });
-  const won = contacts.filter(function(c) { return c.status === 'gewonnen'; }).length;
-  const clients = (S.clClients || []).length;
+  const demosTotal = contacts.filter(function(c) { return c.status === 'demo_termin'; }).length;
 
-  const originCounts = {};
-  contacts.forEach(function(c) {
-    const k = c.lead_origin || 'manual';
-    originCounts[k] = (originCounts[k] || 0) + 1;
-  });
-  const originBars = Object.keys(LEAD_ORIGIN).map(function(k) {
-    return { label: LEAD_ORIGIN[k].label, n: originCounts[k] || 0 };
-  }).filter(function(x) { return x.n > 0; });
+  let calEvents = [];
+  try {
+    calEvents = await fetchCalendarWeek();
+  } catch (_) {
+    calEvents = [];
+  }
 
-  const lbCounts = {};
-  contacts.forEach(function(c) {
-    const k = c.lebensbereich || '—';
-    lbCounts[k] = (lbCounts[k] || 0) + 1;
-  });
-  const lbBars = Object.keys(lbCounts).sort(function(a, b) { return lbCounts[b] - lbCounts[a]; })
-    .slice(0, 12).map(function(k) { return { label: k, n: lbCounts[k] }; });
-
-  const gwCounts = {};
-  contacts.forEach(function(c) {
-    if (!c.gewerk) return;
-    gwCounts[c.gewerk] = (gwCounts[c.gewerk] || 0) + 1;
-  });
-  const gwBars = Object.keys(gwCounts).sort(function(a, b) { return gwCounts[b] - gwCounts[a]; })
-    .slice(0, 10).map(function(k) { return { label: k, n: gwCounts[k] }; });
+  const sess = await getSessionStats('week');
+  const snap = getProjectsSnapshot();
 
   root.innerHTML =
     '<div class="dash-kpis">' +
-      kpiCard(newWeek, 'Neue Leads (Woche)', 'dashGoProspecting(\'all\')') +
-      kpiCard(newMonth, 'Neue Leads (Monat)', 'dashGoProspecting(\'all\')') +
-      kpiCard(cold, 'Kalte Leads', 'dashGoProspecting(\'kalt\')') +
-      kpiCard(warm + ' / ' + hot, 'Warm / Heiß', 'dashGoProspecting(\'interessiert\')') +
-      kpiCard(won, 'Gewonnen', 'dashGoProspecting(\'gewonnen\')') +
-      kpiCard(clients, 'Aktive Clients', 'dashGoClients()') +
+      kpiCard(week.dials, 'Leads angesprochen (Woche)', deltaHtml(week.dials, prevWeek.dials), 'dashGoProspecting(\'all\')') +
+      kpiCard(cold, 'Kalte Leads', '', 'dashGoProspecting(\'kalt\')') +
+      kpiCard(demosTotal + (calEvents.length ? ' / ' + calEvents.length : ''), 'Termine (CRM / Kalender)', '', 'dashGoProspecting(\'demo_termin\')') +
+      kpiCard(formatEur(week.revenueEur), 'Revenue (Woche)', deltaHtml(week.revenueEur, prevWeek.revenueEur), 'dashGoProspecting(\'gewonnen\')') +
     '</div>' +
+
+    '<div class="dash-grid dash-charts">' +
+      '<section class="dash-card"><h3>Dials / Touches (7 Tage)</h3><div id="dash-trend"></div></section>' +
+      '<section class="dash-card"><h3>Akquise-Funnel</h3><div id="dash-funnel"></div></section>' +
+      '<section class="dash-card"><h3>Setting Rate <span style="font-weight:400;color:var(--st)">pro 100 Dials</span></h3>' +
+        '<p style="font-size:28px;font-weight:800;color:var(--or);margin:8px 0">' + week.settingRatePer100 + '</p>' +
+        '<p style="font-size:12px;color:var(--st)">Vorwoche: ' + prevWeek.settingRatePer100 + '</p></section>' +
+      '<section class="dash-card"><h3>Closing Rate</h3>' +
+        '<div class="dash-bar-track" style="height:12px;margin:12px 0"><div class="dash-bar-fill" style="width:' + week.closingRatePct + '%;background:var(--sg)"></div></div>' +
+        '<p style="font-size:22px;font-weight:800;color:var(--sg-dark)">' + week.closingRatePct + '%</p></section>' +
+    '</div>' +
+
     '<div class="dash-grid">' +
-      '<section class="dash-card"><h3>Herkunft</h3>' + distBar(originBars) + '</section>' +
-      '<section class="dash-card"><h3>Lebensbereich</h3>' + distBar(lbBars) + '</section>' +
-      '<section class="dash-card"><h3>Gewerk (Top 10)</h3>' + distBar(gwBars) + '</section>' +
-      '<section class="dash-card"><h3>Temperatur</h3>' + distBar([
-        { label: LEAD_TEMP.cold, n: tempCold },
-        { label: LEAD_TEMP.warm, n: warm },
-        { label: LEAD_TEMP.hot, n: hot },
-      ].filter(function(x) { return x.n > 0; })) + '</section>' +
+      '<section class="dash-card"><h3>Wochen-To-dos</h3>' + renderTodosSection(snap.openTodos) + '</section>' +
+      '<section class="dash-card"><h3>Kalender diese Woche</h3>' + renderCalSection(calEvents) + '</section>' +
+    '</div>' +
+
+    '<div class="dash-grid">' +
+      '<section class="dash-card"><h3>Projekte</h3>' + renderProjSnap(snap.projects) + '</section>' +
+      '<section class="dash-card"><h3>Sessions (Woche)</h3>' + renderSessSection(sess) + '</section>' +
     '</div>';
+
+  renderTrendChart(document.getElementById('dash-trend'), dailyTouchSeries(7));
+  renderFunnelChart(document.getElementById('dash-funnel'), week);
+}
+
+function renderTodosSection(todos) {
+  const weekTodos = (todos || []).slice(0, 8);
+  if (!weekTodos.length) return '<p class="dash-empty">Keine offenen To-dos.</p>';
+  return '<ul class="dash-todo-list">' + weekTodos.map(function(t) {
+    return '<li class="dash-todo-item"><span>' + esc(t.title) + '</span>' +
+      '<span style="font-size:11px;color:var(--st)">' + esc(t.due_date || '') + '</span></li>';
+  }).join('') + '</ul><button class="btn bs bsm" onclick="dashGoProjects()" style="margin-top:8px">Alle Projekte</button>';
+}
+
+function renderCalSection(events) {
+  if (!events.length) return '<p class="dash-empty">Keine Termine geladen (WF10 prüfen).</p>';
+  return '<ul class="dash-todo-list">' + events.slice(0, 6).map(function(ev) {
+    const start = ev.start ? new Date(ev.start).toLocaleString('de-DE', { weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    const link = ev.htmlLink ? ' <a href="' + esc(ev.htmlLink) + '" target="_blank" rel="noopener">↗</a>' : '';
+    return '<li class="dash-todo-item"><span>' + esc(ev.summary || 'Termin') + link + '</span><span style="font-size:11px;color:var(--st)">' + esc(start) + '</span></li>';
+  }).join('') + '</ul>';
+}
+
+function renderProjSnap(projects) {
+  if (!projects.length) return '<p class="dash-empty">Keine Projekte.</p>';
+  return projects.slice(0, 4).map(function(p) {
+    return '<div class="dash-bar-row"><span class="dash-bar-label">' + esc(p.name) + '</span>' +
+      '<div class="dash-bar-track"><div class="dash-bar-fill" style="width:' + (p.progress_pct || 0) + '%;background:var(--sg)"></div></div>' +
+      '<span class="dash-bar-n">' + (p.progress_pct || 0) + '%</span></div>';
+  }).join('') + '<button class="btn bs bsm" onclick="dashGoProjects()" style="margin-top:8px">Projekte öffnen</button>';
+}
+
+function renderSessSection(sess) {
+  if (!sess || !sess.count) return '<p class="dash-empty">Keine Sessions diese Woche.</p>';
+  return '<p style="font-size:13px;line-height:1.8">' +
+    '<strong>' + sess.count + '</strong> Sessions<br>' +
+    '<strong>' + sess.totalLeads + '</strong> Leads gespielt<br>' +
+    '<strong>' + Math.round(sess.totalMinutes) + '</strong> Min gesamt</p>';
 }

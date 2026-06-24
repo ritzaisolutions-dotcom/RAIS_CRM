@@ -1,5 +1,5 @@
 import { S, TSCLS } from './state.js';
-import { markDirty, persist, pushDirty } from './sync.js';
+import { markDirty, persist, pushDirty, bumpContactsRev } from './sync.js';
 import { esc, toast } from './ui.js';
 import { syncLeadTemp } from './utils.js';
 import { openP } from './prospecting.js';
@@ -13,12 +13,19 @@ export function toggleAcc(el) {
   tah.classList.toggle('open', open);
 }
 
+export function touchLastContacted(c) {
+  if (!c) return;
+  c.last_contacted_at = new Date().toISOString();
+  bumpContactsRev();
+}
+
 export function saveTF(id, idx, field, val) {
   const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   if (!c.touches) c.touches = [];
   while (c.touches.length <= idx) c.touches.push({status:'',datum:'',notiz:''});
   c.touches[idx][field] = val;
+  if (field === 'datum' && val) touchLastContacted(c);
   syncLeadTemp(c);
   markDirty(c);
   persist(); pushDirty();

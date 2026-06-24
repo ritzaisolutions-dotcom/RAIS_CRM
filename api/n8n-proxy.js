@@ -4,6 +4,9 @@ const N8N = {
   'wf7-compose': 'https://n8n.ritz-ai.solutions/webhook/wf7-compose',
   'wf8-calendar': 'https://n8n.ritz-ai.solutions/webhook/wf8-calendar',
   'wf9-salesrep': 'https://n8n.ritz-ai.solutions/webhook/wf9-salesrep',
+  'wf10-calendar-week': 'https://n8n.ritz-ai.solutions/webhook/wf10-calendar-week',
+  'wf11-notion-read': 'https://n8n.ritz-ai.solutions/webhook/wf11-notion-read',
+  'wf12-notion-update': 'https://n8n.ritz-ai.solutions/webhook/wf12-notion-update',
 };
 
 export default async function handler(req, res) {

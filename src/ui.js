@@ -69,6 +69,7 @@ function socialHref(key, url) {
 const SOCIAL_META = {
   linkedin: { icon: 'in', title: 'LinkedIn' },
   instagram: { icon: 'ig', title: 'Instagram' },
+  youtube: { icon: 'yt', title: 'YouTube' },
   x: { icon: '𝕏', title: 'X' },
   facebook: { icon: 'fb', title: 'Facebook' },
   whatsapp: { icon: 'wa', title: 'WhatsApp' },
@@ -76,7 +77,7 @@ const SOCIAL_META = {
 
 export function socialIconsHtml(socials, large) {
   socials = socials || {};
-  const keys = ['linkedin', 'instagram', 'x', 'facebook', 'whatsapp'];
+  const keys = ['linkedin', 'instagram', 'youtube', 'x', 'facebook', 'whatsapp'];
   const parts = keys.filter(function(k) { return socials[k]; }).map(function(k) {
     const m = SOCIAL_META[k];
     const href = socialHref(k, socials[k]);

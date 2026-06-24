@@ -28,6 +28,25 @@ function webHref(url) {
   return u ? esc(u) : '';
 }
 
+function linkedinCellHtml(socials) {
+  socials = socials || {};
+  if (!socials.linkedin) return '<span style="color:var(--bd)">—</span>';
+  const href = socials.linkedin.startsWith('http') ? socials.linkedin : 'https://linkedin.com/in/' + socials.linkedin.replace(/^\/+/, '');
+  return '<a class="soc-icon" href="' + esc(href) + '" target="_blank" rel="noopener" title="LinkedIn" onclick="event.stopPropagation()">in</a>';
+}
+
+function linkedinCellHtml(socials) {
+  const li = socials && socials.linkedin;
+  if (!li) return '<span style="color:#ccc">—</span>';
+  const href = /^https?:\/\//i.test(li) ? li : 'https://' + li;
+  return '<a class="wlink" href="' + esc(href) + '" target="_blank" rel="noopener" title="LinkedIn" style="font-weight:700">in</a>';
+}
+
+function touchContactNow(c) {
+  if (!c) return;
+  c.last_contacted_at = new Date().toISOString();
+}
+
 const STATUS_SELECT_GROUPS = [
   { label: '── Aktiv ──', keys: ['neu', 'kein_anschluss', 'kein_anschluss_2', 'gatekeeper', 'callback', 'no_show', 'email_nurture'] },
   { label: '── Positiv ──', keys: ['interessiert', 'door_open', 'demo_termin', 'gewonnen'] },
@@ -359,20 +378,16 @@ export function render() {
   document.getElementById('thead').innerHTML = '<tr>' +
     thF('#', 'text-align:right', 'col-sticky-num col-c-num') +
     thS('firma', 'Firma', 'col-sticky-firma col-c-firma') +
-    thF('Ansprechpartner', '', 'col-c-kontakt') + thF('Telefon', '', 'col-c-tel') +
+    thF('Person', '', 'col-c-kontakt') + thF('Telefon', '', 'col-c-tel') +
     thF('&#127760;', 'text-align:center', 'col-web col-c-web') +
     thS('status', 'Status', 'col-c-status') + thS('followup', 'Follow-up', 'col-c-fu') +
     (S.colVis.origin ? thF('Herkunft', '', 'col-c-origin') : '') +
     (S.colVis.temp ? thF('Temp', '', 'col-c-temp') : '') +
-    thF('Notiz', '', 'col-c-notiz') + thF('Aktion', 'text-align:center', 'col-c-aktion') +
-    thS('reviews', 'Reviews', 'col-c-reviews') +
-    (S.colVis.lebensbereich ? thF('Lebensbereich', '', 'col-c-lb') : '') +
+    thF('Notiz', '', 'col-c-notiz') +
     (S.colVis.stadt   ? thS('stadt', 'Stadt', 'col-c-stadt') : '') +
     (S.colVis.region  ? thS('region', 'Region', 'col-c-region') : '') +
     (S.colVis.gewerk  ? thS('gewerk', 'Gewerk', 'col-c-gewerk') : '') +
-    thF('Email', 'text-align:center', 'col-c-email') +
-    thF('Social', 'text-align:center', 'col-c-social') +
-    thF('', '', 'col-c-ra') +
+    thF('LinkedIn', 'text-align:center', 'col-c-linkedin') +
   '</tr>';
 
   const list = getList();
@@ -418,21 +433,10 @@ export function render() {
           '<span class="col-trunc notiz-preview" title="' + esc(notizPreview) + '">' + esc(notizPreview || '—') + '</span>' +
           (ageStr ? '<span class="age-lbl ' + ageCls + '">' + (lastTDatum ? '&#128222; ' : '') + ageStr + '</span>' : '') +
         '</td>' +
-        '<td class="col-aktion col-c-aktion" onclick="event.stopPropagation()" style="text-align:center;white-space:nowrap">' +
-          '<button type="button" class="aktion-flag-btn' + (aktion ? ' on' : '') + '" onclick="openAktionPop(\'' + c.id + '\')" title="' + aktionTitle + '">&#9889;</button>' +
-          aktionHint +
-        '</td>' +
-        '<td class="col-c-reviews" style="font-family:sans-serif;font-size:12px;color:#7B746B"><span class="col-trunc" title="' + esc(c.reviews || '') + '">' + esc(c.reviews || '—') + '</span></td>' +
-        (S.colVis.lebensbereich ? '<td class="col-c-lb" style="font-family:sans-serif;font-size:12px"><span class="col-trunc">' + esc(c.lebensbereich || '—') + '</span></td>' : '') +
         (S.colVis.stadt   ? '<td class="col-c-stadt" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.stadt || '') + '">' + esc(c.stadt  || '—') + '</span></td>' : '') +
         (S.colVis.region  ? '<td class="col-c-region" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.region || '') + '">' + esc(c.region || '—') + '</span></td>' : '') +
         (S.colVis.gewerk  ? '<td class="col-c-gewerk" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.gewerk || '') + '">' + esc(c.gewerk || '—') + '</span></td>' : '') +
-        '<td class="col-c-email" onclick="event.stopPropagation()" style="white-space:nowrap">' + emailCellHtml(c) + '</td>' +
-        '<td class="col-c-social" onclick="event.stopPropagation()">' + socialIconsHtml(getSocials(c)) + '</td>' +
-        '<td class="ra-cell col-c-ra" onclick="event.stopPropagation()"><div class="ra">' +
-          '<button class="btn bg bsm" onclick="openQN(\'' + c.id + '\')" title="Schnellnotiz">&#128221;</button>' +
-          '<button class="btn bg bsm" onclick="openE(\'' + c.id + '\')" title="Bearbeiten">&#9998;</button>' +
-        '</div></td>' +
+        '<td class="col-c-linkedin" onclick="event.stopPropagation()" style="text-align:center">' + linkedinCellHtml(getSocials(c)) + '</td>' +
       '</tr>';
     }).join('');
   }
@@ -608,6 +612,8 @@ export function qs(id, s) {
   const _prev = c.status;
   if (c.status !== s) c.status_changed_at = td();
   c.status = s;
+  touchContactNow(c);
+  touchLastContacted(c);
   bumpCall();
   if (!c.touches) c.touches = [];
   const TOUCH_MAP = { kein_anschluss:'Nicht erreicht', kein_anschluss_2:'Nicht erreicht (2)',
@@ -750,9 +756,11 @@ export function inlineST(sel) {
   const prev = c.status;
   c.status = sel.value;
   if (prev === c.status) return;
+  touchLastContacted(c);
   clearTablePin();
   bumpCall();
   c.status_changed_at = td();
+  touchContactNow(c);
   syncLeadTemp(c);
   markDirty(c);
   persist(); render(); pushDirty();
@@ -820,6 +828,15 @@ export function openAdd() {
   document.getElementById('eo').classList.add('on');
 }
 
+export function toggleDealField(status) {
+  const row = document.getElementById('eDealRow');
+  const deal = document.getElementById('eDeal');
+  if (!row) return;
+  const show = status === 'gewonnen';
+  row.style.display = show ? '' : 'none';
+  if (show && deal && !deal.value) deal.value = '1800';
+}
+
 export function openE(id) {
   const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
@@ -854,6 +871,9 @@ export function openE(id) {
   document.getElementById('efb').value         = soc.facebook   || '';
   document.getElementById('ewa').value         = soc.whatsapp   || '';
   document.getElementById('en').value          = c.besonderheit || c.notiz || '';
+  const dealEl = document.getElementById('eDeal');
+  if (dealEl) dealEl.value = c.deal_value_eur != null ? String(c.deal_value_eur) : '';
+  toggleDealField(c.status || 'neu');
   document.getElementById('eo').classList.add('on');
 }
 
@@ -869,6 +889,8 @@ function clrF() {
   document.getElementById('eorigin').value = 'manual';
   document.getElementById('etemp').value = 'cold';
   const ext = document.getElementById('eext'); if (ext) ext.checked = false;
+  const dealEl = document.getElementById('eDeal'); if (dealEl) dealEl.value = '';
+  toggleDealField('neu');
   fillLbSelect('elb', '');
 }
 
@@ -899,6 +921,9 @@ export function save() {
     besonderheit:document.getElementById('en').value.trim(),
     notiz:       document.getElementById('en').value.trim(),
   };
+  const dealRaw = document.getElementById('eDeal') ? document.getElementById('eDeal').value.trim() : '';
+  if (d.status === 'gewonnen' && dealRaw) d.deal_value_eur = parseFloat(dealRaw) || 1800;
+  else if (d.status !== 'gewonnen') d.deal_value_eur = null;
   if (S.eid) {
     const i = S.contacts.findIndex(function(c) { return c.id === S.eid; });
     if (i >= 0) {

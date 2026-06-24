@@ -1,6 +1,5 @@
 import { sbGet, sbUpsert, sbDelete } from './supabase.js';
 import { esc, toast } from './ui.js';
-import { initThumbnailEditor } from './thumbnail.js';
 
 export const TYPE_LABELS = {
   lfc:     'LFC',
@@ -27,57 +26,25 @@ const STATUS_CLS = {
 export const PLATFORM_ICONS = {
   youtube:   '🎬',
   instagram: '📸',
-  x:         '🐦',
+  linkedin:  '💼',
 };
 
 const PLATFORM_LABELS = {
   youtube:   'YouTube',
   instagram: 'Instagram',
-  x:         'X',
+  linkedin:  'LinkedIn',
 };
 
 const CONTENT_KEY_SB = '/rest/v1/crm_content';
 
 let _items = [];
 let _editId = null;
-let _contentView = 'pipeline';
-let _thumbnailInited = false;
 
 window.addEventListener('rais:page-change', function(e) {
   if (e.detail.page === 'content') initContentPage();
 });
 
-function initContentSubnav() {
-  const root = document.getElementById('page-content');
-  if (!root || root.dataset.subnavBound) return;
-  root.dataset.subnavBound = '1';
-  root.querySelectorAll('.content-subtab').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      switchContentView(btn.dataset.view || 'pipeline');
-    });
-  });
-}
-
-export function switchContentView(view) {
-  _contentView = view === 'thumbnail' ? 'thumbnail' : 'pipeline';
-  document.querySelectorAll('.content-subtab').forEach(function(btn) {
-    const on = btn.dataset.view === _contentView;
-    btn.classList.toggle('on', on);
-    btn.setAttribute('aria-selected', on ? 'true' : 'false');
-  });
-  const pipeline = document.getElementById('content-view-pipeline');
-  const thumbnail = document.getElementById('content-view-thumbnail');
-  if (pipeline) pipeline.hidden = _contentView !== 'pipeline';
-  if (thumbnail) thumbnail.hidden = _contentView !== 'thumbnail';
-  if (_contentView === 'thumbnail' && !_thumbnailInited) {
-    initThumbnailEditor();
-    _thumbnailInited = true;
-  }
-}
-
 export async function initContentPage() {
-  initContentSubnav();
-  switchContentView(_contentView);
   await loadContent();
 }
 
@@ -98,7 +65,8 @@ function getFilteredItems() {
   return _items.filter(function(item) {
     if (typeF && item.type !== typeF) return false;
     if (statusF && item.status !== statusF) return false;
-    if (platformF && !(item.platforms || '').split(',').map(function(p) { return p.trim(); }).includes(platformF)) return false;
+    const plat = (item.platforms || 'youtube').split(',')[0].trim();
+    if (platformF && plat !== platformF) return false;
     return true;
   });
 }
@@ -108,20 +76,18 @@ function statusBadge(status) {
   return '<span class="badge ' + (STATUS_CLS[s] || 'b-neu') + '">' + esc(STATUS_LABELS[s] || s) + '</span>';
 }
 
-function platformIcons(platforms) {
-  if (!platforms) return '—';
-  return platforms.split(',').map(function(p) {
-    const key = p.trim();
-    return '<span title="' + esc(PLATFORM_LABELS[key] || key) + '">' + (PLATFORM_ICONS[key] || '') + '</span>';
-  }).join(' ');
+function platformLabel(platforms) {
+  const key = (platforms || 'youtube').split(',')[0].trim();
+  return esc(PLATFORM_LABELS[key] || key);
 }
 
 function linkCell(item) {
-  const parts = [];
-  if (item.url_youtube)   parts.push('<a href="' + esc(item.url_youtube)   + '" target="_blank" rel="noopener" title="YouTube">'   + PLATFORM_ICONS.youtube   + '</a>');
-  if (item.url_instagram) parts.push('<a href="' + esc(item.url_instagram) + '" target="_blank" rel="noopener" title="Instagram">' + PLATFORM_ICONS.instagram + '</a>');
-  if (item.url_x)         parts.push('<a href="' + esc(item.url_x)         + '" target="_blank" rel="noopener" title="X">'         + PLATFORM_ICONS.x         + '</a>');
-  return parts.length ? parts.join(' ') : '<span style="color:#ccc">—</span>';
+  const plat = (item.platforms || 'youtube').split(',')[0].trim();
+  const url = plat === 'instagram' ? item.url_instagram
+    : plat === 'linkedin' ? item.url_linkedin
+    : item.url_youtube;
+  if (!url) return '<span style="color:#ccc">—</span>';
+  return '<a href="' + esc(url) + '" target="_blank" rel="noopener">' + (PLATFORM_ICONS[plat] || '↗') + '</a>';
 }
 
 function renderStats() {
@@ -158,7 +124,7 @@ export function renderContent() {
       '<td style="color:#B0A898;font-family:sans-serif;font-size:12px;text-align:right;padding-right:8px">' + (i + 1) + '</td>' +
       '<td class="fc">' + esc(item.title) + '</td>' +
       '<td style="font-family:sans-serif;font-size:12px">' + esc(TYPE_LABELS[item.type] || item.type) + '</td>' +
-      '<td style="font-size:16px">' + platformIcons(item.platforms) + '</td>' +
+      '<td style="font-family:sans-serif;font-size:12px">' + platformLabel(item.platforms) + '</td>' +
       '<td>' + statusBadge(item.status) + '</td>' +
       '<td style="font-family:sans-serif;font-size:12px;color:var(--st)">' + esc(item.publish_date || '—') + '</td>' +
       '<td style="font-size:16px">' + linkCell(item) + '</td>' +
@@ -174,19 +140,26 @@ export function filterContent() {
   renderContent();
 }
 
-function readPlatformsFromModal() {
-  const checked = [];
-  document.querySelectorAll('.cnt-platform:checked').forEach(function(el) {
-    checked.push(el.value);
-  });
-  return checked.length ? checked.join(',') : 'youtube';
+function readPlatformFromModal() {
+  const el = document.querySelector('input[name="cnt-platform"]:checked');
+  return el ? el.value : 'youtube';
 }
 
-function setPlatformsInModal(platforms) {
-  const set = (platforms || 'youtube').split(',').map(function(p) { return p.trim(); });
-  document.querySelectorAll('.cnt-platform').forEach(function(el) {
-    el.checked = set.includes(el.value);
+function setPlatformInModal(platform) {
+  const val = platform || 'youtube';
+  document.querySelectorAll('input[name="cnt-platform"]').forEach(function(el) {
+    el.checked = el.value === val.split(',')[0].trim();
   });
+  toggleContentUrlFields(val.split(',')[0].trim());
+}
+
+function toggleContentUrlFields(plat) {
+  const y = document.getElementById('cntUrlYoutubeRow');
+  const i = document.getElementById('cntUrlInstagramRow');
+  const l = document.getElementById('cntUrlLinkedinRow');
+  if (y) y.style.display = plat === 'youtube' ? '' : 'none';
+  if (i) i.style.display = plat === 'instagram' ? '' : 'none';
+  if (l) l.style.display = plat === 'linkedin' ? '' : 'none';
 }
 
 export function openContentAdd() {
@@ -199,9 +172,9 @@ export function openContentAdd() {
   document.getElementById('cntDatum').value = '';
   document.getElementById('cntUrlYoutube').value = '';
   document.getElementById('cntUrlInstagram').value = '';
-  document.getElementById('cntUrlX').value = '';
+  document.getElementById('cntUrlLinkedin').value = '';
   document.getElementById('cntNotiz').value = '';
-  setPlatformsInModal('youtube');
+  setPlatformInModal('youtube');
   document.getElementById('contentModal').classList.add('on');
 }
 
@@ -217,9 +190,9 @@ export function openContentEdit(id) {
   document.getElementById('cntDatum').value = item.publish_date || '';
   document.getElementById('cntUrlYoutube').value = item.url_youtube || '';
   document.getElementById('cntUrlInstagram').value = item.url_instagram || '';
-  document.getElementById('cntUrlX').value = item.url_x || '';
+  document.getElementById('cntUrlLinkedin').value = item.url_linkedin || '';
   document.getElementById('cntNotiz').value = item.notiz || '';
-  setPlatformsInModal(item.platforms);
+  setPlatformInModal(item.platforms);
   document.getElementById('contentModal').classList.add('on');
 }
 
@@ -230,16 +203,17 @@ export function closeContentModal() {
 export async function saveContent() {
   const title = document.getElementById('cntTitle').value.trim();
   if (!title) { toast('Titel fehlt.'); return; }
+  const plat = readPlatformFromModal();
   const row = {
     title:         title,
     type:          document.getElementById('cntType').value,
     status:        document.getElementById('cntStatus').value,
-    platforms:     readPlatformsFromModal(),
+    platforms:     plat,
     publish_date:  document.getElementById('cntDatum').value || null,
-    url_youtube:   document.getElementById('cntUrlYoutube').value.trim()   || null,
-    url_instagram: document.getElementById('cntUrlInstagram').value.trim() || null,
-    url_x:         document.getElementById('cntUrlX').value.trim()         || null,
-    notiz:         document.getElementById('cntNotiz').value.trim()       || null,
+    url_youtube:   plat === 'youtube'   ? (document.getElementById('cntUrlYoutube').value.trim()   || null) : null,
+    url_instagram: plat === 'instagram' ? (document.getElementById('cntUrlInstagram').value.trim() || null) : null,
+    url_linkedin:  plat === 'linkedin'  ? (document.getElementById('cntUrlLinkedin').value.trim()  || null) : null,
+    notiz:         document.getElementById('cntNotiz').value.trim() || null,
   };
   if (_editId) row.id = _editId;
   try {
@@ -269,3 +243,7 @@ export async function delContent(id) {
     toast('Fehler: ' + e.message);
   }
 }
+
+window.setContentPlatform = function(plat) {
+  toggleContentUrlFields(plat);
+};

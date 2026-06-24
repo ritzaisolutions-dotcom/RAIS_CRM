@@ -3,12 +3,11 @@ const SIDEBAR_KEY = 'rais_sidebar_collapsed';
 const PAGES = [
   { id: 'dashboard',   icon: '📊', label: 'Dashboard'   },
   { id: 'network',     icon: '🤝', label: 'Netzwerk'    },
-  { id: 'prospecting', icon: '📋', label: 'Prospecting' },
+  { id: 'prospecting', icon: '📋', label: 'Prospects'   },
   { id: 'clients',     icon: '👥', label: 'Clients'     },
   { id: 'content',     icon: '🎬', label: 'Content'     },
-  { id: 'termine',     icon: '📅', label: 'Termine'     },
   { id: 'sessions',    icon: '🏁', label: 'Sessions'    },
-  { id: 'salesrep',    icon: '🎯', label: 'Sales Rep Assistant' },
+  { id: 'projects',    icon: '📁', label: 'Projekte'    },
 ];
 
 let _currentPage = 'prospecting';

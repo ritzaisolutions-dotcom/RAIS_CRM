@@ -1,12 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
 :root {
-  --or: #EC6A37; --orh: #F07848;
-  --bg: #F4F0E8; --sf: #FDFAF5;
-  --sg: #5A7A48; --pn: #2E4A1A;
-  --ch: #201C17; --st: #6B6258; --bd: #DDD5C8;
+  --or: #EC6A37; --orh: #F37A48;
+  --bg: #F5F2EC; --sf: #FBF8F3;
+  --sg: #789464; --sg-dark: #3C5A2A; --pn: #3C5A2A;
+  --ch: #2F2A24; --st: #7B746B; --bd: #D9D1C7;
   --rd: #B83428; --yw: #9A6400; --bl: #2A5A88;
-  --radius: 6px;
+  --radius: 10px;
   --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
   --shadow-md: 0 4px 16px rgba(0,0,0,.1);
   --shadow-lg: 0 8px 40px rgba(0,0,0,.18);
@@ -545,12 +545,13 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
 #rais-sidebar {
   position: fixed; top: 0; left: 0; bottom: 0;
   width: 200px;
-  background: var(--ch);
+  background: var(--sf);
   display: flex; flex-direction: column;
   transition: width 0.2s ease;
   z-index: 200;
   overflow: hidden;
-  border-right: 1px solid rgba(255,255,255,.06);
+  border-right: 1px solid var(--bd);
+  box-shadow: var(--shadow-sm);
 }
 #rais-sidebar.collapsed { width: 52px; }
 #rais-content { margin-left: 200px; transition: margin-left 0.2s ease; }
@@ -558,24 +559,24 @@ tr.kb-focus { outline: 2px solid var(--or); outline-offset: -2px; }
 #sidebar-toggle {
   padding: 14px 16px; cursor: pointer;
   color: var(--st); font-size: 18px; user-select: none;
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  border-bottom: 1px solid var(--bd);
   flex-shrink: 0;
 }
-#sidebar-toggle:hover { color: #fff; }
+#sidebar-toggle:hover { color: var(--ch); }
 .rais-nav-item {
   display: flex; align-items: center; gap: 12px;
   padding: 11px 16px; cursor: pointer;
-  color: rgba(255,255,255,.4); white-space: nowrap;
+  color: var(--st); white-space: nowrap;
   transition: background 0.15s, color 0.15s;
   flex-shrink: 0;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: .2px;
 }
-.rais-nav-item:hover { color: rgba(255,255,255,.85); background: rgba(255,255,255,.06); }
+.rais-nav-item:hover { color: var(--ch); background: rgba(47,42,36,.04); }
 .rais-nav-item.active {
   color: var(--or);
-  background: rgba(236,106,55,.1);
+  background: rgba(236,106,55,.08);
   border-left: 2px solid var(--or);
   padding-left: 14px;
 }
@@ -1668,7 +1669,12 @@ body:not(.session-active) .aktion-queue-bar { display: none !important; }
   gap: 4px;
 }
 .dash-kpi-n { font-size: 22px; font-weight: 800; color: var(--ch); font-family: 'Syne', system-ui, sans-serif; }
+.dash-kpi-d { font-size: 11px; font-weight: 600; }
 .dash-kpi-l { font-size: 11px; color: var(--st); text-transform: uppercase; letter-spacing: .4px; }
+.dash-charts { margin-bottom: 16px; }
+.dash-todo-list { list-style: none; margin: 0; padding: 0; }
+.dash-todo-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--bd); font-size: 13px; }
+.dash-todo-item:last-child { border-bottom: none; }
 .dash-kpi-click { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
 .dash-kpi-click:hover { border-color: var(--or); box-shadow: 0 2px 8px rgba(236,106,55,.12); }
 .dash-kpi-click:active { transform: scale(0.98); }
@@ -1689,7 +1695,13 @@ body:not(.session-active) .aktion-queue-bar { display: none !important; }
 .dash-bar-track { flex: 1; height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
 .dash-bar-fill { height: 100%; background: linear-gradient(90deg, rgba(236,106,55,.55), var(--or)); border-radius: 4px; min-width: 2px; }
 .dash-bar-n { flex: 0 0 28px; text-align: right; font-weight: 700; color: var(--ch); }
-.dash-empty { font-size: 12px; color: var(--st); margin: 0; }
+.dash-kpi-d { font-size: 11px; font-weight: 600; color: var(--st); }
+.dash-kpi-click .dash-kpi-d { margin-top: 2px; }
+.dash-todo-list { list-style: none; padding: 0; margin: 0; font-size: 12px; }
+.dash-todo-item { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--bd); }
+.dash-kpis-secondary { margin-top: -8px; }
+.dash-grid-charts { margin-bottom: 14px; }
+.proj-due { font-size: 11px; color: var(--st); }
 
 /* Lead origin & temp badges */
 .origin-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; }

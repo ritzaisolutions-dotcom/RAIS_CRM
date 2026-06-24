@@ -3,6 +3,7 @@ import { toast } from './ui.js';
 import { navigateTo } from './sidebar.js';
 import { applyColPreset } from './prospecting.js';
 import { STATUS } from './state.js';
+import { weekStart } from './analytics.js';
 
 // --- STATE ---
 let activeSession = null;  // { id, startedTs, pausedAt, pausedSeconds, timerMode, targetSeconds, breakdown, leadsPlayed, aktionLeads }
@@ -470,6 +471,31 @@ export function onOutreachRecorded(contactId, contactName, statusFrom, statusTo)
 
 export function getActiveSession() { return activeSession; }
 
+/** Aggregierte Session-Stats für Dashboard (period: 'week'). */
+export async function getSessionStats(period) {
+  try {
+    const rows = await sbGet('/rest/v1/crm_sessions?is_active=eq.false&order=started_at.desc&limit=50');
+    if (!rows || !rows.length) return { count: 0, totalLeads: 0, totalMinutes: 0 };
+    const now = new Date();
+    const ws = new Date(now);
+    const day = ws.getDay() || 7;
+    ws.setDate(ws.getDate() - day + 1);
+    ws.setHours(0, 0, 0, 0);
+    let count = 0, totalLeads = 0, totalMinutes = 0;
+    rows.forEach(function(s) {
+      const start = s.started_at ? new Date(s.started_at) : null;
+      if (period === 'week' && start && start < ws) return;
+      count++;
+      totalLeads += s.leads_played || 0;
+      const dur = s.duration_seconds || 0;
+      totalMinutes += dur / 60;
+    });
+    return { count, totalLeads, totalMinutes };
+  } catch (_) {
+    return { count: 0, totalLeads: 0, totalMinutes: 0 };
+  }
+}
+
 // --- HEADER WIDGET INIT ---
 
 export function initHeaderWidget(containerEl) {
@@ -693,4 +719,23 @@ function startRename(sessionId, containerEl) {
       nameEl.innerHTML = current ? '"' + current + '"' : '<span style="color:var(--st);font-style:italic">Unbenannt</span>';
     }
   });
+}
+
+export async function getSessionStats(period) {
+  try {
+    const start = weekStart(new Date());
+    if (period === 'prev_week') {
+      start.setDate(start.getDate() - 7);
+    }
+    const rows = await sbGet('/rest/v1/crm_sessions?is_active=eq.false&started_at=gte.' + start.toISOString() + '&select=leads_played,duration_seconds');
+    let totalLeads = 0;
+    let totalMinutes = 0;
+    (rows || []).forEach(function(r) {
+      totalLeads += r.leads_played || 0;
+      totalMinutes += (r.duration_seconds || 0) / 60;
+    });
+    return { count: (rows || []).length, totalLeads: totalLeads, totalMinutes: totalMinutes };
+  } catch (e) {
+    return { count: 0, totalLeads: 0, totalMinutes: 0 };
+  }
 }

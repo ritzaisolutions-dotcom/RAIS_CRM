@@ -45,7 +45,8 @@ export function renderNetwork() {
   const list = S.network.filter(function(c) {
     if (lbF && c.lebensbereich !== lbF) return false;
     if (srch) {
-      const hay = [c.name, c.firma, c.rolle, c.gewerk, c.met_where, c.notiz, c.stadt].join(' ').toLowerCase();
+      const tags = (c.tags || []).join(' ');
+      const hay = [c.name, c.firma, c.rolle, c.gewerk, c.met_where, c.notiz, c.stadt, c.niche, tags].join(' ').toLowerCase();
       if (!hay.includes(srch)) return false;
     }
     return true;
@@ -78,10 +79,10 @@ export function renderNetwork() {
 export function openNwAdd() {
   S.nwEid = null;
   document.getElementById('nwModalTitle').textContent = 'Kontakt hinzufügen';
-  ['nwName','nwFirma','nwRolle','nwTel','nwEmail','nwGewerk','nwMetWhere','nwStadt','nwPlz','nwStr','nwNotiz'].forEach(function(id) {
+  ['nwName','nwFirma','nwRolle','nwTel','nwEmail','nwGewerk','nwMetWhere','nwStadt','nwPlz','nwStr','nwNotiz','nwNiche'].forEach(function(id) {
     const el = document.getElementById(id); if (el) el.value = '';
   });
-  ['nwLi','nwIg','nwX','nwFb','nwWa'].forEach(function(id) {
+  ['nwLi','nwIg','nwYt','nwX','nwFb','nwWa'].forEach(function(id) {
     const el = document.getElementById(id); if (el) el.value = '';
   });
   document.getElementById('nwLb').value = '';
@@ -107,9 +108,11 @@ export function openNwEdit(id) {
   document.getElementById('nwPlz').value = c.plz || '';
   document.getElementById('nwStr').value = c.strasse || '';
   document.getElementById('nwNotiz').value = c.notiz || '';
+  document.getElementById('nwNiche').value = c.niche || '';
   const s = getSocials(c);
   document.getElementById('nwLi').value = s.linkedin || '';
   document.getElementById('nwIg').value = s.instagram || '';
+  document.getElementById('nwYt').value = s.youtube || '';
   document.getElementById('nwX').value = s.x || '';
   document.getElementById('nwFb').value = s.facebook || '';
   document.getElementById('nwWa').value = s.whatsapp || '';
@@ -136,9 +139,11 @@ export async function saveNw() {
     plz: document.getElementById('nwPlz').value.trim() || null,
     strasse: document.getElementById('nwStr').value.trim() || null,
     notiz: document.getElementById('nwNotiz').value.trim() || null,
+    niche: document.getElementById('nwNiche').value.trim() || null,
     socials: {
       linkedin: document.getElementById('nwLi').value.trim() || null,
       instagram: document.getElementById('nwIg').value.trim() || null,
+      youtube: document.getElementById('nwYt').value.trim() || null,
       x: document.getElementById('nwX').value.trim() || null,
       facebook: document.getElementById('nwFb').value.trim() || null,
       whatsapp: document.getElementById('nwWa').value.trim() || null,
@@ -187,7 +192,8 @@ export function openNwPanel(id) {
     ir('PLZ / Stadt', esc([c.plz, c.stadt].filter(Boolean).join(' ') || '—')) +
     ir('Lebensbereich', esc(c.lebensbereich || '—')) +
     ir('Gewerk', esc(c.gewerk || '—')) +
-    (c.notiz ? '<div class="sh">Notiz</div><p style="font-size:13px;color:var(--st);white-space:pre-wrap">' + esc(c.notiz) + '</p>' : '');
+    ir('Nische', esc(c.niche || '—')) +
+    (c.notiz ? '<div class="sh">Notiz</div><p style="font-size:13px;color:var(--st);white-space:pre-wrap;min-height:80px">' + esc(c.notiz) + '</p>' : '');
   document.getElementById('nwPFoot').innerHTML =
     '<button class="btn bp bsm" onclick="openNwEdit(\'' + id + '\');closeNwPanel()">✎ Bearbeiten</button>' +
     '<button class="btn bs bsm" onclick="delNw(\'' + id + '\');closeNwPanel()" style="color:var(--rd)">🗑 Löschen</button>';
@@ -195,3 +201,41 @@ export function openNwPanel(id) {
 }
 
 export function closeNwPanel() { document.getElementById('nwPo').classList.remove('on'); }
+
+export function openNwBulkPaste() {
+  const el = document.getElementById('nwBulkText');
+  if (el) el.value = '';
+  document.getElementById('nwBulkModal').classList.add('on');
+}
+
+export function closeNwBulkPaste() {
+  document.getElementById('nwBulkModal').classList.remove('on');
+}
+
+export async function saveNwBulkPaste() {
+  const raw = (document.getElementById('nwBulkText') || { value: '' }).value.trim();
+  if (!raw) { toast('Kein Text eingefügt.'); return; }
+  const lines = raw.split(/\r?\n/).filter(function(l) { return l.trim(); });
+  const now = new Date().toISOString();
+  const rows = lines.map(function(line) {
+    const parts = line.split(/[\t,;]/).map(function(p) { return p.trim(); });
+    const name = parts[0] || 'Unbekannt';
+    return {
+      name: name,
+      firma: parts[1] || null,
+      email: parts[2] || null,
+      telefon: parts[3] || null,
+      socials: { linkedin: parts[4] || null },
+      notiz: parts.slice(5).join(' ') || null,
+      synced_at: now,
+    };
+  });
+  try {
+    await sbUpsert(NW_KEY_SB, rows);
+    await loadNetwork();
+    closeNwBulkPaste();
+    toast(rows.length + ' Kontakte importiert.');
+  } catch (e) {
+    toast('Import fehlgeschlagen: ' + e.message);
+  }
+}

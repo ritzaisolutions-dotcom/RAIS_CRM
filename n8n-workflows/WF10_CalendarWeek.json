@@ -1,0 +1,121 @@
+{
+  "name": "WF10 — Calendar Week List (ritzaisolutions@gmail.com)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wf10-calendar-week",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-480, 300],
+      "id": "wh-wf10",
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\nconst body = item.body || item;\n\nlet weekStart = body.week_start;\nif (!weekStart) {\n  const now = new Date();\n  const day = now.getDay() || 7;\n  const mon = new Date(now);\n  mon.setDate(now.getDate() - day + 1);\n  mon.setHours(0, 0, 0, 0);\n  weekStart = mon.toISOString().slice(0, 10);\n}\n\nconst start = new Date(weekStart + 'T00:00:00');\nif (isNaN(start.getTime())) {\n  return [{ json: { mode: 'error', message: 'Ungültiges week_start' } }];\n}\nconst end = new Date(start);\nend.setDate(end.getDate() + 7);\n\nreturn [{\n  json: {\n    mode: 'list',\n    timeMin: start.toISOString(),\n    timeMax: end.toISOString()\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-240, 300],
+      "id": "build-wf10",
+      "name": "Build Week Range"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "list",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [0, 300],
+      "id": "if-list-wf10",
+      "name": "Is List?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list",
+          "cachedResultName": "primary"
+        },
+        "returnAll": true,
+        "options": {
+          "timeMin": "={{ $json.timeMin }}",
+          "timeMax": "={{ $json.timeMax }}",
+          "singleEvents": true,
+          "orderBy": "startTime"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.2,
+      "position": [240, 200],
+      "id": "gcal-list-wf10",
+      "name": "Google Calendar List",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "REPLACE_ME",
+          "name": "Google Calendar — ritzaisolutions@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst events = items.map(function(item) {\n  const e = item.json;\n  return {\n    id: e.id || '',\n    summary: e.summary || '',\n    start: e.start?.dateTime || e.start?.date || '',\n    end: e.end?.dateTime || e.end?.date || '',\n    htmlLink: e.htmlLink || ''\n  };\n});\nreturn [{ json: { ok: true, events } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 200],
+      "id": "format-wf10",
+      "name": "Format Events"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [720, 200],
+      "id": "respond-wf10",
+      "name": "Respond"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, message: $json.message || 'Fehler' } }}",
+        "options": { "responseCode": 400 }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [240, 420],
+      "id": "respond-err-wf10",
+      "name": "Respond Error"
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Build Week Range", "type": "main", "index": 0 }]] },
+    "Build Week Range": { "main": [[{ "node": "Is List?", "type": "main", "index": 0 }]] },
+    "Is List?": {
+      "main": [
+        [{ "node": "Google Calendar List", "type": "main", "index": 0 }],
+        [{ "node": "Respond Error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Google Calendar List": { "main": [[{ "node": "Format Events", "type": "main", "index": 0 }]] },
+    "Format Events": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  }
+}

@@ -8,7 +8,7 @@ export const S = {
   dueMode:       false,
   eid:           null,
   sortStack:     [],
-  colVis:        { stadt: false, region: false, gewerk: false, origin: true, temp: false, lebensbereich: false },
+  colVis:        { stadt: true, region: true, gewerk: false, origin: false, temp: false, lebensbereich: false },
   network:       [],
   lebensbereiche: [],
   autoSyncTimer: null,
@@ -28,12 +28,19 @@ export const S = {
   clClients:     [],
   clEid:         null,
   nwEid:         null,
+  projects:      [],
+  todos:         [],
+  prjEid:        null,
+  todoEid:       null,
   contactsRev:   0,
 };
+
 export const PG     = 30;
 export const CC_KEY = 'rais_crm_calls';
 export const CL_KEY_SB   = '/rest/v1/crm_clients';
 export const NW_KEY_SB   = '/rest/v1/crm_network';
+export const PRJ_KEY_SB  = '/rest/v1/crm_projects';
+export const TODO_KEY_SB = '/rest/v1/crm_todos';
 export const LB_KEY_SB   = '/rest/v1/crm_lebensbereiche';
 
 export const LEAD_ORIGIN = {
