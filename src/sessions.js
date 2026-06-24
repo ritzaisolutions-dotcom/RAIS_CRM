@@ -471,31 +471,6 @@ export function onOutreachRecorded(contactId, contactName, statusFrom, statusTo)
 
 export function getActiveSession() { return activeSession; }
 
-/** Aggregierte Session-Stats für Dashboard (period: 'week'). */
-export async function getSessionStats(period) {
-  try {
-    const rows = await sbGet('/rest/v1/crm_sessions?is_active=eq.false&order=started_at.desc&limit=50');
-    if (!rows || !rows.length) return { count: 0, totalLeads: 0, totalMinutes: 0 };
-    const now = new Date();
-    const ws = new Date(now);
-    const day = ws.getDay() || 7;
-    ws.setDate(ws.getDate() - day + 1);
-    ws.setHours(0, 0, 0, 0);
-    let count = 0, totalLeads = 0, totalMinutes = 0;
-    rows.forEach(function(s) {
-      const start = s.started_at ? new Date(s.started_at) : null;
-      if (period === 'week' && start && start < ws) return;
-      count++;
-      totalLeads += s.leads_played || 0;
-      const dur = s.duration_seconds || 0;
-      totalMinutes += dur / 60;
-    });
-    return { count, totalLeads, totalMinutes };
-  } catch (_) {
-    return { count: 0, totalLeads: 0, totalMinutes: 0 };
-  }
-}
-
 // --- HEADER WIDGET INIT ---
 
 export function initHeaderWidget(containerEl) {

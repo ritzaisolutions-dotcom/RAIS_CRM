@@ -35,13 +35,6 @@ function linkedinCellHtml(socials) {
   return '<a class="soc-icon" href="' + esc(href) + '" target="_blank" rel="noopener" title="LinkedIn" onclick="event.stopPropagation()">in</a>';
 }
 
-function linkedinCellHtml(socials) {
-  const li = socials && socials.linkedin;
-  if (!li) return '<span style="color:#ccc">—</span>';
-  const href = /^https?:\/\//i.test(li) ? li : 'https://' + li;
-  return '<a class="wlink" href="' + esc(href) + '" target="_blank" rel="noopener" title="LinkedIn" style="font-weight:700">in</a>';
-}
-
 function touchContactNow(c) {
   if (!c) return;
   c.last_contacted_at = new Date().toISOString();
