@@ -1073,7 +1073,7 @@ import { openCalPop, closeCalPop, calCreate, maybeOfferCalendar } from './src/ca
 import { initContextMenu, ctxAction, showCtxMenuAtEvent } from './src/contextmenu.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
 import './src/dashboard.js';
-import { dashGoProspecting, dashGoClients, dashGoProjects } from './src/dashboard.js';
+import { initDashboard, dashGoProspecting, dashGoClients, dashGoProjects } from './src/dashboard.js';
 import { renderNetwork, openNwAdd, openNwEdit, closeNwModal, saveNw, delNw, openNwPanel, closeNwPanel, openNwBulkPaste, closeNwBulkPaste, saveNwBulkPaste } from './src/network.js';
 import { initContentPage, renderContent, openContentAdd, openContentEdit, closeContentModal, saveContent, delContent, filterContent } from './src/content.js';
 import { showDemoTodoPopup, saveDemoTodos, closeDemoTodoPop, openQuickTodo, saveQuickTodo, closeQuickTodo } from './src/todopop.js';
@@ -1111,6 +1111,7 @@ window.loadCrmData = function() {
   load();
   render();
   renderCalls();
+  initDashboard();
 };
 window.initRealtimeAuth = initRealtime;
 
@@ -1120,6 +1121,7 @@ if (isAuthenticated()) {
   renderCalls();
   syncCloud(true);
   initRealtime();
+  initDashboard();
 } else {
   S.contacts = [];
   render();
