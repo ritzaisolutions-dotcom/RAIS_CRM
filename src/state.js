@@ -8,7 +8,9 @@ export const S = {
   dueMode:       false,
   eid:           null,
   sortStack:     [],
-  colVis:        { stadt: false, region: false, gewerk: false },
+  colVis:        { stadt: false, region: false, gewerk: false, origin: true, temp: false, lebensbereich: false },
+  network:       [],
+  lebensbereiche: [],
   autoSyncTimer: null,
   syncInProgress: false,
   qnId:          null,
@@ -25,10 +27,30 @@ export const S = {
   salesrepReport:    null,
   clClients:     [],
   clEid:         null,
+  nwEid:         null,
+  contactsRev:   0,
 };
 export const PG     = 30;
 export const CC_KEY = 'rais_crm_calls';
 export const CL_KEY_SB   = '/rest/v1/crm_clients';
+export const NW_KEY_SB   = '/rest/v1/crm_network';
+export const LB_KEY_SB   = '/rest/v1/crm_lebensbereiche';
+
+export const LEAD_ORIGIN = {
+  scraped:   { label: 'Gescrapt', cls: 'origin-scraped' },
+  manual:    { label: 'Manuell', cls: 'origin-manual' },
+  in_person: { label: 'Persönlich', cls: 'origin-person' },
+  external:  { label: 'Extern', cls: 'origin-external' },
+  referral:  { label: 'Empfehlung', cls: 'origin-referral' },
+  import:    { label: 'Import', cls: 'origin-import' },
+};
+
+export const LEAD_TEMP = { cold: 'Kalt', warm: 'Warm', hot: 'Heiß' };
+
+export const LEBENSBEREICHE = [
+  'Handwerk', 'Immobilien', 'Finanzen & Versicherung', 'Tech & Software',
+  'Gesundheit', 'Gastronomie', 'Einzelhandel', 'Dienstleistung', 'Sonstiges',
+];
 export const MEDIUM_ICONS = { whatsapp:'📱', telegram:'✈️', email:'✉️', telefon:'📞', sonstiges:'💬' };
 
 export const TSTAT = ['','Nicht kontaktiert','Nicht erreicht','Mailbox','Rückruf erbeten','Gatekeeper','Interessiert','Termin vereinbart','Angebot gesendet','Kein Interesse'];

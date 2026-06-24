@@ -50,6 +50,52 @@ export function getCustomGewerke() {
   try { return JSON.parse(localStorage.getItem(CUSTOM_GEWERKE_KEY) || '[]'); }
   catch (e) { return []; }
 }
+export function isColdLead(c) {
+  if (!c || c.status !== 'neu') return false;
+  const t = c.touches || [];
+  return !t.some(function(x) { return x.status || x.notiz || x.datum; });
+}
+
+/** Abgeleitete Temperatur — gleiche Logik wie SQL-Backfill + isColdLead. */
+export function deriveLeadTemp(c) {
+  if (!c) return 'cold';
+  if (c.status === 'gewonnen') return 'hot';
+  if (isColdLead(c)) return 'cold';
+  const closed = ['disqualified', 'archiviert', 'ghost', 'nicht_passend'];
+  if (closed.indexOf(c.status) >= 0) return c.lead_temp || 'cold';
+  return 'warm';
+}
+
+export function syncLeadTemp(c) {
+  if (!c) return;
+  c.lead_temp = deriveLeadTemp(c);
+}
+
+export function normalizeLeadOrigin(v) {
+  const k = (v || '').trim().toLowerCase();
+  const map = {
+    scraped: 'scraped', gescrapt: 'scraped',
+    manual: 'manual', manuell: 'manual',
+    in_person: 'in_person', persoenlich: 'in_person', persönlich: 'in_person',
+    external: 'external', extern: 'external',
+    referral: 'referral', empfehlung: 'referral',
+    import: 'import',
+  };
+  return map[k] || (k || 'manual');
+}
+
+export function getSocials(c) {
+  const s = (c && c.socials) ? Object.assign({}, c.socials) : {};
+  if (c && c.extra) {
+    if (!s.facebook && c.extra.facebook) s.facebook = c.extra.facebook;
+    if (!s.instagram && c.extra.instagram) s.instagram = c.extra.instagram;
+    if (!s.linkedin && c.extra.linkedin) s.linkedin = c.extra.linkedin;
+  }
+  if (c && c.facebook && !s.facebook) s.facebook = c.facebook;
+  if (c && c.instagram && !s.instagram) s.instagram = c.instagram;
+  return s;
+}
+
 export function addCustomGewerk(name) {
   const trimmed = (name || '').trim();
   if (!trimmed) return '';

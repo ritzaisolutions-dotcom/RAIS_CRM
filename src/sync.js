@@ -1,7 +1,7 @@
-import { S, KEY, CC_KEY } from './state.js';
+import { S, KEY, CC_KEY, LB_KEY_SB } from './state.js';
 import { sbGet, sbUpsert, isAuthenticated } from './supabase.js';
 import { toast } from './ui.js';
-import { getCustomGewerke, addCustomGewerk, CUSTOM_GEWERKE_KEY } from './utils.js';
+import { getCustomGewerke, addCustomGewerk, getSocials } from './utils.js';
 
 export function clearLocalCrmData() {
   localStorage.removeItem(KEY);
@@ -14,7 +14,14 @@ export function isDirtyContact(c) { return !!(c && !c.synced_at); }
 export function isAktionNoetig(c) {
   return !!(c && c.extra && c.extra.aktion_noetig);
 }
-export function markDirty(c) { if (c) c.synced_at = null; }
+export function bumpContactsRev() { S.contactsRev++; }
+
+export function markDirty(c) {
+  if (c) {
+    c.synced_at = null;
+    bumpContactsRev();
+  }
+}
 export function persist() { localStorage.setItem(KEY, JSON.stringify(S.contacts)); }
 
 const EXTRA_KEYS = [
@@ -32,6 +39,7 @@ function buildExtra(c) {
 }
 
 function contactToRow(c, now) {
+  const socials = getSocials(c);
   const row = {
     id: c.id, created: c.created, firma: c.firma || '',
     kontakt: c.kontakt || null, title: c.title || null,
@@ -42,6 +50,14 @@ function contactToRow(c, now) {
     website: c.website || null, gewerk: c.gewerk || null,
     touches: c.touches || [],
     status_changed_at: c.status_changed_at || null,
+    source: c.source || null,
+    lead_origin: c.lead_origin || null,
+    lead_temp: c.lead_temp || null,
+    is_external: !!c.is_external,
+    lebensbereich: c.lebensbereich || null,
+    socials: socials,
+    plz: c.plz || null,
+    strasse: c.strasse || null,
     synced_at: now,
   };
   const extra = buildExtra(c);
@@ -67,6 +83,9 @@ export function load() {
   }
   S.contacts.forEach(function(c) {
     if (!c.touches) c.touches = [{status: c.t1_status||'', datum: c.t1_datum||'', notiz: c.t1_einwand||''}];
+    if (!c.socials) c.socials = getSocials(c);
+    if (!c.lead_origin) c.lead_origin = 'manual';
+    if (!c.lead_temp) c.lead_temp = 'cold';
   });
   try {
     const cv = JSON.parse(localStorage.getItem('rais_crm_colvis'));
@@ -75,7 +94,7 @@ export function load() {
       delete S.colVis.website;
     }
   } catch(e) {}
-  ['stadt','region','gewerk'].forEach(function(k) {
+  ['stadt','region','gewerk','origin','temp','lebensbereich'].forEach(function(k) {
     const cb = document.getElementById('cv-' + k);
     if (cb) cb.checked = !!S.colVis[k];
   });
@@ -100,7 +119,8 @@ export async function syncCloud(silent) {
     remote.forEach(function(r) { remoteById[r.id] = r; });
 
     const LOCAL_WINS = ['status','followup','roi','notiz','kontakt','title','telefon',
-      'email','touches','status_changed_at','firma','website','gewerk','stadt','region'];
+      'email','touches','status_changed_at','firma','website','gewerk','stadt','region',
+      'source','lead_origin','lead_temp','is_external','lebensbereich','socials','plz','strasse'];
 
     const dirtyLocalById = {};
     S.contacts.filter(isDirtyContact).forEach(function(c) { dirtyLocalById[c.id] = c; });
@@ -119,7 +139,9 @@ export async function syncCloud(silent) {
         c.webseite_vorhanden = c.extra.webseite_vorhanden || null;
         c.hat_kalkulator     = c.extra.hat_kalkulator     || null;
         c.facebook           = c.extra.facebook           || null;
+        c.instagram          = c.extra.instagram          || null;
       }
+      if (!c.socials) c.socials = getSocials(c);
       if (local) {
         LOCAL_WINS.forEach(function(f) { if (local[f] != null) c[f] = local[f]; });
         if (local.extra && typeof local.extra === 'object') {
@@ -132,6 +154,7 @@ export async function syncCloud(silent) {
     });
 
     S.contacts = newContacts.concat(unsyncedLocal);
+    bumpContactsRev();
 
     const uploadIds = new Set(
       Object.keys(dirtyLocalById).concat(unsyncedLocal.map(function(c) { return c.id; }))
@@ -148,6 +171,7 @@ export async function syncCloud(silent) {
 
     persist();
     await syncGewerkeCloud();
+    await syncLebensbereicheCloud();
     render();
     toast('☁ Sync erfolgreich — ' + S.contacts.length + ' Kontakte.');
   } catch(e) {
@@ -197,9 +221,22 @@ export async function syncGewerkeCloud() {
 }
 
 /** Upsert a single Gewerk name to crm_gewerke. Fire-and-forget. */
-export async function pushGewerkCloud(name) {
+export async function pushGewerkCloud(name, lebensbereich) {
   if (!isAuthenticated() || !name) return;
   try {
-    await sbUpsert('/rest/v1/crm_gewerke', { name: name });
+    const row = { name: name };
+    if (lebensbereich) row.lebensbereich = lebensbereich;
+    await sbUpsert('/rest/v1/crm_gewerke', row);
+  } catch (e) {}
+}
+
+/** Fetch crm_lebensbereiche into S.lebensbereiche. */
+export async function syncLebensbereicheCloud() {
+  if (!isAuthenticated()) return;
+  try {
+    const rows = await sbGet(LB_KEY_SB + '?select=name&order=sort_order.asc');
+    if (rows && rows.length) {
+      S.lebensbereiche = rows.map(function(r) { return r.name; });
+    }
   } catch (e) {}
 }

@@ -1,4 +1,4 @@
-import { STATUS } from './state.js';
+import { STATUS, LEAD_ORIGIN, LEAD_TEMP } from './state.js';
 import { td } from './utils.js';
 
 export function sbadge(s) {
@@ -45,4 +45,42 @@ export function toast(m) {
   el.classList.add('on');
   clearTimeout(el._t);
   el._t = setTimeout(function() { el.classList.remove('on'); }, 2600);
+}
+
+export function originBadge(origin) {
+  const o = LEAD_ORIGIN[origin] || LEAD_ORIGIN.manual;
+  return '<span class="badge origin-badge ' + o.cls + '">' + o.label + '</span>';
+}
+
+export function tempBadge(temp) {
+  const label = LEAD_TEMP[temp] || temp || '—';
+  const cls = temp === 'hot' ? 'temp-hot' : temp === 'warm' ? 'temp-warm' : 'temp-cold';
+  return '<span class="badge temp-badge ' + cls + '">' + label + '</span>';
+}
+
+function socialHref(key, url) {
+  const u = (url || '').trim();
+  if (!u) return '';
+  if (/^https?:\/\//i.test(u) || u.startsWith('mailto:') || u.startsWith('tel:')) return u;
+  if (key === 'whatsapp') return 'https://wa.me/' + u.replace(/\D/g, '');
+  return 'https://' + u.replace(/^\/\//, '');
+}
+
+const SOCIAL_META = {
+  linkedin: { icon: 'in', title: 'LinkedIn' },
+  instagram: { icon: 'ig', title: 'Instagram' },
+  x: { icon: '𝕏', title: 'X' },
+  facebook: { icon: 'fb', title: 'Facebook' },
+  whatsapp: { icon: 'wa', title: 'WhatsApp' },
+};
+
+export function socialIconsHtml(socials, large) {
+  socials = socials || {};
+  const keys = ['linkedin', 'instagram', 'x', 'facebook', 'whatsapp'];
+  const parts = keys.filter(function(k) { return socials[k]; }).map(function(k) {
+    const m = SOCIAL_META[k];
+    const href = socialHref(k, socials[k]);
+    return '<a class="soc-icon' + (large ? ' soc-lg' : '') + '" href="' + esc(href) + '" target="_blank" rel="noopener" title="' + m.title + '" onclick="event.stopPropagation()">' + m.icon + '</a>';
+  });
+  return parts.length ? '<span class="soc-row">' + parts.join('') + '</span>' : '';
 }

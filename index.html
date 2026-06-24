@@ -80,6 +80,7 @@
     <button class="btn bs" id="purgeBtn" onclick="openPurgeDq()" title="Disqualified Leads bereinigen" style="color:#A00000;border-color:#F5CCBB">&#128465; DQ</button>
     <button class="btn bs" id="purgeVersBtn" onclick="openPurgeVersicherung()" title="Versicherungsmakler-Leads löschen" style="color:#A00000;border-color:#F5CCBB">&#128465; VM</button>
     <button class="btn bp" onclick="openAdd()">+ Kontakt</button>
+    <button class="btn bs" onclick="openQuickAdd()" title="Schnell erfassen">⚡ Lead</button>
     <button class="btn bs" onclick="doLogout()" title="Abmelden und lokale Daten löschen">Abmelden</button>
     <button class="btn bg" id="mobileMenuBtn" onclick="toggleMobileMenu()" style="font-size:20px;padding:4px 12px;min-height:44px" aria-label="Mehr Aktionen">&#8943;</button>
   </div>
@@ -94,6 +95,42 @@
 
 
 <!-- ── Page 2: Prospecting CRM ───────────────────────────────────────────── -->
+<div class="rais-page active" id="page-dashboard">
+<main>
+  <div class="dash-header"><h2 style="margin:0;font-size:18px;color:var(--ch)">Übersicht</h2></div>
+  <div id="dashboard-root"></div>
+</main>
+</div>
+
+<div class="rais-page" id="page-network">
+<main>
+  <div class="tb">
+    <input class="srch" id="nwSrch" type="text" placeholder="Name, Firma, Ort …" oninput="renderNetwork()">
+    <select class="fs" id="nwLbF" onchange="renderNetwork()"></select>
+    <button class="btn bp" onclick="openNwAdd()">+ Kontakt</button>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr style="background:var(--ch)">
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;width:36px">#</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Name</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Firma</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Lebensbereich</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Social</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Kennengelernt</th>
+        <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;width:64px"></th>
+      </tr></thead>
+      <tbody id="nwTbody"></tbody>
+    </table>
+    <div id="nwEmpty" class="empty" style="display:none">
+      <div style="font-size:32px;margin-bottom:10px">🤝</div>
+      <h3>Keine Netzwerk-Kontakte</h3>
+      <p>+ Kontakt klicken beim Networking.</p>
+    </div>
+  </div>
+</main>
+</div>
+
 <div class="rais-page" id="page-prospecting">
 <main>
   <div id="banner" class="banner">
@@ -114,6 +151,7 @@
     <div class="stat on" id="s-all"   onclick="setF('all')">          <span class="sn" id="c-all">0</span>  <span class="sl">Gesamt</span></div>
     <div class="stat" id="s-heute"    onclick="setF('heute')">        <span class="sn" id="c-heute">0</span><span class="sl">&#128197; Heute</span></div>
     <div class="stat" id="s-aktion" onclick="setF('aktion')">      <span class="sn" id="c-aktion">0</span><span class="sl">&#9889; Aktion</span></div>
+    <div class="stat" id="s-kalt"   onclick="setF('kalt')">        <span class="sn" id="c-kalt">0</span>  <span class="sl">Kalt</span></div>
     <div class="stat-group stat-group-neutral">
       <div class="stat" id="s-neu"    onclick="setF('neu')">          <span class="sn" id="c-neu">0</span>  <span class="sl">Neu</span></div>
       <div class="stat" id="s-ka"     onclick="setF('kein_anschluss')"><span class="sn" id="c-ka">0</span>  <span class="sl">Kein Anschluss</span></div>
@@ -137,18 +175,18 @@
   </div>
 
   <div class="tb">
-    <input class="srch" id="srch" type="text" placeholder="Firma, Name, Notiz …" oninput="render()">
-    <select class="fs" id="roiF" onchange="render()">
+    <input class="srch" id="srch" type="text" placeholder="Firma, Name, Notiz …" oninput="scheduleRender()">
+    <select class="fs" id="roiF" onchange="scheduleRender()">
       <option value="">ROI: Alle</option>
       <option value="0">ROI: Offen</option>
       <option value="3">ROI 3 — Hoch</option>
       <option value="2">ROI 2 — Mittel</option>
       <option value="1">ROI 1 — Niedrig</option>
     </select>
-    <select class="fs" id="regionF" onchange="render()">
+    <select class="fs" id="regionF" onchange="scheduleRender()">
       <option value="">Region: Alle</option>
     </select>
-    <select class="fs" id="gewerkF" onchange="render()">
+    <select class="fs" id="gewerkF" onchange="scheduleRender()">
       <option value="">Gewerk: Alle</option>
       <option value="Fliesenleger">Fliesenleger</option>
       <option value="Elektriker">Elektriker</option>
@@ -164,7 +202,7 @@
       <option value="Reinigung">Reinigung</option>
       <option value="Sonstiges">Sonstiges</option>
     </select>
-    <select class="fs" id="sortS" onchange="render()">
+    <select class="fs" id="sortS" onchange="scheduleRender()">
       <option value="rev">Reviews &#8595;</option>
       <option value="fu">Follow-up &#8593;</option>
       <option value="roi">ROI &#8595;</option>
@@ -175,6 +213,9 @@
     <div class="coltog">
       <button class="btn bs" onclick="toggleColMenu(event)">&#9881; Spalten</button>
       <div class="ctdrop" id="ctdrop">
+        <label class="ctrow"><input type="checkbox" id="cv-origin" onchange="toggleCol('origin')"> Herkunft</label>
+        <label class="ctrow"><input type="checkbox" id="cv-temp" onchange="toggleCol('temp')"> Temp</label>
+        <label class="ctrow"><input type="checkbox" id="cv-lebensbereich" onchange="toggleCol('lebensbereich')"> Lebensbereich</label>
         <label class="ctrow"><input type="checkbox" id="cv-stadt" onchange="toggleCol('stadt')"> Stadt</label>
         <label class="ctrow"><input type="checkbox" id="cv-region" onchange="toggleCol('region')"> Region</label>
         <label class="ctrow"><input type="checkbox" id="cv-gewerk" onchange="toggleCol('gewerk')"> Gewerk</label>
@@ -510,6 +551,7 @@
         <div><label>Reviews</label><input type="text" id="erev"></div>
       </div>
       <div class="fr2"><div><label>Stadt</label><input type="text" id="estad"></div><div><label>Region</label><input type="text" id="ereg"></div></div>
+      <div class="fr2"><div><label>PLZ</label><input type="text" id="eplz"></div><div><label>Straße</label><input type="text" id="estr"></div></div>
       <div class="fr2"><div><label>Gewerk</label>
         <div style="display:flex;gap:6px;align-items:center">
           <select class="fs2" id="egew" style="flex:1;min-width:0">
@@ -538,6 +580,30 @@
           </div>
         </div>
       </div><div></div></div>
+      <div class="sh" style="margin:14px 0 8px;font-size:11px;font-weight:700;color:var(--st);text-transform:uppercase;letter-spacing:.5px">Herkunft &amp; Taxonomie</div>
+      <div class="fr2">
+        <div><label>Herkunft</label><select class="fs2" id="eorigin">
+          <option value="manual">Manuell</option>
+          <option value="scraped">Gescrapt</option>
+          <option value="in_person">Persönlich</option>
+          <option value="external">Extern</option>
+          <option value="referral">Empfehlung</option>
+          <option value="import">Import</option>
+        </select></div>
+        <div><label>Temperatur</label><select class="fs2" id="etemp">
+          <option value="cold">Kalt</option>
+          <option value="warm">Warm</option>
+          <option value="hot">Heiß</option>
+        </select></div>
+      </div>
+      <div class="fr2">
+        <div><label>Lebensbereich</label><select class="fs2" id="elb"></select></div>
+        <div style="display:flex;align-items:flex-end;padding-bottom:8px"><label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="checkbox" id="eext"> Externer Lead</label></div>
+      </div>
+      <div class="sh" style="margin:14px 0 8px;font-size:11px;font-weight:700;color:var(--st);text-transform:uppercase;letter-spacing:.5px">Social</div>
+      <div class="fr2"><div><label>LinkedIn</label><input type="text" id="eli" placeholder="URL"></div><div><label>Instagram</label><input type="text" id="eig" placeholder="URL"></div></div>
+      <div class="fr2"><div><label>X / Twitter</label><input type="text" id="ex" placeholder="URL"></div><div><label>Facebook</label><input type="text" id="efb" placeholder="URL"></div></div>
+      <div class="fr2"><div><label>WhatsApp</label><input type="text" id="ewa" placeholder="Nummer oder Link"></div><div></div></div>
       <div class="fr"><label>Interne Notiz</label><textarea id="en"></textarea></div>
     </div>
     <div class="mf">
@@ -545,6 +611,55 @@
       <button class="btn bs" onclick="closeE()">Abbrechen</button>
       <button class="btn bp" onclick="save()">Speichern</button>
     </div>
+  </div>
+</div>
+
+<!-- Quick-Add Lead -->
+<div class="ovl" id="quickAddModal">
+  <div class="modal" style="max-width:480px">
+    <div class="mh"><h2>⚡ Lead schnell erfassen</h2><button class="btn bg" onclick="closeQuickAdd()">&#10005;</button></div>
+    <div class="mb">
+      <div class="fr"><label>Firma *</label><input type="text" id="qaFirma"></div>
+      <div class="fr2"><div><label>Telefon</label><input type="tel" id="qaTel"></div><div><label>Gewerk</label><input type="text" id="qaGew" list="qaGewList"></div></div>
+      <datalist id="qaGewList"></datalist>
+      <div class="fr2"><div><label>Lebensbereich</label><select class="fs2" id="qaLb"></select></div><div><label>Herkunft</label><select class="fs2" id="qaOrigin"><option value="manual">Manuell</option><option value="in_person">Persönlich</option><option value="external">Extern</option><option value="referral">Empfehlung</option></select></div></div>
+      <div class="fr2"><div><label>LinkedIn</label><input type="text" id="qaLi"></div><div><label>Instagram</label><input type="text" id="qaIg"></div></div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeQuickAdd()">Abbrechen</button><button class="btn bp" onclick="saveQuickAdd()">Speichern</button></div>
+  </div>
+</div>
+
+<!-- Network modal -->
+<div class="ovl" id="networkModal">
+  <div class="modal">
+    <div class="mh"><h2 id="nwModalTitle">Kontakt hinzufügen</h2><button class="btn bg" onclick="closeNwModal()">&#10005;</button></div>
+    <div class="mb">
+      <div class="fr2"><div><label>Name *</label><input type="text" id="nwName"></div><div><label>Firma</label><input type="text" id="nwFirma"></div></div>
+      <div class="fr2"><div><label>Rolle</label><input type="text" id="nwRolle"></div><div><label>Lebensbereich</label><select class="fs2" id="nwLb"></select></div></div>
+      <div class="fr2"><div><label>Telefon</label><input type="tel" id="nwTel"></div><div><label>E-Mail</label><input type="email" id="nwEmail"></div></div>
+      <div class="fr2"><div><label>Gewerk</label><input type="text" id="nwGewerk"></div><div><label>Kennengelernt am</label><input type="date" id="nwMetAt"></div></div>
+      <div class="fr"><label>Wo / Event</label><input type="text" id="nwMetWhere" placeholder="z. B. Networking-Event Köln"></div>
+      <div class="fr2"><div><label>Straße</label><input type="text" id="nwStr"></div><div><label>PLZ</label><input type="text" id="nwPlz"></div></div>
+      <div class="fr"><label>Stadt</label><input type="text" id="nwStadt"></div>
+      <div class="sh" style="margin:12px 0 6px;font-size:11px;font-weight:700;color:var(--st)">SOCIAL</div>
+      <div class="fr2"><div><label>LinkedIn</label><input type="text" id="nwLi"></div><div><label>Instagram</label><input type="text" id="nwIg"></div></div>
+      <div class="fr2"><div><label>X</label><input type="text" id="nwX"></div><div><label>Facebook</label><input type="text" id="nwFb"></div></div>
+      <div class="fr"><label>WhatsApp</label><input type="text" id="nwWa"></div>
+      <div class="fr"><label>Notiz</label><textarea id="nwNotiz" style="min-height:60px"></textarea></div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeNwModal()">Abbrechen</button><button class="btn bp" onclick="saveNw()">Speichern</button></div>
+  </div>
+</div>
+
+<div class="po" id="nwPo">
+  <div class="pbg" onclick="closeNwPanel()"></div>
+  <div class="panel">
+    <div class="ph">
+      <div><div class="ph-firma" id="nwPFirma"></div><div class="ph-sub" id="nwPSub"></div></div>
+      <button class="btn bg" onclick="closeNwPanel()">✕</button>
+    </div>
+    <div class="pb2" id="nwPBody"></div>
+    <div class="pf" id="nwPFoot"></div>
   </div>
 </div>
 
@@ -866,17 +981,21 @@
 <button id="cm-fab" onclick="openCallMode()" title="Kaltakquise starten">&#128222;</button>
 
 <nav id="mobile-nav" role="navigation" aria-label="Hauptnavigation">
-  <button class="mn-tab active" data-page="prospecting">
+  <button class="mn-tab active" data-page="dashboard">
+    <span class="mn-tab-icon">&#128202;</span>
+    <span class="mn-tab-label">Dashboard</span>
+  </button>
+  <button class="mn-tab" data-page="prospecting">
     <span class="mn-tab-icon">&#128203;</span>
     <span class="mn-tab-label">Prospecting</span>
+  </button>
+  <button class="mn-tab" data-page="network">
+    <span class="mn-tab-icon">&#129309;</span>
+    <span class="mn-tab-label">Netzwerk</span>
   </button>
   <button class="mn-tab" data-page="clients">
     <span class="mn-tab-icon">&#128101;</span>
     <span class="mn-tab-label">Clients</span>
-  </button>
-  <button class="mn-tab" data-page="content">
-    <span class="mn-tab-icon">&#127916;</span>
-    <span class="mn-tab-label">Content</span>
   </button>
   <button class="mn-tab" data-page="termine">
     <span class="mn-tab-icon">&#128197;</span>
@@ -885,10 +1004,6 @@
   <button class="mn-tab" data-page="sessions">
     <span class="mn-tab-icon">&#127937;</span>
     <span class="mn-tab-label">Sessions</span>
-  </button>
-  <button class="mn-tab" data-page="salesrep">
-    <span class="mn-tab-icon">&#127919;</span>
-    <span class="mn-tab-label">Sales Rep</span>
   </button>
 </nav>
 
@@ -900,6 +1015,7 @@ import { initRealtime } from './src/realtime.js';
 import { render, setF, filterDue, goPg, openP, closeP, qs, openQN, closeQN, saveQN,
          inlineFU, inlineFUFocus, inlineFUBlur, shiftFU, saveNotiz, notizKey, inlineROI, inlineST,
          kbMove, kbOpen, kbEdit, openAdd, openE, closeE, save, del,
+         openQuickAdd, closeQuickAdd, saveQuickAdd, scheduleRender,
          openPurgeDq, closePurgeDq, purgeDq,
          openPurgeVersicherung, closePurgeVersicherung, purgeVersicherungsmakler,
          doSort, toggleColMenu, toggleCol, applyColPreset, closeSessionCelebration,
@@ -912,6 +1028,9 @@ import { openEsPanel, openMailCompose, closeMailCompose, mailComposeSetMode, mai
 import { openCalPop, closeCalPop, calCreate, maybeOfferCalendar } from './src/calendar.js';
 import { initContextMenu, ctxAction, showCtxMenuAtEvent } from './src/contextmenu.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
+import './src/dashboard.js';
+import { dashGoProspecting, dashGoClients } from './src/dashboard.js';
+import { renderNetwork, openNwAdd, openNwEdit, closeNwModal, saveNw, delNw, openNwPanel, closeNwPanel } from './src/network.js';
 import { initContentPage, renderContent, openContentAdd, openContentEdit, closeContentModal, saveContent, delContent, filterContent, switchContentView } from './src/content.js';
 import { openTnExportModal, closeTnExportModal, exportTnPng } from './src/thumbnail.js';
 import { showDemoTodoPopup, saveDemoTodos, closeDemoTodoPop, openQuickTodo, saveQuickTodo, closeQuickTodo } from './src/todopop.js';
@@ -925,7 +1044,7 @@ window.refreshTermineAgenda = refreshTermineIfActive;
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeSalesRepPop(); closeClPanel(); closeContentModal(); closeTnExportModal(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); }
+  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeSalesRepPop(); closeClPanel(); closeContentModal(); closeTnExportModal(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); closeQuickAdd(); closeNwModal(); closeNwPanel(); }
   const tag = document.activeElement.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (inInput) return;
@@ -982,16 +1101,18 @@ document.addEventListener('click', function(e) {
 
 Object.assign(window, {
   addTouch, calCreate, closeCalPop, closeClientModal, closeClPanel, closeContentModal, closeDemoTodoPop, closeE, closeMailCompose, closeSalesRepPop,
-  closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, ctxAction, del, delClient, delContent, doImport, doSort,
+  closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, closeQuickAdd, ctxAction, del, delClient, delContent, doImport, doSort,
+  closeNwModal, closeNwPanel, delNw, openNwAdd, openNwEdit, openNwPanel, renderNetwork, saveNw, saveQuickAdd,
   dzDr, dzLv, dzOv, exportCSV, exportTnPng, filterContent, filterDue, goPg, switchContentView, openTnExportModal, closeTnExportModal,
   inlineFU, inlineFUFocus, inlineFUBlur, inlineROI, inlineST,
   mailComposeGenerate, mailComposeSend, mailComposeSetMode,
   markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit, openContentAdd, openContentEdit,
   openCalPop, openClPanel, openE, openEsPanel, openImport, openMailCompose, openP, openPurgeDq, openPurgeVersicherung, openSalesRepPop, salesRepRun, salesRepApplyToContact, showCtxMenuAtEvent,
-  openQN, openQuickTodo, applyColPreset, purgeDq, purgeVersicherungsmakler, qs, rdCSV, render, renderClients, renderContent, resetCallCount,
+  openQN, openQuickTodo, openQuickAdd, applyColPreset, purgeDq, purgeVersicherungsmakler, qs, rdCSV, render, renderClients, renderContent, resetCallCount, scheduleRender,
   save, saveClient, saveContent, saveDemoTodos, saveNotiz, saveQN, saveQuickTodo, saveTF,
   setF, shiftFU,
   syncCloud, doLogout, toggleAcc, toggleCol, toggleColMenu, toggleMobileMenu, closePurgeVersicherung, closeSessionCelebration,
+  dashGoProspecting, dashGoClients,
   openAktionPop, closeAktionPop, saveAktionPop, clearAktionPop, fillAktionSuggestion, checkAktionItem, scrollToAktionQueue,
 });
 

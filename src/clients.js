@@ -161,18 +161,24 @@ export function openClPanel(id) {
 export function closeClPanel() { document.getElementById('clPo').classList.remove('on'); }
 
 export async function promptAutoClient(contact, status) {
+  if (status !== 'gewonnen' && status !== 'demo_termin') return;
   const already = S.clClients.find(function(c) {
     return c.firma && contact.firma && c.firma.toLowerCase() === contact.firma.toLowerCase();
   });
   if (already) return;
+  if (status === 'gewonnen') {
+    if (!confirm('„' + (contact.firma || 'Kontakt') + '“ als Client anlegen?')) return;
+    openClientAddPrefill(contact, status);
+    return;
+  }
   const row = {
     firma:           contact.firma || '',
     kontakt:         contact.kontakt || null,
     telefon:         contact.telefon || null,
     email:           contact.email   || null,
     website:         contact.website || null,
-    status:          status === 'gewonnen' ? 'aktiv' : 'demo',
-    naechste_action: status === 'demo_termin' ? 'Sales Call vorbereiten' : 'Onboarding starten',
+    status:          'demo',
+    naechste_action: 'Sales Call vorbereiten',
     synced_at:       new Date().toISOString(),
   };
   try {
@@ -182,4 +188,15 @@ export async function promptAutoClient(contact, status) {
   } catch(e) {
     toast('Clients-Eintrag fehlgeschlagen: ' + e.message);
   }
+}
+
+export function openClientAddPrefill(contact, status) {
+  openClientAdd();
+  document.getElementById('clFirma').value = contact.firma || '';
+  document.getElementById('clKontakt').value = contact.kontakt || '';
+  document.getElementById('clTelefon').value = contact.telefon || '';
+  document.getElementById('clEmail').value = contact.email || '';
+  document.getElementById('clWebsite').value = contact.website || '';
+  document.getElementById('clStatus').value = status === 'gewonnen' ? 'aktiv' : 'demo';
+  document.getElementById('clAction').value = status === 'gewonnen' ? 'Onboarding starten' : 'Sales Call vorbereiten';
 }

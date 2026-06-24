@@ -1,6 +1,8 @@
 const SIDEBAR_KEY = 'rais_sidebar_collapsed';
 
 const PAGES = [
+  { id: 'dashboard',   icon: '📊', label: 'Dashboard'   },
+  { id: 'network',     icon: '🤝', label: 'Netzwerk'    },
   { id: 'prospecting', icon: '📋', label: 'Prospecting' },
   { id: 'clients',     icon: '👥', label: 'Clients'     },
   { id: 'content',     icon: '🎬', label: 'Content'     },
@@ -83,5 +85,5 @@ export function initSidebar() {
 
   const h = location.hash.replace('#', '');
   const valid = PAGES.find(function(p) { return p.id === h; });
-  navigateTo(valid ? h : 'prospecting');
+  navigateTo(valid ? h : 'dashboard');
 }

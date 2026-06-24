@@ -1,6 +1,6 @@
-import { S, PG, STATUS, TSTAT, TSCLS } from './state.js';
-import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite, normalizeGewerk, getCustomGewerke, addCustomGewerk } from './utils.js';
-import { sbadge, roib, fdc, esc, ir, toast } from './ui.js';
+import { S, PG, STATUS, TSTAT, TSCLS, LEAD_ORIGIN, LEBENSBEREICHE } from './state.js';
+import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite, normalizeGewerk, getCustomGewerke, addCustomGewerk, isColdLead, getSocials, syncLeadTemp, deriveLeadTemp } from './utils.js';
+import { sbadge, roib, fdc, esc, ir, toast, originBadge, tempBadge, socialIconsHtml } from './ui.js';
 import { markDirty, persist, pushDirty, isAktionNoetig, pushGewerkCloud } from './sync.js';
 import { sbDelete, sbUpsert } from './supabase.js';
 import { emailCellHtml, emailPanelHtml } from './email.js';
@@ -44,6 +44,46 @@ const AKTION_SUGGESTIONS = [
 ];
 
 let _aktionPopId = null;
+let _listCacheKey = '';
+let _listCache = null;
+let _renderTimer = null;
+
+export function scheduleRender() {
+  if (_renderTimer) clearTimeout(_renderTimer);
+  _renderTimer = setTimeout(function() {
+    _renderTimer = null;
+    render();
+  }, 300);
+}
+
+function invalidateFilterCache() {
+  _listCacheKey = '';
+  _listCache = null;
+}
+
+function lebensbereichOptions() {
+  return S.lebensbereiche.length ? S.lebensbereiche : LEBENSBEREICHE;
+}
+
+function fillLbSelect(id, selected) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— keiner —</option>' +
+    lebensbereichOptions().map(function(l) {
+      return '<option value="' + esc(l) + '"' + (l === selected ? ' selected' : '') + '>' + esc(l) + '</option>';
+    }).join('');
+}
+
+function readSocialsFromForm(prefix) {
+  const g = function(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  return {
+    linkedin: g(prefix + 'li') || null,
+    instagram: g(prefix + 'ig') || null,
+    x: g(prefix + 'x') || null,
+    facebook: g(prefix + 'fb') || null,
+    whatsapp: g(prefix + 'wa') || null,
+  };
+}
 
 function statusSelectHtml(c) {
   const cur = c.status || 'neu';
@@ -66,9 +106,13 @@ export function getList() {
   const regionF = document.getElementById('regionF').value;
   const gewF    = document.getElementById('gewerkF').value;
   const srt    = document.getElementById('sortS').value;
+  const cacheKey = [S.flt, S.dueMode, q, roi, regionF, gewF, srt, JSON.stringify(S.sortStack), S.pinContactId, S.pinListIndex, S.contactsRev].join('\0');
+  if (_listCache && cacheKey === _listCacheKey) return _listCache.slice();
+
   let list = S.contacts.filter(function(c) {
     if (S.flt === 'heute') { const t = td(); return c.followup && c.followup <= t; }
     if (S.flt === 'aktion') return isAktionNoetig(c);
+    if (S.flt === 'kalt') return isColdLead(c);
     if (S.flt !== 'all' && c.status !== S.flt) return false;
     if (roi === '0' && c.roi) return false;
     if (roi && roi !== '0' && String(c.roi||'') !== roi) return false;
@@ -124,7 +168,9 @@ export function getList() {
       list.splice(Math.min(S.pinListIndex, list.length), 0, item);
     }
   }
-  return list;
+  _listCacheKey = cacheKey;
+  _listCache = list;
+  return list.slice();
 }
 
 function clearTablePin() {
@@ -142,9 +188,10 @@ function patchFollowupRow(contactId) {
 
 export function setF(f) {
   clearTablePin();
+  invalidateFilterCache();
   S.flt = f; S.pg = 1; S.dueMode = false;
   document.querySelectorAll('.stat').forEach(function(el) { el.classList.remove('on'); });
-  const map = {all:'s-all', neu:'s-neu', kein_anschluss:'s-ka', kein_anschluss_2:'s-ka2', gatekeeper:'s-gk',
+  const map = {all:'s-all', kalt:'s-kalt', neu:'s-neu', kein_anschluss:'s-ka', kein_anschluss_2:'s-ka2', gatekeeper:'s-gk',
                callback:'s-cb', email_nurture:'s-en', interessiert:'s-int', demo_termin:'s-dt',
                door_open:'s-do', no_show:'s-ns', nicht_passend:'s-np', disqualified:'s-dq', ghost:'s-gh',
                gewonnen:'s-gw', heute:'s-heute', aktion:'s-aktion'};
@@ -152,7 +199,7 @@ export function setF(f) {
   render();
 }
 
-export function filterDue() { clearTablePin(); S.dueMode = true; S.pg = 1; render(); }
+export function filterDue() { clearTablePin(); invalidateFilterCache(); S.dueMode = true; S.pg = 1; render(); }
 
 const OUTREACH_PROTECTED = ['gewonnen', 'demo_termin', 'door_open', 'interessiert', 'disqualified', 'archiviert', 'ghost'];
 
@@ -181,6 +228,7 @@ export function recordOutreachOnFollowupChange(c, prevFollowup, newFollowup, opt
   }
 
   bumpCall();
+  syncLeadTemp(c);
   markDirty(c);
 
   const name = c.firma || c.company_name || '';
@@ -221,6 +269,8 @@ function renderMobileCards(slice) {
     }
     const touchCount = (c.touches || []).filter(function(tx) { return tx.status || tx.datum; }).length;
     const touchPill = touchCount > 0 ? '<span class="mc-touch">T' + touchCount + '</span>' : '';
+    const originPill = originBadge(c.lead_origin || 'manual');
+    const socRow = socialIconsHtml(getSocials(c));
     const note = (c.notiz || c.besonderheit || '').trim();
     const phoneBtn = c.telefon
       ? '<a class="mc-call-btn" href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()">&#128222; ' + esc(c.telefon) + '</a>'
@@ -238,7 +288,7 @@ function renderMobileCards(slice) {
             roi +
           '</div>' +
         '</div>' +
-        '<div class="mc-mid">' + gwBadge + stadtStr + fuPill + touchPill + '</div>' +
+        '<div class="mc-mid">' + originPill + gwBadge + stadtStr + fuPill + touchPill + (socRow ? ' ' + socRow : '') + '</div>' +
         (note ? '<div class="mc-note">' + esc(note) + '</div>' : '') +
         phoneBtn +
       '</div>'
@@ -286,6 +336,8 @@ export function render() {
   document.getElementById('c-gw').textContent  = cnt.gewonnen     || 0;
   const aktionEl = document.getElementById('c-aktion');
   if (aktionEl) aktionEl.textContent = S.contacts.filter(isAktionNoetig).length;
+  const kaltEl = document.getElementById('c-kalt');
+  if (kaltEl) kaltEl.textContent = S.contacts.filter(isColdLead).length;
 
   const due = S.contacts.filter(function(c) { return c.followup && c.followup <= t; }).length;
   document.getElementById('c-heute').textContent = due;
@@ -310,12 +362,16 @@ export function render() {
     thF('Ansprechpartner', '', 'col-c-kontakt') + thF('Telefon', '', 'col-c-tel') +
     thF('&#127760;', 'text-align:center', 'col-web col-c-web') +
     thS('status', 'Status', 'col-c-status') + thS('followup', 'Follow-up', 'col-c-fu') +
+    (S.colVis.origin ? thF('Herkunft', '', 'col-c-origin') : '') +
+    (S.colVis.temp ? thF('Temp', '', 'col-c-temp') : '') +
     thF('Notiz', '', 'col-c-notiz') + thF('Aktion', 'text-align:center', 'col-c-aktion') +
     thS('reviews', 'Reviews', 'col-c-reviews') +
+    (S.colVis.lebensbereich ? thF('Lebensbereich', '', 'col-c-lb') : '') +
     (S.colVis.stadt   ? thS('stadt', 'Stadt', 'col-c-stadt') : '') +
     (S.colVis.region  ? thS('region', 'Region', 'col-c-region') : '') +
     (S.colVis.gewerk  ? thS('gewerk', 'Gewerk', 'col-c-gewerk') : '') +
     thF('Email', 'text-align:center', 'col-c-email') +
+    thF('Social', 'text-align:center', 'col-c-social') +
     thF('', '', 'col-c-ra') +
   '</tr>';
 
@@ -356,6 +412,8 @@ export function render() {
         '</td>' +
         '<td class="st-cell col-c-status" onclick="event.stopPropagation()">' + statusSelectHtml(c) + '</td>' +
         '<td onclick="event.stopPropagation()" class="fu-cell col-c-fu"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onfocus="inlineFUFocus(this)" onchange="inlineFU(this)" onblur="inlineFUBlur(this)" title="Follow-up Datum"></td>' +
+        (S.colVis.origin ? '<td class="col-c-origin" onclick="event.stopPropagation()">' + originBadge(c.lead_origin || 'manual') + '</td>' : '') +
+        (S.colVis.temp ? '<td class="col-c-temp" onclick="event.stopPropagation()">' + tempBadge(c.lead_temp || 'cold') + '</td>' : '') +
         '<td class="notiz-cell col-c-notiz">' +
           '<span class="col-trunc notiz-preview" title="' + esc(notizPreview) + '">' + esc(notizPreview || '—') + '</span>' +
           (ageStr ? '<span class="age-lbl ' + ageCls + '">' + (lastTDatum ? '&#128222; ' : '') + ageStr + '</span>' : '') +
@@ -365,10 +423,12 @@ export function render() {
           aktionHint +
         '</td>' +
         '<td class="col-c-reviews" style="font-family:sans-serif;font-size:12px;color:#7B746B"><span class="col-trunc" title="' + esc(c.reviews || '') + '">' + esc(c.reviews || '—') + '</span></td>' +
+        (S.colVis.lebensbereich ? '<td class="col-c-lb" style="font-family:sans-serif;font-size:12px"><span class="col-trunc">' + esc(c.lebensbereich || '—') + '</span></td>' : '') +
         (S.colVis.stadt   ? '<td class="col-c-stadt" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.stadt || '') + '">' + esc(c.stadt  || '—') + '</span></td>' : '') +
         (S.colVis.region  ? '<td class="col-c-region" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.region || '') + '">' + esc(c.region || '—') + '</span></td>' : '') +
         (S.colVis.gewerk  ? '<td class="col-c-gewerk" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.gewerk || '') + '">' + esc(c.gewerk || '—') + '</span></td>' : '') +
         '<td class="col-c-email" onclick="event.stopPropagation()" style="white-space:nowrap">' + emailCellHtml(c) + '</td>' +
+        '<td class="col-c-social" onclick="event.stopPropagation()">' + socialIconsHtml(getSocials(c)) + '</td>' +
         '<td class="ra-cell col-c-ra" onclick="event.stopPropagation()"><div class="ra">' +
           '<button class="btn bg bsm" onclick="openQN(\'' + c.id + '\')" title="Schnellnotiz">&#128221;</button>' +
           '<button class="btn bg bsm" onclick="openE(\'' + c.id + '\')" title="Bearbeiten">&#9998;</button>' +
@@ -392,6 +452,56 @@ export function render() {
 }
 
 export function goPg(p) { S.pg = p; render(); }
+
+export function openQuickAdd() {
+  document.getElementById('qaFirma').value = '';
+  document.getElementById('qaTel').value = '';
+  document.getElementById('qaGew').value = '';
+  document.getElementById('qaLi').value = '';
+  document.getElementById('qaIg').value = '';
+  document.getElementById('qaOrigin').value = 'manual';
+  fillLbSelect('qaLb', '');
+  const dl = document.getElementById('qaGewList');
+  if (dl) {
+    dl.innerHTML = getCustomGewerke().concat(['Fliesenleger','Elektriker','Sanitär','Heizung','Maler','Hausverwaltung','Sonstiges'])
+      .filter(function(v, i, a) { return a.indexOf(v) === i; })
+      .map(function(g) { return '<option value="' + esc(g) + '">'; }).join('');
+  }
+  document.getElementById('quickAddModal').classList.add('on');
+  document.getElementById('qaFirma').focus();
+}
+
+export function closeQuickAdd() { document.getElementById('quickAddModal').classList.remove('on'); }
+
+export function saveQuickAdd() {
+  const firma = document.getElementById('qaFirma').value.trim();
+  if (!firma) { toast('Firma fehlt.'); return; }
+  const gewerk = normalizeGewerk(document.getElementById('qaGew').value);
+  const lb = document.getElementById('qaLb').value;
+  const socials = {
+    linkedin: document.getElementById('qaLi').value.trim() || null,
+    instagram: document.getElementById('qaIg').value.trim() || null,
+  };
+  const d = {
+    id: gid(), created: Date.now(), synced_at: null,
+    firma: firma,
+    telefon: document.getElementById('qaTel').value.trim(),
+    gewerk: gewerk,
+    lebensbereich: lb || null,
+    lead_origin: document.getElementById('qaOrigin').value || 'manual',
+    lead_temp: 'cold',
+    is_external: document.getElementById('qaOrigin').value === 'external',
+    status: 'neu',
+    socials: socials,
+    touches: [{ status: '', datum: '', notiz: '' }],
+  };
+  syncLeadTemp(d);
+  if (gewerk) pushGewerkCloud(gewerk, lb);
+  S.contacts.push(d);
+  invalidateFilterCache();
+  persist(); closeQuickAdd(); render(); pushDirty();
+  toast('Lead hinzugefügt.');
+}
 
 export function openP(id) {
   const c = S.contacts.find(function(x) { return x.id === id; });
@@ -445,6 +555,12 @@ export function openP(id) {
     ir('E-Mail',  c.email   ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '—') +
     ir('Website', c.website ? '<a href="' + webHref(c.website) + '" target="_blank" rel="noopener">' + esc(normalizeWebsite(c.website).replace(/^https?:\/\//,'')) + '</a>' : '—') +
     (c.facebook ? ir('Facebook', '<a href="' + webHref(c.facebook) + '" target="_blank" rel="noopener">Profil öffnen</a>') : '') +
+    (function() {
+      const soc = socialIconsHtml(getSocials(c), true);
+      return soc ? '<div class="sh">Social</div>' + soc : '';
+    })() +
+    (c.lead_origin ? ir('Herkunft', originBadge(c.lead_origin)) : '') +
+    (c.lebensbereich ? ir('Lebensbereich', esc(c.lebensbereich)) : '') +
     '<div class="sh">Status</div>' +
     ir('Status',    sbadge(c.status) + (c.status_changed_at ? '<span style="font-size:11px;color:#B0A898;margin-left:7px;font-family:sans-serif">seit ' + relAge(c.status_changed_at) + ' (' + c.status_changed_at + ')</span>' : '')) +
     (isAktionNoetig(c) && c.extra && c.extra.aktion_notiz ? ir('Aktion nötig', esc(c.extra.aktion_notiz)) : '') +
@@ -637,6 +753,7 @@ export function inlineST(sel) {
   clearTablePin();
   bumpCall();
   c.status_changed_at = td();
+  syncLeadTemp(c);
   markDirty(c);
   persist(); render(); pushDirty();
   toast('Status: ' + (STATUS[c.status] ? STATUS[c.status].label : c.status));
@@ -681,7 +798,8 @@ window.confirmNewGewerk = function() {
   const name = (input ? input.value : '').trim();
   if (!name) { toast('Bitte einen Gewerk-Namen eingeben.'); return; }
   addCustomGewerk(name);
-  pushGewerkCloud(name);
+  const lb = (document.getElementById('elb') || {}).value || '';
+  pushGewerkCloud(name, lb);
   injectCustomGewerke();
   const sel = document.getElementById('egew');
   if (sel) sel.value = name;
@@ -696,6 +814,7 @@ export function openAdd() {
   if (delBtn) delBtn.style.display = 'none';
   clrF();
   injectCustomGewerke();
+  fillLbSelect('elb', '');
   const tm = new Date(); tm.setDate(tm.getDate() + 1);
   document.getElementById('efu').value = tm.toISOString().slice(0,10);
   document.getElementById('eo').classList.add('on');
@@ -720,8 +839,20 @@ export function openE(id) {
   document.getElementById('erev').value        = c.reviews      || '';
   document.getElementById('estad').value       = c.stadt        || '';
   document.getElementById('ereg').value        = c.region       || '';
+  document.getElementById('eplz').value        = c.plz          || '';
+  document.getElementById('estr').value        = c.strasse      || '';
   injectCustomGewerke();
   document.getElementById('egew').value        = c.gewerk       || '';
+  fillLbSelect('elb', c.lebensbereich || '');
+  document.getElementById('eorigin').value     = c.lead_origin  || 'manual';
+  document.getElementById('etemp').value       = c.lead_temp    || 'cold';
+  document.getElementById('eext').checked      = !!c.is_external;
+  const soc = getSocials(c);
+  document.getElementById('eli').value         = soc.linkedin   || '';
+  document.getElementById('eig').value         = soc.instagram  || '';
+  document.getElementById('ex').value          = soc.x          || '';
+  document.getElementById('efb').value         = soc.facebook   || '';
+  document.getElementById('ewa').value         = soc.whatsapp   || '';
   document.getElementById('en').value          = c.besonderheit || c.notiz || '';
   document.getElementById('eo').classList.add('on');
 }
@@ -729,12 +860,16 @@ export function openE(id) {
 export function closeE() { document.getElementById('eo').classList.remove('on'); clrF(); }
 
 function clrF() {
-  ['ef','ek','etit','et','em','ew','efu','erev','en','estad','ereg'].forEach(function(i) {
+  ['ef','ek','etit','et','em','ew','efu','erev','en','estad','ereg','eplz','estr','eli','eig','ex','efb','ewa'].forEach(function(i) {
     const el = document.getElementById(i); if (el) el.value = '';
   });
   document.getElementById('es').value = 'neu';
   document.getElementById('er').value = '';
   document.getElementById('egew').value = '';
+  document.getElementById('eorigin').value = 'manual';
+  document.getElementById('etemp').value = 'cold';
+  const ext = document.getElementById('eext'); if (ext) ext.checked = false;
+  fillLbSelect('elb', '');
 }
 
 export function save() {
@@ -754,6 +889,13 @@ export function save() {
     stadt:       document.getElementById('estad').value.trim(),
     region:      document.getElementById('ereg').value.trim(),
     gewerk:      normalizeGewerk(document.getElementById('egew').value),
+    lebensbereich: document.getElementById('elb').value || null,
+    lead_origin: document.getElementById('eorigin').value || 'manual',
+    lead_temp:   document.getElementById('etemp').value || 'cold',
+    is_external: !!document.getElementById('eext').checked,
+    socials:     readSocialsFromForm('e'),
+    plz:         document.getElementById('eplz').value.trim(),
+    strasse:     document.getElementById('estr').value.trim(),
     besonderheit:document.getElementById('en').value.trim(),
     notiz:       document.getElementById('en').value.trim(),
   };
@@ -772,8 +914,15 @@ export function save() {
       }
     }
   } else {
-    S.contacts.push(Object.assign({id: gid(), created: Date.now(), touches:[{status:'',datum:'',notiz:''}], synced_at: null}, d));
+    const neu = Object.assign({
+      id: gid(), created: Date.now(), touches:[{status:'',datum:'',notiz:''}], synced_at: null,
+      lead_origin: 'manual', lead_temp: 'cold', socials: {},
+    }, d);
+    syncLeadTemp(neu);
+    S.contacts.push(neu);
   }
+  if (d.gewerk) pushGewerkCloud(d.gewerk, d.lebensbereich);
+  invalidateFilterCache();
   persist(); closeE(); render(); pushDirty();
   toast(S.eid ? 'Gespeichert.' : 'Kontakt hinzugefügt.');
 }
@@ -849,6 +998,7 @@ export async function purgeDq(mode) {
 
 export function doSort(col) {
   clearTablePin();
+  invalidateFilterCache();
   const idx = S.sortStack.findIndex(function(s) { return s.col === col; });
   if (idx === -1) {
     S.sortStack.push({ col: col, dir: 1 });
@@ -967,12 +1117,12 @@ export function scrollToAktionQueue() {
 
 export function applyColPreset(preset, silent) {
   if (preset === 'calling') {
-    S.colVis = { stadt: false, region: false, gewerk: false };
+    S.colVis = { stadt: false, region: false, gewerk: false, origin: true, temp: false, lebensbereich: false };
   } else if (preset === 'full') {
-    S.colVis = { stadt: true, region: true, gewerk: true };
+    S.colVis = { stadt: true, region: true, gewerk: true, origin: true, temp: true, lebensbereich: true };
   }
   localStorage.setItem('rais_crm_colvis', JSON.stringify(S.colVis));
-  ['stadt','region','gewerk'].forEach(function(k) {
+  ['stadt','region','gewerk','origin','temp','lebensbereich'].forEach(function(k) {
     const cb = document.getElementById('cv-' + k);
     if (cb) cb.checked = !!S.colVis[k];
   });

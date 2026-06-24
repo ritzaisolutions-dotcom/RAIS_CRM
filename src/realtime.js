@@ -1,6 +1,6 @@
 import { S } from './state.js';
 import { isAuthenticated, getSupabase } from './supabase.js';
-import { isDirtyContact, persist } from './sync.js';
+import { isDirtyContact, persist, bumpContactsRev } from './sync.js';
 import { render } from './prospecting.js';
 
 let _channel = null;
@@ -14,6 +14,7 @@ export function handleRealtimeChange(payload) {
     var id = old.id;
     if (S.contacts.some(function(c) { return c.id === id; })) {
       S.contacts = S.contacts.filter(function(c) { return c.id !== id; });
+      bumpContactsRev();
       persist(); render();
     }
   } else if (eventType === 'INSERT') {
@@ -21,6 +22,7 @@ export function handleRealtimeChange(payload) {
       var c = Object.assign({}, row);
       if (!c.touches) c.touches = [];
       S.contacts.unshift(c);
+      bumpContactsRev();
       persist(); render();
     }
   } else if (eventType === 'UPDATE') {
@@ -29,6 +31,7 @@ export function handleRealtimeChange(payload) {
       var updated = Object.assign({}, row);
       if (!updated.touches) updated.touches = [];
       S.contacts[idx] = updated;
+      bumpContactsRev();
       persist(); render();
     }
   }

@@ -1,5 +1,5 @@
 import { S } from './state.js';
-import { gid, td, normalizeWebsite, normalizeGewerk } from './utils.js';
+import { gid, td, normalizeWebsite, normalizeGewerk, syncLeadTemp } from './utils.js';
 import { persist } from './sync.js';
 import { toast } from './ui.js';
 
@@ -130,6 +130,10 @@ export function doImport() {
       return samePhone || sameFirma;
     });
     if (dup) { skipped++; return; }
+    c.lead_origin = 'import';
+    c.lead_temp = 'cold';
+    c.socials = {};
+    syncLeadTemp(c);
     S.contacts.push(c);
     added++;
   });

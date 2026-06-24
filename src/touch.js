@@ -1,6 +1,7 @@
 import { S, TSCLS } from './state.js';
 import { markDirty, persist, pushDirty } from './sync.js';
 import { esc, toast } from './ui.js';
+import { syncLeadTemp } from './utils.js';
 import { openP } from './prospecting.js';
 
 export function toggleAcc(el) {
@@ -18,6 +19,7 @@ export function saveTF(id, idx, field, val) {
   if (!c.touches) c.touches = [];
   while (c.touches.length <= idx) c.touches.push({status:'',datum:'',notiz:''});
   c.touches[idx][field] = val;
+  syncLeadTemp(c);
   markDirty(c);
   persist(); pushDirty();
   const tah = document.getElementById('tah-' + idx);
