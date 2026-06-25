@@ -1,6 +1,6 @@
-import { S } from './state.js';
+import { S, PURGE_STATUSES } from './state.js';
 import { toast } from './ui.js';
-import { normalizeWebsite } from './utils.js';
+import { normalizeWebsite, normalizeContactStatus } from './utils.js';
 
 let _ctxId = null;
 
@@ -47,6 +47,8 @@ function showCtxMenu(x, y, id) {
   const hasEmail = !!c.email;
   const hasTel = !!c.telefon;
   const hasWeb = !!c.website;
+  const isDq = PURGE_STATUSES.indexOf(normalizeContactStatus(c.status)) >= 0;
+  const delLabel = isDq ? '🗑 Unqualifiziert löschen' : '🗑 Lead entfernen';
 
   menu.innerHTML =
     '<button type="button" class="ctx-item" data-action="aktion">⚡ Markieren…</button>' +
@@ -55,7 +57,7 @@ function showCtxMenu(x, y, id) {
     '<button type="button" class="ctx-item" data-action="cal-rueckruf">📅 Rückruf planen (5 Min)…</button>' +
     '<button type="button" class="ctx-item" data-action="cal-demo">📅 Demo / Sales Call (15 Min)…</button>' +
     '<button type="button" class="ctx-item" data-action="cal-kundentermin">📅 Kundentermin (15 Min)…</button>' +
-    '<button type="button" class="ctx-item ctx-danger" data-action="del">🗑 Lead entfernen</button>' +
+    '<button type="button" class="ctx-item ctx-danger" data-action="del">' + delLabel + '</button>' +
     '<div class="ctx-sep"></div>' +
     '<button type="button" class="ctx-item" data-action="open">Details öffnen</button>' +
     '<button type="button" class="ctx-item" data-action="qn">Schnellnotiz</button>' +

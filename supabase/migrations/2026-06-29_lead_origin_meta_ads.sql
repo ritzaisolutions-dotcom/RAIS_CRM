@@ -1,0 +1,2 @@
+-- Meta Ads als lead_origin (App-seitig; keine DB-Constraint-Änderung nötig)
+-- Dokumentation: LEAD_ORIGIN.meta_ads in src/state.js

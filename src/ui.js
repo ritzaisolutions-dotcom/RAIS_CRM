@@ -6,6 +6,14 @@ export function sbadge(s) {
   return '<span class="badge ' + st.cls + '">' + st.label + '</span>';
 }
 
+/** Geschlossenes Status-Select an gewählten Wert einfärben */
+export function syncStatusSelectColor(sel) {
+  if (!sel) return;
+  const v = sel.value || 'neu';
+  const isModal = sel.id === 'es' || sel.classList.contains('fs2');
+  sel.className = (isModal ? 'fs2' : 'idd') + ' st-dd st-' + v;
+}
+
 export function roib(n) {
   if (!n) return '<span class="roi r0">—</span>';
   const c = n >= 3 ? 'r3' : n >= 2 ? 'r2' : 'r1';

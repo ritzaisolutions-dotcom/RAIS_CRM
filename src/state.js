@@ -8,7 +8,7 @@ export const S = {
   dueMode:       false,
   eid:           null,
   sortStack:     [],
-  colVis:        { stadt: true, region: true, gewerk: false, origin: false, temp: false, lebensbereich: false },
+  colVis:        { stadt: true, region: true, gewerk: false, origin: false, temp: false, lebensbereich: false, ma: true, objekte: true },
   network:       [],
   lebensbereiche: [],
   autoSyncTimer: null,
@@ -50,7 +50,10 @@ export const LEAD_ORIGIN = {
   external:  { label: 'Extern', cls: 'origin-external' },
   referral:  { label: 'Empfehlung', cls: 'origin-referral' },
   import:    { label: 'Import', cls: 'origin-import' },
+  meta_ads:  { label: 'Meta Ads', cls: 'origin-meta' },
 };
+
+export const OUTREACH_CHANNELS = ['calls', 'linkedin', 'meta_ads', 'content'];
 
 export const LEAD_TEMP = { cold: 'Kalt', warm: 'Warm', hot: 'Heiß' };
 
@@ -96,8 +99,22 @@ export const STATUS = {
   closed:           { cls: 'b-cl',   label: 'Closed',           group: 'positive' },
   kein_anschluss:   { cls: 'b-ka',   label: 'Kein Anschluss',   group: 'neutral' },
   callback:         { cls: 'b-cb',   label: 'Callback',         group: 'neutral' },
+  vernetzt:         { cls: 'b-vn',   label: 'LinkedIn DM',      group: 'neutral' },
   gatekeeper:       { cls: 'b-gk',   label: 'Gatekeeper',       group: 'neutral' },
   mofo:             { cls: 'b-mofo', label: 'MoFo',             group: 'negative' },
 };
 
 export const PURGE_STATUSES = ['disqualified', 'mofo'];
+
+/** Positive Pipeline-Status (Dashboard-KPIs, Funnel, Sessions) */
+export const POSITIVE_STATUSES = ['set_appointment', 'closed'];
+
+export const STATUS_GROUPS = {
+  positive: POSITIVE_STATUSES,
+  negative: ['disqualified', 'mofo'],
+  neutral:  ['neu', 'kein_anschluss', 'gatekeeper', 'callback', 'vernetzt'],
+};
+
+export function isPositiveStatus(status) {
+  return POSITIVE_STATUSES.indexOf(status) >= 0;
+}

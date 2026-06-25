@@ -27,10 +27,8 @@ This is a **static, no-build CRM** — a single `index.html` entry point that lo
 | `sidebar.js` | Navigation: `initSidebar()`, `navigateTo(pageId)`, collapse/expand, mobile bottom nav; fires `rais:page-change` custom event on navigation |
 | `sessions.js` | Cold call session tracker — start/pause/resume/end/discard; header widget timer; sessions history page with breakdown bars and event log; persists active session in `localStorage` under `SESSION_KEY` |
 | `prospecting.js` | Main contact list (filtering, sorting, pagination, detail panel, edit/add/delete, touch history, call counter) |
-| `leadgen.js` | Lead-Gen tab; n8n webhook calls for WF1–WF3 (discover/qualify/enrich); listens on `rais:page-change` for lazy init |
 | `email.js` | Compose modal + send via n8n WF7 (`wf7-compose`); legacy WF4–WF6 removed from UI |
 | `calendar.js` | Google Calendar via WF8 (`wf8-calendar`, ritzaisolutions@gmail.com): Demo/Sales, Rückruf, Kundentermin (je 15 Min); Rechtsklick + Popup; syncs `followup` + `extra.google_cal` |
-| `termine.js` | Termine tab — Agenda aus `extra.google_cal` aller Kontakte; Filter Kundentermin / Demo / Rückruf |
 | `contextmenu.js` | Right-click menu on contact rows/cards (mark, email, sales rep, delete) |
 | `salesrep.js` | Sales Rep Assistant — modal + tab, WF9 (`wf9-salesrep`), history in `rais_salesrep_history` |
 | `content.js` | Content-Pipeline (crm_content): CRUD, Filter, Stats; Sub-Tabs Pipeline / Thumbnail |
@@ -69,7 +67,7 @@ window.addEventListener('rais:page-change', function(e) {
 });
 ```
 
-`leadgen.js`, `clients.js`, `content.js`, and `termine.js` register their own `rais:page-change` listeners internally. `thumbnail.js` is lazy-init on first visit to Content → Thumbnail. `salesrep.js` also listens for the tab; `index.html` may call `initSalesRepPage()` on navigation (idempotent).
+`clients.js`, `content.js`, and `projects.js` register their own `rais:page-change` listeners internally. `thumbnail.js` is lazy-init on first visit to Content → Thumbnail. `salesrep.js` is modal-only (context menu / popup).
 
 ### Globals exposed on `window`
 

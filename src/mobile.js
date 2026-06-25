@@ -9,13 +9,14 @@ let _idx = 0;
 let _currentId = null;
 
 const ACTIVE_STATUSES = new Set([
-  'neu', 'kein_anschluss', 'gatekeeper', 'callback',
+  'neu', 'kein_anschluss', 'gatekeeper', 'callback', 'vernetzt',
 ]);
 
 const QUICK_STATUS_ITEMS = [
   { icon: '&#10006;', label: 'Kein Anschluss',     status: 'kein_anschluss' },
   { icon: '&#128231;', label: 'Gatekeeper',         status: 'gatekeeper' },
   { icon: '&#128197;', label: 'Callback',           status: 'callback' },
+  { icon: '&#128188;', label: 'LinkedIn DM',        status: 'vernetzt' },
   { icon: '&#128197;', label: 'Set Appointment',    status: 'set_appointment' },
   { icon: '&#9989;',  label: 'Closed',             status: 'closed' },
   { icon: '&#128226;', label: 'Disqualified',       status: 'disqualified' },

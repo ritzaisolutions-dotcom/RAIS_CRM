@@ -1,7 +1,7 @@
 import { S, PG, STATUS, TSTAT, TSCLS, LEAD_ORIGIN, LEBENSBEREICHE, PURGE_STATUSES } from './state.js';
-import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite, normalizeGewerk, getCustomGewerke, addCustomGewerk, isColdLead, getSocials, syncLeadTemp, deriveLeadTemp } from './utils.js';
-import { sbadge, roib, fdc, esc, ir, toast, originBadge, tempBadge, socialIconsHtml } from './ui.js';
-import { markDirty, schedulePersist, schedulePushDirty, isAktionNoetig, pushGewerkCloud } from './sync.js';
+import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite, normalizeGewerk, getCustomGewerke, addCustomGewerk, isColdLead, getSocials, syncLeadTemp, deriveLeadTemp, normalizeContactStatus } from './utils.js';
+import { sbadge, roib, fdc, esc, ir, toast, originBadge, tempBadge, socialIconsHtml, syncStatusSelectColor } from './ui.js';
+import { markDirty, schedulePersist, schedulePushDirty, isAktionNoetig, pushGewerkCloud, bumpContactsRev } from './sync.js';
 import { sbDelete, sbUpsert } from './supabase.js';
 import { emailPanelHtml } from './email.js';
 import { renderCalls, bumpCall } from './calls.js';
@@ -24,6 +24,10 @@ export function isVersicherungsLead(c) {
   return /versicherung|versicherungsmakler|versicherungsagentur|versicherungsbüro|versicherungsberatung/.test(hay);
 }
 
+function isPurgeContact(c) {
+  return PURGE_STATUSES.indexOf(normalizeContactStatus(c && c.status)) >= 0;
+}
+
 function webHref(url) {
   const u = normalizeWebsite(url);
   return u ? esc(u) : '';
@@ -43,7 +47,7 @@ function touchContactNow(c) {
 
 const STATUS_SELECT_GROUPS = [
   { label: '── Default ──', keys: ['neu'] },
-  { label: '── Calling ──', keys: ['kein_anschluss', 'gatekeeper', 'callback', 'set_appointment', 'closed'] },
+  { label: '── Calling ──', keys: ['kein_anschluss', 'gatekeeper', 'callback', 'vernetzt', 'set_appointment', 'closed'] },
   { label: '── Entfernt ──', keys: ['disqualified', 'mofo'] },
 ];
 
@@ -104,6 +108,12 @@ function readSocialsFromForm(prefix) {
   };
 }
 
+function hvNumInput(c, field, title) {
+  const v = c[field] != null && c[field] !== '' ? String(c[field]) : '';
+  return '<input type="number" class="idd-num col-hv-num" data-id="' + c.id + '" data-field="' + field +
+    '" min="0" value="' + esc(v) + '" onclick="event.stopPropagation()" onchange="inlineHVNum(this)" title="' + esc(title) + '">';
+}
+
 function statusSelectHtml(c) {
   const cur = c.status || 'neu';
   let html = '<select class="idd st-dd st-' + cur + '" data-id="' + c.id + '" onchange="inlineST(this)" onclick="event.stopPropagation()" title="Status direkt ändern">';
@@ -111,7 +121,7 @@ function statusSelectHtml(c) {
     html += '<optgroup label="' + g.label + '">';
     g.keys.forEach(function(k) {
       if (!STATUS[k]) return;
-      html += '<option value="' + k + '"' + (cur === k ? ' selected' : '') + '>' + esc(STATUS[k].label) + '</option>';
+      html += '<option value="' + k + '" class="st-opt-' + k + '"' + (cur === k ? ' selected' : '') + '>' + esc(STATUS[k].label) + '</option>';
     });
     html += '</optgroup>';
   });
@@ -146,6 +156,7 @@ export function getList() {
     return true;
   });
   function cmpVal(c, col) {
+    if (col === 'mitarbeiter_anzahl' || col === 'objekte_bestand') return Number(c[col]) || 0;
     if (col === 'roi')     return Number(c.roi) || 0;
     if (col === 'reviews') return parseInt(c.reviews) || 0;
     if (col === 'followup') return c.followup || '9999';
@@ -211,7 +222,7 @@ export function setF(f) {
   S.flt = f; S.pg = 1; S.dueMode = false;
   document.querySelectorAll('.stat').forEach(function(el) { el.classList.remove('on'); });
   const map = {all:'s-all', kalt:'s-kalt', neu:'s-neu', kein_anschluss:'s-ka', gatekeeper:'s-gk',
-               callback:'s-cb', set_appointment:'s-sa', closed:'s-cl',
+               callback:'s-cb', vernetzt:'s-vn', set_appointment:'s-sa', closed:'s-cl',
                disqualified:'s-dq', mofo:'s-mofo', heute:'s-heute', aktion:'s-aktion'};
   if (map[f]) document.getElementById(map[f]).classList.add('on');
   render();
@@ -361,6 +372,8 @@ function buildRowHtml(c, pageOffset, i, t) {
     (S.colVis.stadt   ? '<td class="col-c-stadt" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.stadt || '') + '">' + esc(c.stadt || '—') + '</span></td>' : '') +
     (S.colVis.region  ? '<td class="col-c-region" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.region || '') + '">' + esc(c.region || '—') + '</span></td>' : '') +
     (S.colVis.gewerk  ? '<td class="col-c-gewerk" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.gewerk || '') + '">' + esc(c.gewerk || '—') + '</span></td>' : '') +
+    (S.colVis.ma ? '<td class="col-c-ma" onclick="event.stopPropagation()">' + hvNumInput(c, 'mitarbeiter_anzahl', 'Mitarbeiterzahl') + '</td>' : '') +
+    (S.colVis.objekte ? '<td class="col-c-obj" onclick="event.stopPropagation()">' + hvNumInput(c, 'objekte_bestand', 'Verwaltete Objekte') + '</td>' : '') +
     '<td class="col-c-linkedin" onclick="event.stopPropagation()" style="text-align:center">' + linkedinCellHtml(getSocials(c)) + '</td>' +
   '</tr>';
 }
@@ -400,6 +413,7 @@ function renderStats() {
   set('c-ka', cnt.kein_anschluss || 0);
   set('c-gk', cnt.gatekeeper || 0);
   set('c-cb', cnt.callback || 0);
+  set('c-vn', cnt.vernetzt || 0);
   set('c-sa', cnt.set_appointment || 0);
   set('c-cl', cnt.closed || 0);
   set('c-dq', cnt.disqualified || 0);
@@ -438,6 +452,8 @@ function renderThead() {
     (S.colVis.stadt   ? thS('stadt', 'Stadt', 'col-c-stadt') : '') +
     (S.colVis.region  ? thS('region', 'Region', 'col-c-region') : '') +
     (S.colVis.gewerk  ? thS('gewerk', 'Gewerk', 'col-c-gewerk') : '') +
+    (S.colVis.ma ? '<th class="sortable col-c-ma" title="Mitarbeiterzahl" onclick="doSort(\'mitarbeiter_anzahl\')">MA<span class="si">&#8645;</span></th>' : '') +
+    (S.colVis.objekte ? '<th class="sortable col-c-obj" title="Verwaltete Objekte" onclick="doSort(\'objekte_bestand\')">Objekte<span class="si">&#8645;</span></th>' : '') +
     thF('LinkedIn', 'text-align:center', 'col-c-linkedin') +
   '</tr>';
 }
@@ -648,7 +664,7 @@ export function qs(id, s) {
   bumpCall();
   if (!c.touches) c.touches = [];
   const TOUCH_MAP = { kein_anschluss:'Nicht erreicht', gatekeeper:'Gatekeeper', callback:'Rückruf erbeten',
-    set_appointment:'Set Appointment', closed:'Closed', disqualified:'Disqualified', mofo:'MoFo' };
+    vernetzt:'LinkedIn DM', set_appointment:'Set Appointment', closed:'Closed', disqualified:'Disqualified', mofo:'MoFo' };
   c.touches.push({ status: TOUCH_MAP[s] || (STATUS[s] ? STATUS[s].label : s), datum: td(), notiz: '' });
   markDirty(c);
   schedulePersist();
@@ -692,6 +708,17 @@ export function inlineFU(inp) {
   if (c.status === 'callback' && c.followup && c.followup !== prev) {
     maybeOfferCalendar(c, 'rueckruf');
   }
+}
+
+export function inlineHVNum(inp) {
+  const c = S.contacts.find(function(x) { return x.id === inp.dataset.id; });
+  if (!c) return;
+  const field = inp.dataset.field;
+  const raw = inp.value.trim();
+  c[field] = raw === '' ? null : (parseInt(raw, 10) || null);
+  markDirty(c);
+  schedulePersist();
+  schedulePushDirty();
 }
 
 export function inlineFUBlur(inp) {
@@ -795,6 +822,7 @@ export function inlineST(sel) {
   markDirty(c);
   schedulePersist();
   toast('Status: ' + (STATUS[c.status] ? STATUS[c.status].label : c.status));
+  syncStatusSelectColor(sel);
   onStatusChanged(c.id, c.firma || c.company_name, prev, c.status);
   renderStats();
   patchContactRow(c.id);
@@ -884,6 +912,7 @@ export function openE(id) {
   document.getElementById('em').value          = c.email        || '';
   document.getElementById('ew').value          = c.website      || '';
   document.getElementById('es').value          = c.status       || 'neu';
+  syncStatusSelectColor(document.getElementById('es'));
   document.getElementById('efu').value         = c.followup     || '';
   document.getElementById('er').value          = c.roi ? String(c.roi) : '';
   document.getElementById('erev').value        = c.reviews      || '';
@@ -906,6 +935,8 @@ export function openE(id) {
   document.getElementById('en').value          = c.besonderheit || c.notiz || '';
   const dealEl = document.getElementById('eDeal');
   if (dealEl) dealEl.value = c.deal_value_eur != null ? String(c.deal_value_eur) : '';
+  const ema = document.getElementById('ema'); if (ema) ema.value = c.mitarbeiter_anzahl != null ? String(c.mitarbeiter_anzahl) : '';
+  const eobj = document.getElementById('eobj'); if (eobj) eobj.value = c.objekte_bestand != null ? String(c.objekte_bestand) : '';
   toggleDealField(c.status || 'neu');
   document.getElementById('eo').classList.add('on');
 }
@@ -917,12 +948,15 @@ function clrF() {
     const el = document.getElementById(i); if (el) el.value = '';
   });
   document.getElementById('es').value = 'neu';
+  syncStatusSelectColor(document.getElementById('es'));
   document.getElementById('er').value = '';
   document.getElementById('egew').value = '';
   document.getElementById('eorigin').value = 'manual';
   document.getElementById('etemp').value = 'cold';
   const ext = document.getElementById('eext'); if (ext) ext.checked = false;
   const dealEl = document.getElementById('eDeal'); if (dealEl) dealEl.value = '';
+  const ema = document.getElementById('ema'); if (ema) ema.value = '';
+  const eobj = document.getElementById('eobj'); if (eobj) eobj.value = '';
   toggleDealField('neu');
   fillLbSelect('elb', '');
 }
@@ -954,6 +988,10 @@ export function save() {
     besonderheit:document.getElementById('en').value.trim(),
     notiz:       document.getElementById('en').value.trim(),
   };
+  const maRaw = document.getElementById('ema') ? document.getElementById('ema').value.trim() : '';
+  const objRaw = document.getElementById('eobj') ? document.getElementById('eobj').value.trim() : '';
+  d.mitarbeiter_anzahl = maRaw === '' ? null : (parseInt(maRaw, 10) || null);
+  d.objekte_bestand = objRaw === '' ? null : (parseInt(objRaw, 10) || null);
   const dealRaw = document.getElementById('eDeal') ? document.getElementById('eDeal').value.trim() : '';
   if (d.status === 'closed' && dealRaw) d.deal_value_eur = parseFloat(dealRaw) || 1800;
   else if (d.status !== 'closed') d.deal_value_eur = null;
@@ -999,14 +1037,16 @@ export async function del(id) {
   const c = S.contacts.find(function(x) { return x.id === id; });
   const label = (c && c.firma) ? c.firma : 'diesen Lead';
   if (!confirm('„' + label + '“ wirklich löschen?\n\nDer Lead wird unwiderruflich aus der Datenbank entfernt.')) return;
-  if (S.syncInProgress) { toast('Sync läuft — bitte kurz warten.'); return; }
   try {
-    await sbDelete('/rest/v1/crm_contacts?id=eq.' + id);
+    await sbDelete('/rest/v1/crm_contacts?id=eq.' + encodeURIComponent(id));
   } catch(e) {
     toast('Löschen fehlgeschlagen: ' + e.message);
     return;
   }
   S.contacts = S.contacts.filter(function(x) { return x.id !== id; });
+  if (S.pinContactId === id) clearTablePin();
+  bumpContactsRev();
+  invalidateFilterCache();
   schedulePersist();
   closeE();
   if (typeof window.closeP === 'function') window.closeP();
@@ -1015,7 +1055,7 @@ export async function del(id) {
 }
 
 export function openPurgeDq() {
-  const dqContacts = S.contacts.filter(function(c) { return PURGE_STATUSES.indexOf(c.status) >= 0; });
+  const dqContacts = S.contacts.filter(isPurgeContact);
   document.getElementById('purge-count').textContent = dqContacts.length;
   document.getElementById('purgeDqModal').classList.add('on');
 }
@@ -1025,7 +1065,7 @@ export function closePurgeDq() {
 }
 
 export async function purgeDq(mode) {
-  const dqContacts = S.contacts.filter(function(c) { return PURGE_STATUSES.indexOf(c.status) >= 0; });
+  const dqContacts = S.contacts.filter(isPurgeContact);
   if (!dqContacts.length) { closePurgeDq(); return; }
   if (S.syncInProgress) { toast('Sync läuft — bitte kurz warten.'); closePurgeDq(); return; }
 
@@ -1042,21 +1082,24 @@ export async function purgeDq(mode) {
           return { id: c.id, status: 'disqualified', synced_at: new Date().toISOString() };
         }));
       }
+      bumpContactsRev();
+      invalidateFilterCache();
       schedulePersist();
-      renderStats();
-      renderTableBody();
+      render();
       toast(dqContacts.length + ' Leads als Disqualified markiert.');
     } else {
       const ids = dqContacts.map(function(c) { return c.id; });
       for (let i = 0; i < ids.length; i += 50) {
         const batch = ids.slice(i, i + 50);
-        const idList = batch.map(function(id) { return 'id.eq.' + id; }).join(',');
+        const idList = batch.map(function(cid) { return 'id.eq.' + encodeURIComponent(cid); }).join(',');
         await sbDelete('/rest/v1/crm_contacts?or=(' + idList + ')');
       }
-      S.contacts = S.contacts.filter(function(c) { return PURGE_STATUSES.indexOf(c.status) < 0; });
+      const remove = new Set(ids);
+      S.contacts = S.contacts.filter(function(c) { return !remove.has(c.id); });
+      bumpContactsRev();
+      invalidateFilterCache();
       schedulePersist();
-      renderStats();
-      renderTableBody();
+      render();
       toast(ids.length + ' Leads gelöscht (Disqualified + MoFo).');
     }
   } catch(e) {
@@ -1193,12 +1236,12 @@ export function scrollToAktionQueue() {
 
 export function applyColPreset(preset, silent) {
   if (preset === 'calling') {
-    S.colVis = { stadt: false, region: false, gewerk: false, origin: true, temp: false, lebensbereich: false };
+    S.colVis = { stadt: false, region: false, gewerk: false, origin: true, temp: false, lebensbereich: false, ma: true, objekte: true };
   } else if (preset === 'full') {
-    S.colVis = { stadt: true, region: true, gewerk: true, origin: true, temp: true, lebensbereich: true };
+    S.colVis = { stadt: true, region: true, gewerk: true, origin: true, temp: true, lebensbereich: true, ma: true, objekte: true };
   }
   localStorage.setItem('rais_crm_colvis', JSON.stringify(S.colVis));
-  ['stadt','region','gewerk','origin','temp','lebensbereich'].forEach(function(k) {
+  ['stadt','region','gewerk','origin','temp','lebensbereich','ma','objekte'].forEach(function(k) {
     const cb = document.getElementById('cv-' + k);
     if (cb) cb.checked = !!S.colVis[k];
   });
@@ -1246,6 +1289,8 @@ export async function purgeVersicherungsmakler() {
     }
     const remove = new Set(ids);
     S.contacts = S.contacts.filter(function(c) { return !remove.has(c.id); });
+    bumpContactsRev();
+    invalidateFilterCache();
     schedulePersist();
     render();
     toast(ids.length + ' Versicherungs-Leads gelöscht.');

@@ -160,6 +160,7 @@
       <div class="stat" id="s-ka"     onclick="setF('kein_anschluss')"><span class="sn" id="c-ka">0</span>  <span class="sl">Kein Anschluss</span></div>
       <div class="stat" id="s-gk"     onclick="setF('gatekeeper')">   <span class="sn" id="c-gk">0</span>  <span class="sl">Gatekeeper</span></div>
       <div class="stat" id="s-cb"     onclick="setF('callback')">     <span class="sn" id="c-cb">0</span>  <span class="sl">Callback</span></div>
+      <div class="stat" id="s-vn"     onclick="setF('vernetzt')">     <span class="sn" id="c-vn">0</span>  <span class="sl">LinkedIn DM</span></div>
     </div>
     <div class="stat-group stat-group-positive">
       <div class="stat" id="s-sa"     onclick="setF('set_appointment')"><span class="sn" id="c-sa">0</span> <span class="sl">Set Appointment</span></div>
@@ -216,6 +217,8 @@
         <label class="ctrow"><input type="checkbox" id="cv-stadt" onchange="toggleCol('stadt')"> Stadt</label>
         <label class="ctrow"><input type="checkbox" id="cv-region" onchange="toggleCol('region')"> Region</label>
         <label class="ctrow"><input type="checkbox" id="cv-gewerk" onchange="toggleCol('gewerk')"> Gewerk</label>
+        <label class="ctrow"><input type="checkbox" id="cv-ma" onchange="toggleCol('ma')"> MA</label>
+        <label class="ctrow"><input type="checkbox" id="cv-objekte" onchange="toggleCol('objekte')"> Objekte</label>
         <div class="ctpreset">
           <button type="button" class="ctpreset-btn" onclick="applyColPreset('calling')">Preset: Telefonieren</button>
           <button type="button" class="ctpreset-btn" onclick="applyColPreset('full')">Preset: Alle Spalten</button>
@@ -358,33 +361,6 @@
 </main>
 </div>
 
-<!-- ── Page: Termine (legacy — Inhalt im Dashboard) ─────────────────────────── -->
-<div class="rais-page" id="page-termine" hidden>
-<main class="termine-page">
-  <header class="termine-header">
-    <h1 class="termine-h1">Termine</h1>
-    <p class="termine-sub">Kundentermin, Demo/Sales und Rückrufe aus dem CRM · ritzaisolutions@gmail.com</p>
-  </header>
-  <section class="termine-agenda-section" aria-label="CRM-Termine">
-    <div class="termine-agenda-head">
-      <h2 class="termine-h2">CRM-Agenda</h2>
-      <div class="termine-filters" role="group" aria-label="Filter">
-        <button type="button" class="termine-filter-chip on" data-filter="all">Alle</button>
-        <button type="button" class="termine-filter-chip" data-filter="kundentermin">Kundentermin</button>
-        <button type="button" class="termine-filter-chip" data-filter="demo">Demo / Sales</button>
-        <button type="button" class="termine-filter-chip" data-filter="rueckruf">Rückruf</button>
-      </div>
-    </div>
-    <div id="termine-agenda" class="termine-agenda"></div>
-  </section>
-</main>
-</div>
-
-<!-- ── Page: Sales Rep (entfernt) ──────────────────────────────────────────── -->
-<div class="rais-page" id="page-salesrep" hidden>
-  <div id="salesrep-page-root" class="salesrep-page"></div>
-</div>
-
 <!-- ── Page: Projekte ───────────────────────────────────────────────────── -->
 <div class="rais-page" id="page-projects">
 <main style="padding:28px">
@@ -516,15 +492,16 @@
       <div class="fr2"><div><label>Titel</label><input type="text" id="etit"></div><div><label>Telefon</label><input type="tel" id="et"></div></div>
       <div class="fr2"><div><label>E-Mail</label><input type="email" id="em"></div><div><label>Website</label><input type="text" id="ew"></div></div>
       <div class="fr2">
-        <div><label>Status</label><select class="fs2" id="es" onchange="toggleDealField(this.value)">
-          <option value="neu">Neu</option>
-          <option value="kein_anschluss">Kein Anschluss</option>
-          <option value="gatekeeper">Gatekeeper</option>
-          <option value="callback">Callback</option>
-          <option value="set_appointment">Set Appointment</option>
-          <option value="closed">Closed</option>
-          <option value="disqualified">Disqualified</option>
-          <option value="mofo">MoFo</option>
+        <div><label>Status</label><select class="fs2 st-dd st-neu" id="es" onchange="toggleDealField(this.value); syncStatusSelectColor(this)">
+          <option value="neu" class="st-opt-neu">Neu</option>
+          <option value="kein_anschluss" class="st-opt-kein_anschluss">Kein Anschluss</option>
+          <option value="gatekeeper" class="st-opt-gatekeeper">Gatekeeper</option>
+          <option value="callback" class="st-opt-callback">Callback</option>
+          <option value="vernetzt" class="st-opt-vernetzt">LinkedIn DM</option>
+          <option value="set_appointment" class="st-opt-set_appointment">Set Appointment</option>
+          <option value="closed" class="st-opt-closed">Closed</option>
+          <option value="disqualified" class="st-opt-disqualified">Disqualified</option>
+          <option value="mofo" class="st-opt-mofo">MoFo</option>
         </select></div>
         <div><label>Follow-up Datum</label><input type="date" id="efu"><div class="fu-shortcuts"><button type="button" onclick="shiftFU(1)">+1d</button><button type="button" onclick="shiftFU(3)">+3d</button><button type="button" onclick="shiftFU(7)">+7d</button><button type="button" onclick="shiftFU(14)">+14d</button></div></div>
       </div>
@@ -566,6 +543,10 @@
           </div>
         </div>
       </div><div></div></div>
+      <div class="fr2">
+        <div><label>Mitarbeiterzahl</label><input type="number" class="fs2" id="ema" min="0" placeholder="MA"></div>
+        <div><label>Verwaltete Objekte</label><input type="number" class="fs2" id="eobj" min="0" placeholder="Bestand"></div>
+      </div>
       <div class="sh" style="margin:14px 0 8px;font-size:11px;font-weight:700;color:var(--st);text-transform:uppercase;letter-spacing:.5px">Herkunft &amp; Taxonomie</div>
       <div class="fr2">
         <div><label>Herkunft</label><select class="fs2" id="eorigin">
@@ -575,6 +556,7 @@
           <option value="external">Extern</option>
           <option value="referral">Empfehlung</option>
           <option value="import">Import</option>
+          <option value="meta_ads">Meta Ads</option>
         </select></div>
         <div><label>Temperatur</label><select class="fs2" id="etemp">
           <option value="cold">Kalt</option>
@@ -608,7 +590,7 @@
       <div class="fr"><label>Firma *</label><input type="text" id="qaFirma"></div>
       <div class="fr2"><div><label>Telefon</label><input type="tel" id="qaTel"></div><div><label>Gewerk</label><input type="text" id="qaGew" list="qaGewList"></div></div>
       <datalist id="qaGewList"></datalist>
-      <div class="fr2"><div><label>Lebensbereich</label><select class="fs2" id="qaLb"></select></div><div><label>Herkunft</label><select class="fs2" id="qaOrigin"><option value="manual">Manuell</option><option value="in_person">Persönlich</option><option value="external">Extern</option><option value="referral">Empfehlung</option></select></div></div>
+      <div class="fr2"><div><label>Lebensbereich</label><select class="fs2" id="qaLb"></select></div><div><label>Herkunft</label><select class="fs2" id="qaOrigin"><option value="manual">Manuell</option><option value="in_person">Persönlich</option><option value="external">Extern</option><option value="referral">Empfehlung</option><option value="meta_ads">Meta Ads</option></select></div></div>
       <div class="fr2"><div><label>LinkedIn</label><input type="text" id="qaLi"></div><div><label>Instagram</label><input type="text" id="qaIg"></div></div>
     </div>
     <div class="mf"><button class="btn bs" onclick="closeQuickAdd()">Abbrechen</button><button class="btn bp" onclick="saveQuickAdd()">Speichern</button></div>
@@ -1042,7 +1024,7 @@ import { load, syncCloud } from './src/sync.js';
 import { isAuthenticated } from './src/supabase.js';
 import { initRealtime } from './src/realtime.js';
 import { render, setF, filterDue, goPg, openP, closeP, qs, openQN, closeQN, saveQN,
-         inlineFU, inlineFUFocus, inlineFUBlur, shiftFU, saveNotiz, notizKey, inlineST,
+         inlineFU, inlineFUFocus, inlineFUBlur, shiftFU, saveNotiz, notizKey, inlineST, inlineHVNum,
          kbMove, kbOpen, kbEdit, openAdd, openE, closeE, save, del, toggleDealField,
          openQuickAdd, closeQuickAdd, saveQuickAdd, scheduleRender,
          openPurgeDq, closePurgeDq, purgeDq,
@@ -1050,6 +1032,7 @@ import { render, setF, filterDue, goPg, openP, closeP, qs, openQN, closeQN, save
          doSort, toggleColMenu, toggleCol, applyColPreset, closeSessionCelebration,
          openAktionPop, closeAktionPop, saveAktionPop, clearAktionPop, fillAktionSuggestion,
          checkAktionItem, scrollToAktionQueue } from './src/prospecting.js';
+import { syncStatusSelectColor } from './src/ui.js';
 import { renderCalls, resetCallCount } from './src/calls.js';
 import { addTouch, toggleAcc, saveTF } from './src/touch.js';
 import { openImport, closeI, dzOv, dzLv, dzDr, rdCSV, doImport, exportCSV } from './src/import.js';
@@ -1058,7 +1041,7 @@ import { openCalPop, closeCalPop, calCreate, maybeOfferCalendar } from './src/ca
 import { initContextMenu, ctxAction, showCtxMenuAtEvent } from './src/contextmenu.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
 import './src/dashboard.js';
-import { dashGoProspecting, dashGoClients, dashGoProjects } from './src/dashboard.js';
+import { dashGoProspecting, dashGoClients, dashGoProjects, dashGoContent, toggleDashSecondary, setDashGrain, saveActivityLog } from './src/dashboard.js';
 import { renderNetwork, openNwAdd, openNwEdit, closeNwModal, saveNw, delNw, openNwPanel, closeNwPanel, openNwBulkPaste, closeNwBulkPaste, saveNwBulkPaste } from './src/network.js';
 import { initContentPage, renderContent, openContentAdd, openContentEdit, closeContentModal, saveContent, delContent, filterContent } from './src/content.js';
 import { showDemoTodoPopup, saveDemoTodos, closeDemoTodoPop, openQuickTodo, saveQuickTodo, closeQuickTodo } from './src/todopop.js';
@@ -1128,15 +1111,15 @@ Object.assign(window, {
   closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, closeQuickAdd, ctxAction, del, delClient, delContent, doImport, doSort,
   closeNwModal, closeNwPanel, delNw, openNwAdd, openNwEdit, openNwPanel, openNwBulkPaste, closeNwBulkPaste, saveNwBulkPaste, renderNetwork, saveNw, saveQuickAdd,
   dzDr, dzLv, dzOv, exportCSV, filterContent, filterDue, goPg,
-  inlineFU, inlineFUFocus, inlineFUBlur, inlineST,
+  inlineFU, inlineFUFocus, inlineFUBlur, inlineST, inlineHVNum,
   mailComposeGenerate, mailComposeSend, mailComposeSetMode,
   markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit, openContentAdd, openContentEdit,
   openCalPop, openClPanel, openE, openEsPanel, openImport, openMailCompose, openP, openPurgeDq, openPurgeVersicherung, openSalesRepPop, salesRepRun, salesRepApplyToContact, showCtxMenuAtEvent,
   openQN, openQuickTodo, openQuickAdd, applyColPreset, purgeDq, purgeVersicherungsmakler, qs, rdCSV, render, renderClients, renderContent, resetCallCount, scheduleRender,
   save, saveClient, saveContent, saveDemoTodos, saveNotiz, saveQN, saveQuickTodo, saveTF,
-  setF, shiftFU, toggleDealField,
+  setF, shiftFU, toggleDealField, syncStatusSelectColor,
   syncCloud, doLogout, toggleAcc, toggleCol, toggleColMenu, toggleMobileMenu, closePurgeVersicherung, closeSessionCelebration,
-  dashGoProspecting, dashGoClients, dashGoProjects,
+  dashGoProspecting, dashGoClients, dashGoProjects, dashGoContent, toggleDashSecondary, setDashGrain, saveActivityLog,
   openProjectAdd, openProjectEdit, closeProjectModal, saveProject, delProject,
   openTodoAdd, closeTodoModal, saveTodo, toggleTodoDone, delTodo,
   openAktionPop, closeAktionPop, saveAktionPop, clearAktionPop, fillAktionSuggestion, checkAktionItem, scrollToAktionQueue,

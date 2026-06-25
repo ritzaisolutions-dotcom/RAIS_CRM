@@ -1,7 +1,7 @@
 import { sbGet, sbUpsert, sbDelete } from './supabase.js';
 import { toast } from './ui.js';
 import { navigateTo } from './sidebar.js';
-import { S, STATUS } from './state.js';
+import { S, STATUS, STATUS_GROUPS } from './state.js';
 import { weekStart } from './utils.js';
 
 // --- STATE ---
@@ -12,11 +12,7 @@ let _celebrationAktionLeads = null;
 
 const SESSION_KEY = 'rais_active_session';
 
-const STATUS_GROUPS = {
-  positive: ['set_appointment', 'closed'],
-  negative: ['disqualified', 'mofo'],
-  neutral:  ['kein_anschluss', 'gatekeeper', 'callback'],
-};
+const STATUS_GROUPS_LOCAL = STATUS_GROUPS;
 
 const STATUS_COLORS = {
   disqualified: '#DC2626',
@@ -24,6 +20,7 @@ const STATUS_COLORS = {
   closed: '#14532D',
   kein_anschluss: '#CA8A04',
   callback: '#2563EB',
+  vernetzt: '#1E3A5F',
   gatekeeper: '#EA580C',
   mofo: '#7F1D1D',
   neu: 'var(--st)',
@@ -31,9 +28,9 @@ const STATUS_COLORS = {
 
 function statusColor(s) {
   if (STATUS_COLORS[s]) return STATUS_COLORS[s];
-  if (STATUS_GROUPS.positive.includes(s)) return STATUS_COLORS.set_appointment;
-  if (STATUS_GROUPS.negative.includes(s)) return STATUS_COLORS.disqualified;
-  if (STATUS_GROUPS.neutral.includes(s)) return STATUS_COLORS.kein_anschluss;
+  if (STATUS_GROUPS_LOCAL.positive.includes(s)) return STATUS_COLORS.set_appointment;
+  if (STATUS_GROUPS_LOCAL.negative.includes(s)) return STATUS_COLORS.disqualified;
+  if (STATUS_GROUPS_LOCAL.neutral.includes(s)) return STATUS_COLORS.kein_anschluss;
   return 'var(--yw)';
 }
 

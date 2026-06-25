@@ -58,6 +58,16 @@ export async function loadContent() {
   }
 }
 
+/** Dashboard: Live-Content ohne UI-State */
+export async function fetchContentSnapshot() {
+  try {
+    const rows = await sbGet(CONTENT_KEY_SB + '?select=*&order=publish_date.desc');
+    return rows || [];
+  } catch (_) {
+    return [];
+  }
+}
+
 function getFilteredItems() {
   const typeF     = (document.getElementById('content-filter-type')     || { value: '' }).value;
   const statusF   = (document.getElementById('content-filter-status')   || { value: '' }).value;

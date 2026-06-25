@@ -97,7 +97,7 @@ export function normalizeLeadOrigin(v) {
     in_person: 'in_person', persoenlich: 'in_person', persönlich: 'in_person',
     external: 'external', extern: 'external',
     referral: 'referral', empfehlung: 'referral',
-    import: 'import',
+    import: 'import', meta_ads: 'meta_ads', 'meta ads': 'meta_ads',
   };
   return map[k] || (k || 'manual');
 }

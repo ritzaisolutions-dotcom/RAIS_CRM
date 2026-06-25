@@ -70,6 +70,8 @@ function parseCSV(txt) {
   const iBes = colIndex(heads, ['besonderheit']);
   const iTit = colIndex(heads, ['title', 'titel']);
   const iGew = colIndex(heads, ['gewerk']);
+  const iMa  = colIndex(heads, ['ma', 'mitarbeiter', 'mitarbeiterzahl', 'mitarbeiter_anzahl', 'employees']);
+  const iObj = colIndex(heads, ['objekte', 'verwaltete objekte', 'objekte_bestand', 'bestand', 'einheiten']);
   const iRoi = colIndex(heads, ['prio', 'priorität', 'priority', 'roi']);
   if (iF < 0) {
     toast('Keine Firma-Spalte (Unternehmen/Firma). Gefunden: ' + heads.join(', '));
@@ -89,6 +91,7 @@ function parseCSV(txt) {
     'aussortiert': 'disqualified', 'archiviert': 'disqualified',
     'ghost': 'mofo', 'mofo': 'mofo',
     'gatekeeper': 'gatekeeper',
+    'vernetzt': 'vernetzt', 'linkedin dm': 'vernetzt', 'linkedin_dm': 'vernetzt',
   };
   // Strip Excel-quoting artifact (leading apostrophe) and "NA" placeholder
   const clean = function(v) { return (v === 'NA' || v === 'na') ? '' : v; };
@@ -112,6 +115,8 @@ function parseCSV(txt) {
       hauptleistung: g(iHl),
       besonderheit: g(iBes),
       gewerk: normalizeGewerk(g(iGew)),
+      mitarbeiter_anzahl: iMa >= 0 ? (parseInt(g(iMa), 10) || null) : null,
+      objekte_bestand: iObj >= 0 ? (parseInt(g(iObj), 10) || null) : null,
       roi: iRoi >= 0 ? (parseInt(g(iRoi), 10) || 1) : 1,
       touches: [{status:'', datum:'', notiz:''}]
     };

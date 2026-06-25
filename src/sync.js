@@ -102,7 +102,8 @@ function contactToRow(c, now) {
     strasse: c.strasse || null,
     last_contacted_at: c.last_contacted_at || null,
     deal_value_eur: c.deal_value_eur != null ? c.deal_value_eur : null,
-    consent_basis: c.consent_basis || null,
+    mitarbeiter_anzahl: c.mitarbeiter_anzahl != null ? c.mitarbeiter_anzahl : null,
+    objekte_bestand: c.objekte_bestand != null ? c.objekte_bestand : null,
     synced_at: now,
   };
   const extra = buildExtra(c);
@@ -144,7 +145,7 @@ export function load() {
       delete S.colVis.website;
     }
   } catch(e) {}
-  ['stadt','region','gewerk','origin','temp','lebensbereich'].forEach(function(k) {
+  ['stadt','region','gewerk','origin','temp','lebensbereich','ma','objekte'].forEach(function(k) {
     const cb = document.getElementById('cv-' + k);
     if (cb) cb.checked = !!S.colVis[k];
   });
@@ -171,7 +172,7 @@ export async function syncCloud(silent) {
     const LOCAL_WINS = ['status','followup','roi','notiz','kontakt','title','telefon',
       'email','touches','status_changed_at','firma','website','gewerk','stadt','region',
       'source','lead_origin','lead_temp','is_external','lebensbereich','socials','plz','strasse',
-      'last_contacted_at','deal_value_eur','consent_basis'];
+      'last_contacted_at','deal_value_eur','consent_basis','mitarbeiter_anzahl','objekte_bestand'];
 
     const dirtyLocalById = {};
     S.contacts.filter(isDirtyContact).forEach(function(c) { dirtyLocalById[c.id] = c; });

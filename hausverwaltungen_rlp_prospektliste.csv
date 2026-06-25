@@ -1,0 +1,51 @@
+#,Name,Unternehmen,Email,Website,Adresse,Telefon,Prio
+1,Johannes Zillich,HVD Hausverwaltung,jzillich@t-online.de,,Mons-Tabor-Str. 2 - 56410 Montabaur,"02602 907 04 / 0172 653 57 70",1
+2,Petra Mohns,GWS Hausverwaltung GmbH,petra.mohns@gws-gmbh.de,gws-gmbh.de,"Kreuzstraße 80, 55543 Bad Kreuznach",0671 2090,1
+3,Marco Müller,Hausverwaltung Marco Müller,marco@mueller-mainz.de,mueller-mainz.de,"Borngasse 11, 55126 Mainz",0160 90761296,1
+4,Peter Rose,WARO Verwaltungs- und Immobilien GmbH,waro-pr@t-online.de,hausverwaltung-kaiserslautern.com,"Raiffeisenstraße 6, 67655 Kaiserslautern",0631 77097,1
+5,Joanna Wältermann,Immobilien Wältermann,info@immobilien-waeltermann.de,immobilien-waeltermann.de,"Kaisersesch, Eifel","02653 911960 / 01511 7860585",1
+6,Jürgen Pastler,Immobilienverwaltung Pastler UG,hausverwaltung@pastler.com,pastler.com,"Kammertsweg 66, 56070 Koblenz",01515 6015016,1
+7,Andreas & Ingo Newald,Newald Hausverwaltung UG,hausverwaltung@newald.de,newald.de,"Bardelebenstr. 6, 56073 Koblenz",0261 13494110,1
+8,Rainer Lehnert,RL Hausverwaltung,info@rl-hausverwaltung.de,rl-hausverwaltung.de,"Eurenerstraße 14, 54294 Trier","0651 99 55 64 44 / 0171 340 16 41",1
+9,Christian Kins,Immobilienservice C. Kins,hausverwaltung@kins.de,kins.de,"Albertstr. 1, 56410 Montabaur",02602 180531,1
+10,Bianca Löw,Hausverwaltung Löw,info@immopartner-koblenz.de,immopartner-koblenz.de,"Karthäuserhofweg, 56075 Koblenz",0261 51114,1
+11,Nils Madeja,RNH Hausverwaltung,info@rnh-hausverwaltung.de,rnh-hausverwaltung.de,"Kastanienstraße 1, 56281 Emmelshausen",06747 952 3590,1
+12,Peter Stoth,Hausverwaltung Westerwald,info@hv-westerwald.de,hv-westerwald.de,"Marktplatz 6, 56457 Westerburg",02663 9165956,1
+13,Jens Eisenbach,IV-RHN Immobilienverwaltung,info@iv-rhn.de,iv-rhn.de,"Im Gäßchen 5, 55471 Neuerkirch","06761 850 3414 / 0163 832 1116",1
+14,Shirley Noviyanti,SN Verwaltung,info@snverwaltung.de,snverwaltung.de,"Kastanienweg 2, 56299 Ochtendung","02625 8644071 / 0151 598 70464",1
+15,Beatrice Schnell,Hausverwaltung Lulinn,schnell@hausverwaltung-lulinn.de,hausverwaltung-lulinn.de,"Freiherr-vom-Stein-Str. 1, 55270 Ober-Olm","06136 763 00 05 / 0176 43 41 00 04",1
+16,Christine Harnecker,CH Immobilienverwaltung,info@chimmobilienverwaltung.de,chimmobilienverwaltung.de,"Ringstraße 31A, 55129 Mainz",06131 504951,1
+17,Oleg Zimmer,Zimmer Immobiliencontor,hausverwaltung@z-immocontor.de,z-immocontor.de,"Kirchstraße 7, 56218 Mülheim-Kärlich",02630 962 367,1
+18,Jürgen Ackermann,Immobilienverwaltung Ackermann,kontakt@iv-a.de,iv-a.de,"Damenweg 3, 54470 Bernkastel-Kues",06531 601 99 28,1
+19,Frank Baumann,Hausverwaltung Frank Baumann,kontakt@hausverwaltungbaumann.de,hausverwaltungbaumann.de,"Fasaneriestraße 40a, 66482 Zweibrücken",0176 84515305,1
+20,Iris Scholles,ISH-Iris-Scholles-Hausverwaltung,info@iris-scholles-hausverwaltung.de,iris-scholles-hausverwaltung.de,"Bahnweg 49, 55129 Mainz",06131 957102,1
+21,Frank Meier,CASPER Haus & Immobilienverwaltung GmbH,info@casper-immobilien.de,casper-immobilien.de,"Amalie-Sieveking-Str. 9, 66482 Zweibrücken","06332 4601715 / 0170 1837851",1
+22,André Kesselheim,Weyand Immobilien GmbH,kontakt@weyand-immobilien.de,weyand-immobilien.de,"Im Schützengrund 1, 56566 Neuwied",02622 7064310,2
+23,Ortwin Sülzen,MCN Immobilien GbR,kontakt@mcn-immobilien.de,mcn-immobilien.de,"Carl-Borgward-Str. 3, 56566 Neuwied",per Website,2
+24,Martin Aigner / Kerstin Sprengart,Aigner & Sprengart OHG,info@aigner-sprengart.de,aigner-sprengart.de,"Rizzastraße 41, 56068 Koblenz",0261 1330370,2
+25,David Follmann,HRM Hausverwaltung Rhein-Mosel GmbH,info@hrm-rhein-mosel.de,hrm-rhein-mosel.de,"Friedrich-Ebert-Ring 54, 56068 Koblenz",0261 270 330 0,2
+26,Kornelius Fox,Hausverwaltung Fox,info@hausverwaltung-fox.de,hausverwaltung-fox.de,"Lärchenweg 4, 55490 Gemünden/Hunsrück",06765 949548,2
+27,Mario Zender,Mosel-Immobilienservice GmbH,info@mosel-immo.de,mosel-immo.de,"Endertstraße 17, 56812 Cochem",02671 2598690,2
+28,Martin Joachim Müller,HIS Hausverwaltung Mittelrhein GmbH,info@hv-koblenz.de,hausverwaltung-koblenz.de,"Johannesstraße 42, 56112 Lahnstein",02621 62919-0,2
+29,Daniel Lorenz,Lorenz Hausverwaltung GmbH,info@koblenz-hausverwaltung.de,koblenz-hausverwaltung.de,"Schloßstr. 37, 56068 Koblenz",0261 20069070,2
+30,Benedikt Näbauer / Patrick Schwöbel,Rheinblick Hausverwaltung GmbH,info@rheinblick-hausverwaltung.de,rheinblick-hausverwaltung.de,"Hans-Stempel-Str. 10, 76829 Landau",06341 70815 50,2
+31,Thomas Krieg,Thomas Krieg Hausverwaltung,info@hausverwaltung-krieg.de,hausverwaltung-krieg.de,"Alzeyer Str. 65c, 67549 Worms","06241 97376-0 / 0179 5106488",2
+32,Rainer Luppert,Gebäudeverwaltung Luppert,info@hausverwaltung-luppert.de,hausverwaltung-luppert.de,"Röntgenstr. 5, 76870 Kandel/Südpfalz",07275 9 40 20,2
+33,Oliver Brenner,Hausverwaltungen Brenner,info@hausverwaltungen-brenner.de,hausverwaltungen-brenner.de,"Horsteler Weg 17, 66989 Höheischweiler",06331 230115,2
+34,Sebastian Münz,Ries Immobilien Hausverwaltung GmbH,info@ries-hausverwaltung.de,ries-hausverwaltungen.de,"Schlossergasse 15, 67227 Frankenthal",06233 2 87 99,2
+35,Axel Eichholtz,IBS GmbH Hausverwaltung,info@ibs-bingen.de,ibs-bingen.de,"Franz-Kirsten-Str. 3, 55411 Bingen am Rhein","06721 304 30 / 0172 7339765",2
+36,Andreas Mohr,Pfalz Immobilienverwaltung GmbH,info@pfalz-immobilienverwaltung.de,pfalz-immobilienverwaltung.de,"Kugelfangstraße 19, 67105 Schifferstadt",06235 4910812,2
+37,Michael Emig,EMIG Immobilien Hausverwaltung,info@immobilien-mainz.de,immobilien-mainz.de,"An der Fahrt 13, 55124 Mainz",06131 930390,2
+38,Beate Schulte / Martin Reichel,Reichel & Schulte Immobilienverwaltung GmbH,info@reichelundschulte.de,reichelundschulte.de,"Rheinstr. 25, 56564 Neuwied",02623 1200,2
+39,Sascha Wlodarczyk,HVW Hausverwaltungen GmbH,info@hvw-hausverwaltungen.de,hvw-hausverwaltungen.de,"Industriestr. 1a, 67454 Haßloch",06324 96797-30,2
+40,Katharina Bugdoll,Taubitz Immobilienconsulting e.K.,info@taubitz-immobilienconsulting.de,taubitz-immobilienconsulting.de,"Hans-Frick-Str. 1a, 53474 Bad Neuenahr-Ahrweiler",02641 916314,2
+41,Waldemar Haller,Haller Immobilienberatung GmbH,info@haller-immobilien.de,haller-immobilien.de,"Kirchberg 42, 56626 Andernach",02632 9458-0,2
+42,Andreas Bergmann,Bergmann Immobilienverwaltung,info@immo-bergmann.com,immo-bergmann.com,"Ringstraße 38, 67705 Trippstadt (Kaiserslautern)",0177 9254207,2
+43,GF per Anruf,HOME HV – Hausverwaltung Trier,info@homehv.de,homehv.de,Trier,per Website,3
+44,GF per Anruf,Medika Hausverwaltung,info@medika-dienstleistung.de,medika-dienstleistung.de,Wachtberg / Bad Neuenahr,per Website,3
+45,GF per Anruf,IV Mittelrhein,per Anruf erfragen,iv-mittelrhein.de,Neuwied,per Website,3
+46,GF per Anruf,Home-Service Mittelrhein GmbH,per Anruf erfragen,homeservice.immo,"Mittelstr. 5, 56579 Hardert",0151 72 57 25 12,3
+47,GF per Anruf,Hausverwaltung Mayen (immonick),per Anruf erfragen,immonick.de,Mayen,per Website,3
+48,GF per Anruf,Bluhm Hausverwaltung GmbH,per Anruf erfragen,peter-bluhm.de,Kaiserslautern/Kirchheimbolanden,per Website,3
+49,GF per Anruf,Merkel Hausverwaltungs- und Immobilien GmbH,info@merkel-immobilien.de,,"Virginiastr. 8, 66482 Zweibrücken",06332 478193,3
+50,GF per Anruf,Hausverwaltung Schneider Koblenz,per Anruf erfragen,,"Kammertsweg 57, 56070 Koblenz",0261 805664,3
