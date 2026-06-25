@@ -603,7 +603,8 @@ export function qs(id, s) {
   const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
   const _prev = c.status;
-  if (c.status !== s) c.status_changed_at = td();
+  if (_prev === s) return;
+  c.status_changed_at = td();
   c.status = s;
   touchContactNow(c);
   touchLastContacted(c);
@@ -922,13 +923,18 @@ export function save() {
     if (i >= 0) {
       const prevFu = S.contacts[i].followup || '';
       const prevStatus = S.contacts[i].status;
-      if (S.contacts[i].status !== d.status) d.status_changed_at = td();
+      const statusChanged = prevStatus !== d.status;
+      if (statusChanged) d.status_changed_at = td();
       S.contacts[i] = Object.assign({}, S.contacts[i], d, { synced_at: null });
+      const name = S.contacts[i].firma || S.contacts[i].company_name || '';
       if ((d.followup || '') !== prevFu) {
         recordOutreachOnFollowupChange(S.contacts[i], prevFu, d.followup || '', {
           statusFromForm: d.status,
           prevStatus: prevStatus,
         });
+      } else if (statusChanged) {
+        syncLeadTemp(S.contacts[i]);
+        onStatusChanged(S.contacts[i].id, name, prevStatus, d.status);
       }
     }
   } else {

@@ -1,8 +1,7 @@
 import { sbGet, sbUpsert, sbDelete } from './supabase.js';
 import { toast } from './ui.js';
 import { navigateTo } from './sidebar.js';
-import { applyColPreset } from './prospecting.js';
-import { STATUS } from './state.js';
+import { S, STATUS } from './state.js';
 import { weekStart } from './analytics.js';
 
 // --- STATE ---
@@ -29,6 +28,50 @@ function statusColor(s) {
 
 function statusLabel(s) {
   return (STATUS[s] && STATUS[s].label) || String(s || '').replace(/_/g, ' ');
+}
+
+function normalizeActiveSession() {
+  if (!activeSession) return;
+  if (!activeSession.breakdown || typeof activeSession.breakdown !== 'object') {
+    activeSession.breakdown = {};
+  }
+  if (typeof activeSession.leadsPlayed !== 'number' || Number.isNaN(activeSession.leadsPlayed)) {
+    activeSession.leadsPlayed = 0;
+  }
+  if (!Array.isArray(activeSession.aktionLeads)) activeSession.aktionLeads = [];
+}
+
+function applyCallingColPreset() {
+  S.colVis = { stadt: false, region: false, gewerk: false, origin: true, temp: false, lebensbereich: false };
+  localStorage.setItem('rais_crm_colvis', JSON.stringify(S.colVis));
+  ['stadt', 'region', 'gewerk', 'origin', 'temp', 'lebensbereich'].forEach(function(k) {
+    const cb = document.getElementById('cv-' + k);
+    if (cb) cb.checked = !!S.colVis[k];
+  });
+  const drop = document.getElementById('ctdrop');
+  if (drop) drop.classList.remove('on');
+  if (typeof window.render === 'function') window.render();
+}
+
+function recordSessionEvent(contactId, contactName, statusFrom, statusTo) {
+  if (!activeSession || !activeSession.id) return;
+  sbUpsert('/rest/v1/crm_session_events', [{
+    session_id: activeSession.id,
+    contact_id: String(contactId),
+    contact_name: contactName || null,
+    status_from: statusFrom || null,
+    status_to: statusTo,
+  }]).catch(function(e) {
+    console.warn('Session-Event nicht gespeichert:', e.message);
+  });
+}
+
+function refreshSessionLiveUI() {
+  renderWidget();
+  renderActiveCardState();
+  if (!activeSession) return;
+  const countEl = document.querySelector('.sp-active-card .sp-count strong');
+  if (countEl) countEl.textContent = String(activeSession.leadsPlayed);
 }
 
 function elapsedSeconds() {
@@ -72,6 +115,8 @@ function _restoreSession() {
     if (!s.pausedAt) s.pausedAt = Date.now();
     if (!Array.isArray(s.aktionLeads)) s.aktionLeads = [];
     activeSession = s;
+    normalizeActiveSession();
+    _saveSession();
     renderWidget();
     toast('Session wiederhergestellt — ▶ Fortsetzen um weiterzumachen.');
   } catch(e) {
@@ -174,6 +219,7 @@ export async function startSession(config) {
       leadsPlayed: 0,
       aktionLeads: [],
     };
+    normalizeActiveSession();
     _saveSession();
     timerInterval = setInterval(renderWidget, 1000);
     renderWidget();
@@ -181,7 +227,7 @@ export async function startSession(config) {
     
     // Automatischer Fokus-Preset: Zu kompaktem 'Telefonier'-Preset wechseln (kognitiver Ballast reduzieren)
     try {
-      applyColPreset('calling', true);
+      applyCallingColPreset();
       toast('▶ Session gestartet. "Telefonieren" Spalten-Preset automatisch aktiviert!');
     } catch(e) {
       console.warn('Could not apply calling preset automatically:', e);
@@ -439,34 +485,25 @@ export async function discardSession() {
 
 export function onStatusChanged(contactId, contactName, fromStatus, toStatus) {
   if (!activeSession) return;
-  if (toStatus === 'neu') return;
+  if (!toStatus || toStatus === 'neu') return;
+  if (fromStatus === toStatus) return;
+  normalizeActiveSession();
   activeSession.leadsPlayed += 1;
   activeSession.breakdown[toStatus] = (activeSession.breakdown[toStatus] || 0) + 1;
   _saveSession();
-  sbUpsert('/rest/v1/crm_session_events', [{
-    session_id: activeSession.id,
-    contact_id: String(contactId),
-    contact_name: contactName || null,
-    status_from: fromStatus || null,
-    status_to: toStatus,
-  }]);
-  renderWidget();
+  recordSessionEvent(contactId, contactName, fromStatus, toStatus);
+  refreshSessionLiveUI();
 }
 
 export function onOutreachRecorded(contactId, contactName, statusFrom, statusTo) {
   if (!activeSession) return;
   const key = statusTo || 'kein_anschluss_2';
+  normalizeActiveSession();
   activeSession.leadsPlayed += 1;
   activeSession.breakdown[key] = (activeSession.breakdown[key] || 0) + 1;
   _saveSession();
-  sbUpsert('/rest/v1/crm_session_events', [{
-    session_id: activeSession.id,
-    contact_id: String(contactId),
-    contact_name: contactName || null,
-    status_from: statusFrom || null,
-    status_to: key,
-  }]);
-  renderWidget();
+  recordSessionEvent(contactId, contactName, statusFrom, key);
+  refreshSessionLiveUI();
 }
 
 export function getActiveSession() { return activeSession; }

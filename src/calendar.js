@@ -3,6 +3,7 @@ import { markDirty, persist, pushDirty } from './sync.js';
 import { toast } from './ui.js';
 import { td, normalizeWebsite } from './utils.js';
 import { whFetch } from './wh.js';
+import { onStatusChanged } from './sessions.js';
 
 const CAL_LABELS = {
   demo:         { title: 'Demo / Sales Call (15 Min)', duration: 15 },
@@ -63,8 +64,9 @@ function calHintForType(type) {
 }
 
 function applyFollowupAndStatus(c, type, dateStr) {
+  const prevStatus = c.status;
   if (dateStr) c.followup = dateStr;
-  if (STATUS_PROTECTED.indexOf(c.status) >= 0) return;
+  if (STATUS_PROTECTED.indexOf(c.status) >= 0) return prevStatus;
   if (type === 'rueckruf' && c.status !== 'demo_termin') {
     c.status = 'callback';
     c.status_changed_at = td();
@@ -72,6 +74,7 @@ function applyFollowupAndStatus(c, type, dateStr) {
     c.status = 'demo_termin';
     c.status_changed_at = td();
   }
+  return prevStatus;
 }
 
 function logCalendarOnContact(c, type, eventId, htmlLink, scheduledStart) {
@@ -166,7 +169,10 @@ export async function calCreate() {
       throw new Error(data.error || 'HTTP ' + resp.status);
     }
     logCalendarOnContact(c, type, data.event_id, data.htmlLink, start);
-    applyFollowupAndStatus(c, type, dateStr);
+    const prevStatus = applyFollowupAndStatus(c, type, dateStr);
+    if (c.status !== prevStatus) {
+      onStatusChanged(c.id, c.firma || c.company_name || '', prevStatus, c.status);
+    }
     markDirty(c);
     persist();
     pushDirty();
