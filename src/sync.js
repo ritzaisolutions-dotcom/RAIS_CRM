@@ -1,7 +1,7 @@
 import { S, KEY, CC_KEY, LB_KEY_SB } from './state.js';
 import { sbGet, sbUpsert, isAuthenticated } from './supabase.js';
 import { toast } from './ui.js';
-import { getCustomGewerke, addCustomGewerk, getSocials } from './utils.js';
+import { getCustomGewerke, addCustomGewerk, getSocials, normalizeContactStatus } from './utils.js';
 
 export function clearLocalCrmData() {
   localStorage.removeItem(KEY);
@@ -23,6 +23,48 @@ export function markDirty(c) {
   }
 }
 export function persist() { localStorage.setItem(KEY, JSON.stringify(S.contacts)); }
+
+let _persistTimer = null;
+let _pushTimer = null;
+const _recentlyPushedIds = new Set();
+
+export function markRecentlyPushed(ids) {
+  ids.forEach(function(id) { _recentlyPushedIds.add(id); });
+  setTimeout(function() {
+    ids.forEach(function(id) { _recentlyPushedIds.delete(id); });
+  }, 3000);
+}
+
+export function wasRecentlyPushed(id) {
+  return _recentlyPushedIds.has(id);
+}
+
+export function schedulePersist() {
+  if (_persistTimer) clearTimeout(_persistTimer);
+  _persistTimer = setTimeout(function() {
+    _persistTimer = null;
+    persist();
+  }, 400);
+}
+
+export function schedulePushDirty() {
+  if (_pushTimer) clearTimeout(_pushTimer);
+  _pushTimer = setTimeout(function() {
+    _pushTimer = null;
+    pushDirty();
+  }, 1500);
+}
+
+export function flushPersistAndPush() {
+  if (_persistTimer) { clearTimeout(_persistTimer); _persistTimer = null; }
+  if (_pushTimer) { clearTimeout(_pushTimer); _pushTimer = null; }
+  persist();
+  return pushDirty();
+}
+
+function safeRender() {
+  if (typeof window.render === 'function') window.render();
+}
 
 const EXTRA_KEYS = [
   'hauptleistung', 'webseite_alter', 'webseite_vorhanden', 'hat_kalkulator',
@@ -89,6 +131,11 @@ export function load() {
     if (!c.socials) c.socials = getSocials(c);
     if (!c.lead_origin) c.lead_origin = 'manual';
     if (!c.lead_temp) c.lead_temp = 'cold';
+    const norm = normalizeContactStatus(c.status);
+    if (norm !== c.status) {
+      c.status = norm;
+      c.synced_at = null;
+    }
   });
   try {
     const cv = JSON.parse(localStorage.getItem('rais_crm_colvis'));
@@ -136,6 +183,7 @@ export async function syncCloud(silent) {
     const newContacts = remote.map(function(r) {
       const local = dirtyLocalById[r.id];
       const c = Object.assign({}, r);
+      c.status = normalizeContactStatus(c.status);
       if (!c.touches) c.touches = [];
       if (c.extra) {
         c.hauptleistung      = c.extra.hauptleistung      || null;
@@ -172,14 +220,15 @@ export async function syncCloud(silent) {
     for (let i = 0; i < rows.length; i += 50) {
       await sbUpsert('/rest/v1/crm_contacts', rows.slice(i, i + 50));
     }
+    markRecentlyPushed(rows.map(function(r) { return r.id; }));
 
     persist();
     await syncGewerkeCloud();
     await syncLebensbereicheCloud();
-    render();
+    safeRender();
     toast('☁ Sync erfolgreich — ' + S.contacts.length + ' Kontakte.');
   } catch(e) {
-    render();
+    safeRender();
     if (!silent) toast('Sync fehlgeschlagen: ' + e.message);
   } finally {
     S.syncInProgress = false;
@@ -206,6 +255,7 @@ export async function pushDirty() {
     for (let i = 0; i < rows.length; i += 50) {
       await sbUpsert('/rest/v1/crm_contacts', rows.slice(i, i + 50));
     }
+    markRecentlyPushed(dirty.map(function(c) { return c.id; }));
     persist();
   } catch(e) {
     dirty.forEach(function(c) { c.synced_at = null; });

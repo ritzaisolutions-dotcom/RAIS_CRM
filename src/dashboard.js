@@ -58,7 +58,7 @@ export async function renderDashboard() {
     const prevWeek = computeFunnel('prev_week');
     const contacts = S.contacts || [];
     const cold = contacts.filter(isColdLead).length;
-    const demosTotal = contacts.filter(function(c) { return c.status === 'demo_termin'; }).length;
+    const demosTotal = contacts.filter(function(c) { return c.status === 'set_appointment'; }).length;
 
     let calEvents = [];
     try {
@@ -80,8 +80,8 @@ export async function renderDashboard() {
       '<div class="dash-kpis">' +
         kpiCard(week.dials, 'Leads angesprochen (Woche)', deltaHtml(week.dials, prevWeek.dials), 'dashGoProspecting(\'all\')') +
         kpiCard(cold, 'Kalte Leads', '', 'dashGoProspecting(\'kalt\')') +
-        kpiCard(demosTotal + (calEvents.length ? ' / ' + calEvents.length : ''), 'Termine (CRM / Kalender)', '', 'dashGoProspecting(\'demo_termin\')') +
-        kpiCard(formatEur(week.revenueEur), 'Revenue (Woche)', deltaHtml(week.revenueEur, prevWeek.revenueEur), 'dashGoProspecting(\'gewonnen\')') +
+        kpiCard(demosTotal + (calEvents.length ? ' / ' + calEvents.length : ''), 'Termine (CRM / Kalender)', '', 'dashGoProspecting(\'set_appointment\')') +
+        kpiCard(formatEur(week.revenueEur), 'Revenue (Woche)', deltaHtml(week.revenueEur, prevWeek.revenueEur), 'dashGoProspecting(\'closed\')') +
       '</div>' +
 
       '<div class="dash-grid dash-charts">' +
@@ -117,8 +117,8 @@ export async function renderDashboard() {
       '<div class="dash-kpis">' +
         kpiCard(0, 'Leads angesprochen (Woche)', '', 'dashGoProspecting(\'all\')') +
         kpiCard(0, 'Kalte Leads', '', 'dashGoProspecting(\'kalt\')') +
-        kpiCard(0, 'Termine (CRM / Kalender)', '', 'dashGoProspecting(\'demo_termin\')') +
-        kpiCard(formatEur(0), 'Revenue (Woche)', '', 'dashGoProspecting(\'gewonnen\')') +
+        kpiCard(0, 'Termine (CRM / Kalender)', '', 'dashGoProspecting(\'set_appointment\')') +
+        kpiCard(formatEur(0), 'Revenue (Woche)', '', 'dashGoProspecting(\'closed\')') +
       '</div>' +
       '<p class="dash-empty">Einige Dashboard-Daten konnten nicht geladen werden.</p>';
   }

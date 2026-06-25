@@ -1,5 +1,5 @@
 import { S } from './state.js';
-import { gid, td, normalizeWebsite, normalizeGewerk, syncLeadTemp } from './utils.js';
+import { gid, td, normalizeWebsite, normalizeGewerk, syncLeadTemp, normalizeContactStatus } from './utils.js';
 import { persist } from './sync.js';
 import { toast } from './ui.js';
 
@@ -77,16 +77,18 @@ function parseCSV(txt) {
   }
   const sm2 = {
     'neu': 'neu',
-    'callback': 'callback', 'rückruf': 'callback',
-    'demo_termin': 'demo_termin', 'termin': 'demo_termin',
-    'email_nurture': 'email_nurture', 'nurture': 'email_nurture', 'interessiert': 'email_nurture',
-    'kein_anschluss': 'kein_anschluss', 'nicht erreicht': 'kein_anschluss', 'nicht_erreicht': 'kein_anschluss', 'no show': 'kein_anschluss',
-    'kein_anschluss_2': 'kein_anschluss_2', 'kein anschluss 2': 'kein_anschluss_2', 'ka2': 'kein_anschluss_2',
-    'nicht_interessiert': 'disqualified', 'kein interesse': 'disqualified', 'kein_interesse': 'disqualified', 'disqualified': 'disqualified',
-    'nicht passend': 'nicht_passend', 'nicht_passend': 'nicht_passend', 'kein fit': 'nicht_passend', 'aussortiert': 'nicht_passend',
-    'ghost': 'ghost',
+    'callback': 'callback', 'rückruf': 'callback', 'followup': 'callback', 'follow-up': 'callback',
+    'set_appointment': 'set_appointment', 'demo_termin': 'set_appointment', 'termin': 'set_appointment',
+    'demo': 'set_appointment', 'interessiert': 'set_appointment', 'door_open': 'set_appointment',
+    'closed': 'closed', 'gewonnen': 'closed',
+    'kein_anschluss': 'kein_anschluss', 'nicht erreicht': 'kein_anschluss', 'nicht_erreicht': 'kein_anschluss',
+    'kein_anschluss_2': 'kein_anschluss', 'kein anschluss 2': 'kein_anschluss', 'ka2': 'kein_anschluss',
+    'no show': 'kein_anschluss', 'no_show': 'kein_anschluss', 'email_nurture': 'kein_anschluss',
+    'nicht_interessiert': 'disqualified', 'kein interesse': 'disqualified', 'kein_interesse': 'disqualified',
+    'disqualified': 'disqualified', 'nicht passend': 'disqualified', 'nicht_passend': 'disqualified',
+    'aussortiert': 'disqualified', 'archiviert': 'disqualified',
+    'ghost': 'mofo', 'mofo': 'mofo',
     'gatekeeper': 'gatekeeper',
-    'followup': 'callback', 'follow-up': 'callback',
   };
   // Strip Excel-quoting artifact (leading apostrophe) and "NA" placeholder
   const clean = function(v) { return (v === 'NA' || v === 'na') ? '' : v; };
@@ -103,7 +105,7 @@ function parseCSV(txt) {
       telefon: cleanPhone(g(iT)),
       email: g(iEm),
       website: normalizeWebsite(g(iWeb)),
-      status: sm2[rs] || 'neu',
+      status: normalizeContactStatus(sm2[rs] || 'neu'),
       followup: g(iFu),
       stadt: g(iSt),
       region: g(iReg),

@@ -1,4 +1,7 @@
 import { S } from './state.js';
+import { weekStart } from './utils.js';
+
+export { weekStart };
 
 function parseDate(s) {
   if (!s) return null;
@@ -9,13 +12,6 @@ function parseDate(s) {
 function startOfDay(d) {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-export function weekStart(d) {
-  const x = startOfDay(d || new Date());
-  const day = x.getDay() || 7;
-  x.setDate(x.getDate() - day + 1);
   return x;
 }
 
@@ -62,10 +58,10 @@ function countDemosInRange(start, end) {
   let n = 0;
   (S.contacts || []).forEach(function(c) {
     const sc = parseDate(c.status_changed_at);
-    if (c.status === 'demo_termin' && inRange(sc, start, end)) { n++; return; }
+    if (c.status === 'set_appointment' && inRange(sc, start, end)) { n++; return; }
     (c.touches || []).forEach(function(t) {
       const d = parseDate(t.datum);
-      if (d && inRange(d, start, end) && (t.status === 'Termin vereinbart' || t.status === 'Demo Termin')) n++;
+      if (d && inRange(d, start, end) && (t.status === 'Termin vereinbart' || t.status === 'Set Appointment' || t.status === 'Demo Termin')) n++;
     });
   });
   return n;
@@ -73,7 +69,7 @@ function countDemosInRange(start, end) {
 
 function countWonInRange(start, end) {
   return (S.contacts || []).filter(function(c) {
-    if (c.status !== 'gewonnen') return false;
+    if (c.status !== 'closed') return false;
     const sc = parseDate(c.status_changed_at);
     return inRange(sc, start, end);
   }).length;
@@ -82,7 +78,7 @@ function countWonInRange(start, end) {
 function revenueInRange(start, end) {
   let sum = 0;
   (S.contacts || []).forEach(function(c) {
-    if (c.status !== 'gewonnen') return;
+    if (c.status !== 'closed') return;
     const sc = parseDate(c.status_changed_at);
     if (!inRange(sc, start, end)) return;
     const v = parseFloat(c.deal_value_eur);
@@ -96,8 +92,8 @@ function funnelStages() {
   const dials = contacts.reduce(function(n, c) {
     return n + (c.touches || []).filter(function(t) { return t.datum; }).length;
   }, 0);
-  const demos = contacts.filter(function(c) { return c.status === 'demo_termin'; }).length;
-  const won = contacts.filter(function(c) { return c.status === 'gewonnen'; }).length;
+  const demos = contacts.filter(function(c) { return c.status === 'set_appointment'; }).length;
+  const won = contacts.filter(function(c) { return c.status === 'closed'; }).length;
   return { dials, demos, won };
 }
 
@@ -165,8 +161,8 @@ export function renderFunnelChart(container, data) {
   }
   container.innerHTML = '<div class="chart-funnel">' +
     step('Dials', s.dials, '') +
-    step('Demo Termin', s.demos, '') +
-    step('Gewonnen', s.won, 'chart-funnel-bar--won') +
+    step('Set Appointment', s.demos, '') +
+    step('Closed', s.won, 'chart-funnel-bar--won') +
   '</div>';
 }
 

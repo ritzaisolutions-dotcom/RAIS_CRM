@@ -141,12 +141,12 @@ export function openClPanel(id) {
 export function closeClPanel() { document.getElementById('clPo').classList.remove('on'); }
 
 export async function promptAutoClient(contact, status) {
-  if (status !== 'gewonnen' && status !== 'demo_termin') return;
+  if (status !== 'closed' && status !== 'set_appointment') return;
   const already = S.clClients.find(function(c) {
     return c.firma && contact.firma && c.firma.toLowerCase() === contact.firma.toLowerCase();
   });
   if (already) return;
-  if (status === 'gewonnen') {
+  if (status === 'closed') {
     if (!confirm('„' + (contact.firma || 'Kontakt') + '“ als Client anlegen?')) return;
     openClientAddPrefill(contact);
     return;

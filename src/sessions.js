@@ -2,7 +2,7 @@ import { sbGet, sbUpsert, sbDelete } from './supabase.js';
 import { toast } from './ui.js';
 import { navigateTo } from './sidebar.js';
 import { S, STATUS } from './state.js';
-import { weekStart } from './analytics.js';
+import { weekStart } from './utils.js';
 
 // --- STATE ---
 let activeSession = null;  // { id, startedTs, pausedAt, pausedSeconds, timerMode, targetSeconds, breakdown, leadsPlayed, aktionLeads }
@@ -13,16 +13,27 @@ let _celebrationAktionLeads = null;
 const SESSION_KEY = 'rais_active_session';
 
 const STATUS_GROUPS = {
-  positive: ['gewonnen', 'demo_termin', 'door_open', 'interessiert'],
-  pre_removed: ['nicht_passend'],
-  negative: ['disqualified', 'archiviert', 'ghost'],
-  neutral:  ['kein_anschluss', 'kein_anschluss_2', 'gatekeeper', 'callback', 'no_show', 'email_nurture'],
+  positive: ['set_appointment', 'closed'],
+  negative: ['disqualified', 'mofo'],
+  neutral:  ['kein_anschluss', 'gatekeeper', 'callback'],
+};
+
+const STATUS_COLORS = {
+  disqualified: '#DC2626',
+  set_appointment: '#16A34A',
+  closed: '#14532D',
+  kein_anschluss: '#CA8A04',
+  callback: '#2563EB',
+  gatekeeper: '#EA580C',
+  mofo: '#7F1D1D',
+  neu: 'var(--st)',
 };
 
 function statusColor(s) {
-  if (STATUS_GROUPS.positive.includes(s)) return 'var(--sg)';
-  if (STATUS_GROUPS.pre_removed.includes(s)) return 'var(--st)';
-  if (STATUS_GROUPS.negative.includes(s)) return 'var(--rd)';
+  if (STATUS_COLORS[s]) return STATUS_COLORS[s];
+  if (STATUS_GROUPS.positive.includes(s)) return STATUS_COLORS.set_appointment;
+  if (STATUS_GROUPS.negative.includes(s)) return STATUS_COLORS.disqualified;
+  if (STATUS_GROUPS.neutral.includes(s)) return STATUS_COLORS.kein_anschluss;
   return 'var(--yw)';
 }
 
@@ -50,7 +61,6 @@ function applyCallingColPreset() {
   });
   const drop = document.getElementById('ctdrop');
   if (drop) drop.classList.remove('on');
-  if (typeof window.render === 'function') window.render();
 }
 
 function recordSessionEvent(contactId, contactName, statusFrom, statusTo) {
@@ -497,7 +507,7 @@ export function onStatusChanged(contactId, contactName, fromStatus, toStatus) {
 
 export function onOutreachRecorded(contactId, contactName, statusFrom, statusTo) {
   if (!activeSession) return;
-  const key = statusTo || 'kein_anschluss_2';
+  const key = statusTo || 'kein_anschluss';
   normalizeActiveSession();
   activeSession.leadsPlayed += 1;
   activeSession.breakdown[key] = (activeSession.breakdown[key] || 0) + 1;

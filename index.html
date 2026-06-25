@@ -79,7 +79,7 @@
     <button class="btn bs" onclick="exportCSV()">Exportieren</button>
     <button class="btn bs" onclick="openQuickTodo()" title="Schnelltodo im Tracker anlegen">&#128203; Todo</button>
     <button class="btn bs" id="syncBtn" onclick="syncCloud()" title="Daten mit Supabase synchronisieren">&#9729; Sync</button>
-    <button class="btn bs" id="purgeBtn" onclick="openPurgeDq()" title="Disqualified Leads bereinigen" style="color:#A00000;border-color:#F5CCBB">&#128465; DQ</button>
+    <button class="btn bs" id="purgeBtn" onclick="openPurgeDq()" title="Disqualified + MoFo bereinigen" style="color:#A00000;border-color:#F5CCBB">&#128465; DQ</button>
     <button class="btn bs" id="purgeVersBtn" onclick="openPurgeVersicherung()" title="Versicherungsmakler-Leads löschen" style="color:#A00000;border-color:#F5CCBB">&#128465; VM</button>
     <button class="btn bp" onclick="openAdd()">+ Kontakt</button>
     <button class="btn bs" onclick="openQuickAdd()" title="Schnell erfassen">⚡ Lead</button>
@@ -158,22 +158,16 @@
     <div class="stat-group stat-group-neutral">
       <div class="stat" id="s-neu"    onclick="setF('neu')">          <span class="sn" id="c-neu">0</span>  <span class="sl">Neu</span></div>
       <div class="stat" id="s-ka"     onclick="setF('kein_anschluss')"><span class="sn" id="c-ka">0</span>  <span class="sl">Kein Anschluss</span></div>
-      <div class="stat" id="s-ka2"    onclick="setF('kein_anschluss_2')"><span class="sn" id="c-ka2">0</span><span class="sl">KA 2</span></div>
       <div class="stat" id="s-gk"     onclick="setF('gatekeeper')">   <span class="sn" id="c-gk">0</span>  <span class="sl">Gatekeeper</span></div>
       <div class="stat" id="s-cb"     onclick="setF('callback')">     <span class="sn" id="c-cb">0</span>  <span class="sl">Callback</span></div>
-      <div class="stat" id="s-ns"     onclick="setF('no_show')">      <span class="sn" id="c-ns">0</span>  <span class="sl">No Show</span></div>
-      <div class="stat" id="s-en"     onclick="setF('email_nurture')"><span class="sn" id="c-en">0</span>  <span class="sl">Email Nurture</span></div>
     </div>
     <div class="stat-group stat-group-positive">
-      <div class="stat" id="s-int"    onclick="setF('interessiert')"> <span class="sn" id="c-int">0</span> <span class="sl">Interessiert</span></div>
-      <div class="stat" id="s-do"     onclick="setF('door_open')">    <span class="sn" id="c-do">0</span>  <span class="sl">Tür Offen</span></div>
-      <div class="stat" id="s-dt"     onclick="setF('demo_termin')">  <span class="sn" id="c-dt">0</span>  <span class="sl">Demo Termin</span></div>
-      <div class="stat" id="s-gw"     onclick="setF('gewonnen')">     <span class="sn" id="c-gw">0</span>  <span class="sl">Gewonnen</span></div>
+      <div class="stat" id="s-sa"     onclick="setF('set_appointment')"><span class="sn" id="c-sa">0</span> <span class="sl">Set Appointment</span></div>
+      <div class="stat" id="s-cl"     onclick="setF('closed')">       <span class="sn" id="c-cl">0</span>  <span class="sl">Closed</span></div>
     </div>
     <div class="stat-group stat-group-closed">
-      <div class="stat" id="s-np"     onclick="setF('nicht_passend')"> <span class="sn" id="c-np">0</span>  <span class="sl">Nicht passend</span></div>
       <div class="stat" id="s-dq"     onclick="setF('disqualified')"> <span class="sn" id="c-dq">0</span>  <span class="sl">Disqualified</span></div>
-      <div class="stat" id="s-gh"     onclick="setF('ghost')">        <span class="sn" id="c-gh">0</span>  <span class="sl">Ghost</span></div>
+      <div class="stat" id="s-mofo"   onclick="setF('mofo')">        <span class="sn" id="c-mofo">0</span><span class="sl">MoFo</span></div>
     </div>
   </div>
 
@@ -525,15 +519,12 @@
         <div><label>Status</label><select class="fs2" id="es" onchange="toggleDealField(this.value)">
           <option value="neu">Neu</option>
           <option value="kein_anschluss">Kein Anschluss</option>
-          <option value="kein_anschluss_2">Kein Anschluss 2</option>
           <option value="gatekeeper">Gatekeeper</option>
           <option value="callback">Callback</option>
-          <option value="email_nurture">Email Nurture</option>
-          <option value="demo_termin">Demo Termin</option>
-          <option value="no_show">No Show</option>
+          <option value="set_appointment">Set Appointment</option>
+          <option value="closed">Closed</option>
           <option value="disqualified">Disqualified</option>
-          <option value="ghost">Ghost</option>
-          <option value="gewonnen">Gewonnen</option>
+          <option value="mofo">MoFo</option>
         </select></div>
         <div><label>Follow-up Datum</label><input type="date" id="efu"><div class="fu-shortcuts"><button type="button" onclick="shiftFU(1)">+1d</button><button type="button" onclick="shiftFU(3)">+3d</button><button type="button" onclick="shiftFU(7)">+7d</button><button type="button" onclick="shiftFU(14)">+14d</button></div></div>
       </div>
@@ -720,15 +711,15 @@
 <!-- Purge DQ modal -->
 <div class="ovl" id="purgeDqModal">
   <div class="modal" style="max-width:420px">
-    <div class="mh"><h2>Disqualified bereinigen</h2><button class="btn bg" onclick="closePurgeDq()">&#10005;</button></div>
+    <div class="mh"><h2>Disqualified + MoFo bereinigen</h2><button class="btn bg" onclick="closePurgeDq()">&#10005;</button></div>
     <div style="padding:0 22px 22px">
       <p style="font-family:sans-serif;font-size:14px;color:var(--st);margin-bottom:16px">
-        <span id="purge-count" style="font-weight:700;color:#A00000">0</span> Leads mit Status <strong>Disqualified</strong> gefunden.
+        <span id="purge-count" style="font-weight:700;color:#A00000">0</span> Leads mit Status <strong>Disqualified</strong> oder <strong>MoFo</strong> gefunden.
       </p>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn bs" onclick="purgeDq('archive')" style="justify-content:flex-start;gap:10px;padding:12px 16px">
           <span style="font-size:16px">📦</span>
-          <span style="text-align:left"><strong style="display:block">Archivieren</strong><small style="color:var(--st);font-weight:400">Status wird auf "archiviert" gesetzt — bleibt sichtbar im Filter</small></span>
+          <span style="text-align:left"><strong style="display:block">Als Disqualified markieren</strong><small style="color:var(--st);font-weight:400">MoFo-Leads werden auf Disqualified gesetzt</small></span>
         </button>
         <button class="btn bs" onclick="purgeDq('delete')" style="justify-content:flex-start;gap:10px;padding:12px 16px;border-color:#F5CCBB">
           <span style="font-size:16px">&#128465;</span>
@@ -1051,7 +1042,7 @@ import { load, syncCloud } from './src/sync.js';
 import { isAuthenticated } from './src/supabase.js';
 import { initRealtime } from './src/realtime.js';
 import { render, setF, filterDue, goPg, openP, closeP, qs, openQN, closeQN, saveQN,
-         inlineFU, inlineFUFocus, inlineFUBlur, shiftFU, saveNotiz, notizKey, inlineROI, inlineST,
+         inlineFU, inlineFUFocus, inlineFUBlur, shiftFU, saveNotiz, notizKey, inlineField, inlineST,
          kbMove, kbOpen, kbEdit, openAdd, openE, closeE, save, del, toggleDealField,
          openQuickAdd, closeQuickAdd, saveQuickAdd, scheduleRender,
          openPurgeDq, closePurgeDq, purgeDq,
@@ -1067,7 +1058,7 @@ import { openCalPop, closeCalPop, calCreate, maybeOfferCalendar } from './src/ca
 import { initContextMenu, ctxAction, showCtxMenuAtEvent } from './src/contextmenu.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
 import './src/dashboard.js';
-import { initDashboard, dashGoProspecting, dashGoClients, dashGoProjects } from './src/dashboard.js';
+import { dashGoProspecting, dashGoClients, dashGoProjects } from './src/dashboard.js';
 import { renderNetwork, openNwAdd, openNwEdit, closeNwModal, saveNw, delNw, openNwPanel, closeNwPanel, openNwBulkPaste, closeNwBulkPaste, saveNwBulkPaste } from './src/network.js';
 import { initContentPage, renderContent, openContentAdd, openContentEdit, closeContentModal, saveContent, delContent, filterContent } from './src/content.js';
 import { showDemoTodoPopup, saveDemoTodos, closeDemoTodoPop, openQuickTodo, saveQuickTodo, closeQuickTodo } from './src/todopop.js';
@@ -1105,7 +1096,6 @@ window.loadCrmData = function() {
   load();
   render();
   renderCalls();
-  initDashboard();
 };
 window.initRealtimeAuth = initRealtime;
 
@@ -1115,7 +1105,6 @@ if (isAuthenticated()) {
   renderCalls();
   syncCloud(true);
   initRealtime();
-  initDashboard();
 } else {
   S.contacts = [];
   render();
@@ -1139,7 +1128,7 @@ Object.assign(window, {
   closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, closeQuickAdd, ctxAction, del, delClient, delContent, doImport, doSort,
   closeNwModal, closeNwPanel, delNw, openNwAdd, openNwEdit, openNwPanel, openNwBulkPaste, closeNwBulkPaste, saveNwBulkPaste, renderNetwork, saveNw, saveQuickAdd,
   dzDr, dzLv, dzOv, exportCSV, filterContent, filterDue, goPg,
-  inlineFU, inlineFUFocus, inlineFUBlur, inlineROI, inlineST,
+  inlineFU, inlineFUFocus, inlineFUBlur, inlineField, inlineST,
   mailComposeGenerate, mailComposeSend, mailComposeSetMode,
   markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit, openContentAdd, openContentEdit,
   openCalPop, openClPanel, openE, openEsPanel, openImport, openMailCompose, openP, openPurgeDq, openPurgeVersicherung, openSalesRepPop, salesRepRun, salesRepApplyToContact, showCtxMenuAtEvent,

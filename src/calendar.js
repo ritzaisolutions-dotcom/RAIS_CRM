@@ -11,7 +11,7 @@ const CAL_LABELS = {
   kundentermin: { title: 'Kundentermin (15 Min)', duration: 15 },
 };
 
-const STATUS_PROTECTED = ['gewonnen', 'disqualified', 'archiviert', 'ghost', 'nicht_passend'];
+const STATUS_PROTECTED = ['closed', 'disqualified', 'mofo', 'set_appointment'];
 
 function getContact(id) {
   return S.contacts.find(function(x) { return x.id === id; });
@@ -67,11 +67,11 @@ function applyFollowupAndStatus(c, type, dateStr) {
   const prevStatus = c.status;
   if (dateStr) c.followup = dateStr;
   if (STATUS_PROTECTED.indexOf(c.status) >= 0) return prevStatus;
-  if (type === 'rueckruf' && c.status !== 'demo_termin') {
+  if (type === 'rueckruf' && c.status !== 'set_appointment') {
     c.status = 'callback';
     c.status_changed_at = td();
   } else if (type === 'demo') {
-    c.status = 'demo_termin';
+    c.status = 'set_appointment';
     c.status_changed_at = td();
   }
   return prevStatus;

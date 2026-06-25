@@ -9,9 +9,18 @@ let _idx = 0;
 let _currentId = null;
 
 const ACTIVE_STATUSES = new Set([
-  'neu', 'kein_anschluss', 'kein_anschluss_2', 'gatekeeper',
-  'callback', 'no_show', 'email_nurture', 'interessiert', 'door_open',
+  'neu', 'kein_anschluss', 'gatekeeper', 'callback',
 ]);
+
+const QUICK_STATUS_ITEMS = [
+  { icon: '&#10006;', label: 'Kein Anschluss',     status: 'kein_anschluss' },
+  { icon: '&#128231;', label: 'Gatekeeper',         status: 'gatekeeper' },
+  { icon: '&#128197;', label: 'Callback',           status: 'callback' },
+  { icon: '&#128197;', label: 'Set Appointment',    status: 'set_appointment' },
+  { icon: '&#9989;',  label: 'Closed',             status: 'closed' },
+  { icon: '&#128226;', label: 'Disqualified',       status: 'disqualified' },
+  { icon: '&#128128;', label: 'MoFo',               status: 'mofo' },
+];
 
 function buildCallQueue() {
   const t = td();
@@ -116,17 +125,6 @@ export function cmSkip() {
 }
 
 // ── Quick-Log Bottom Sheet ────────────────────────────────────────────────────
-
-const QUICK_STATUS_ITEMS = [
-  { icon: '&#10006;', label: 'Kein Anschluss',     status: 'kein_anschluss' },
-  { icon: '&#10006;', label: 'Kein Anschluss 2',   status: 'kein_anschluss_2' },
-  { icon: '&#128231;', label: 'Gatekeeper',         status: 'gatekeeper' },
-  { icon: '&#128197;', label: 'Rückruf erbeten',    status: 'callback' },
-  { icon: '&#128197;', label: 'Demo Termin',        status: 'demo_termin' },
-  { icon: '&#11088;', label: 'Interessiert',        status: 'interessiert' },
-  { icon: '&#128226;', label: 'Nicht interessiert', status: 'disqualified' },
-  { icon: '&#128247;', label: 'No-Show',            status: 'no_show' },
-];
 
 function _openQuickLogSheet(id, autoAdvance) {
   const c = S.contacts.find(x => x.id === id);

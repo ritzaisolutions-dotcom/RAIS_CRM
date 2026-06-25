@@ -1,5 +1,5 @@
 import { S, TSCLS } from './state.js';
-import { markDirty, persist, pushDirty, bumpContactsRev } from './sync.js';
+import { markDirty, schedulePersist, schedulePushDirty, bumpContactsRev } from './sync.js';
 import { esc, toast } from './ui.js';
 import { syncLeadTemp } from './utils.js';
 import { openP } from './prospecting.js';
@@ -28,7 +28,8 @@ export function saveTF(id, idx, field, val) {
   if (field === 'datum' && val) touchLastContacted(c);
   syncLeadTemp(c);
   markDirty(c);
-  persist(); pushDirty();
+  schedulePersist();
+  schedulePushDirty();
   const tah = document.getElementById('tah-' + idx);
   if (tah) {
     const t = c.touches[idx];
@@ -51,7 +52,8 @@ export function addTouch(id) {
   if (!c.touches) c.touches = [];
   c.touches.push({status:'',datum:'',notiz:''});
   markDirty(c);
-  persist(); pushDirty();
+  schedulePersist();
+  schedulePushDirty();
   openP(id);
   setTimeout(function() {
     const tah = document.getElementById('tah-' + (c.touches.length - 1));

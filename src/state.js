@@ -75,23 +75,29 @@ export const TODO_CATEGORIES = [
 export const TSTAT = ['','Nicht kontaktiert','Nicht erreicht','Mailbox','Rückruf erbeten','Gatekeeper','Interessiert','Termin vereinbart','Angebot gesendet','Kein Interesse'];
 export const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'ni','Rückruf erbeten':'fu','Gatekeeper':'gk','Interessiert':'in','Termin vereinbart':'te','Angebot gesendet':'ib','Kein Interesse':'ki'};
 
-export const STATUS = {
-  // ── Aktiv / Neutral ──
-  neu:            { cls: 'b-neu', label: 'Neu',            group: 'neutral' },
-  kein_anschluss:   { cls: 'b-ni',  label: 'Kein Anschluss',   group: 'neutral' },
-  kein_anschluss_2: { cls: 'b-ka2', label: 'Kein Anschluss 2', group: 'neutral' },
-  gatekeeper:     { cls: 'b-gk',  label: 'Gatekeeper',     group: 'neutral' },
-  callback:       { cls: 'b-fu',  label: 'Callback',        group: 'neutral' },
-  no_show:        { cls: 'b-ns',  label: 'No Show',         group: 'neutral' },
-  email_nurture:  { cls: 'b-ib',  label: 'Email Nurture',   group: 'neutral' },
-  // ── Positiv ──
-  interessiert:   { cls: 'b-in',  label: 'Interessiert',    group: 'positive' },
-  door_open:      { cls: 'b-do',  label: 'Tür Offen',       group: 'positive' },
-  demo_termin:    { cls: 'b-te',  label: 'Demo Termin',      group: 'positive' },
-  gewonnen:       { cls: 'b-gw',  label: 'Gewonnen',         group: 'positive' },
-  // ── Geschlossen ──
-  nicht_passend:  { cls: 'b-np',  label: 'Nicht passend',   group: 'closed' },
-  disqualified:   { cls: 'b-ki',  label: 'Disqualified',    group: 'closed' },
-  archiviert:     { cls: 'b-ki',  label: 'Archiviert',      group: 'closed' },
-  ghost:          { cls: 'b-gh',  label: 'Ghost',           group: 'closed' },
+/** Alte Slugs → neue 8-Status-Taxonomie */
+export const STATUS_LEGACY_MAP = {
+  kein_anschluss_2: 'kein_anschluss',
+  no_show: 'kein_anschluss',
+  email_nurture: 'kein_anschluss',
+  demo_termin: 'set_appointment',
+  interessiert: 'set_appointment',
+  door_open: 'set_appointment',
+  gewonnen: 'closed',
+  ghost: 'mofo',
+  nicht_passend: 'disqualified',
+  archiviert: 'disqualified',
 };
+
+export const STATUS = {
+  neu:              { cls: 'b-neu',  label: 'Neu',              group: 'default' },
+  disqualified:     { cls: 'b-dq',   label: 'Disqualified',     group: 'negative' },
+  set_appointment:  { cls: 'b-sa',   label: 'Set Appointment',  group: 'positive' },
+  closed:           { cls: 'b-cl',   label: 'Closed',           group: 'positive' },
+  kein_anschluss:   { cls: 'b-ka',   label: 'Kein Anschluss',   group: 'neutral' },
+  callback:         { cls: 'b-cb',   label: 'Callback',         group: 'neutral' },
+  gatekeeper:       { cls: 'b-gk',   label: 'Gatekeeper',       group: 'neutral' },
+  mofo:             { cls: 'b-mofo', label: 'MoFo',             group: 'negative' },
+};
+
+export const PURGE_STATUSES = ['disqualified', 'mofo'];

@@ -1,10 +1,11 @@
-import { S, PG, STATUS, TSTAT, TSCLS, LEAD_ORIGIN, LEBENSBEREICHE } from './state.js';
+import { S, PG, STATUS, TSTAT, TSCLS, LEAD_ORIGIN, LEBENSBEREICHE, PURGE_STATUSES } from './state.js';
 import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite, normalizeGewerk, getCustomGewerke, addCustomGewerk, isColdLead, getSocials, syncLeadTemp, deriveLeadTemp } from './utils.js';
 import { sbadge, roib, fdc, esc, ir, toast, originBadge, tempBadge, socialIconsHtml } from './ui.js';
-import { markDirty, persist, pushDirty, isAktionNoetig, pushGewerkCloud } from './sync.js';
+import { markDirty, schedulePersist, schedulePushDirty, isAktionNoetig, pushGewerkCloud } from './sync.js';
 import { sbDelete, sbUpsert } from './supabase.js';
-import { emailCellHtml, emailPanelHtml } from './email.js';
+import { emailPanelHtml } from './email.js';
 import { renderCalls, bumpCall } from './calls.js';
+import { touchLastContacted } from './touch.js';
 import {
   onStatusChanged, onOutreachRecorded, getActiveSession,
   upsertAktionLead, removeAktionLead, renderAktionQueueBar,
@@ -41,9 +42,9 @@ function touchContactNow(c) {
 }
 
 const STATUS_SELECT_GROUPS = [
-  { label: '── Aktiv ──', keys: ['neu', 'kein_anschluss', 'kein_anschluss_2', 'gatekeeper', 'callback', 'no_show', 'email_nurture'] },
-  { label: '── Positiv ──', keys: ['interessiert', 'door_open', 'demo_termin', 'gewonnen'] },
-  { label: '── Geschlossen ──', keys: ['nicht_passend', 'disqualified', 'archiviert', 'ghost'] },
+  { label: '── Default ──', keys: ['neu'] },
+  { label: '── Calling ──', keys: ['kein_anschluss', 'gatekeeper', 'callback', 'set_appointment', 'closed'] },
+  { label: '── Entfernt ──', keys: ['disqualified', 'mofo'] },
 ];
 
 const AKTION_SUGGESTIONS = [
@@ -59,6 +60,12 @@ let _aktionPopId = null;
 let _listCacheKey = '';
 let _listCache = null;
 let _renderTimer = null;
+let _filtersRev = -1;
+
+function isProspectingActive() {
+  const page = document.getElementById('page-prospecting');
+  return page && page.classList.contains('active');
+}
 
 export function scheduleRender() {
   if (_renderTimer) clearTimeout(_renderTimer);
@@ -203,17 +210,16 @@ export function setF(f) {
   invalidateFilterCache();
   S.flt = f; S.pg = 1; S.dueMode = false;
   document.querySelectorAll('.stat').forEach(function(el) { el.classList.remove('on'); });
-  const map = {all:'s-all', kalt:'s-kalt', neu:'s-neu', kein_anschluss:'s-ka', kein_anschluss_2:'s-ka2', gatekeeper:'s-gk',
-               callback:'s-cb', email_nurture:'s-en', interessiert:'s-int', demo_termin:'s-dt',
-               door_open:'s-do', no_show:'s-ns', nicht_passend:'s-np', disqualified:'s-dq', ghost:'s-gh',
-               gewonnen:'s-gw', heute:'s-heute', aktion:'s-aktion'};
+  const map = {all:'s-all', kalt:'s-kalt', neu:'s-neu', kein_anschluss:'s-ka', gatekeeper:'s-gk',
+               callback:'s-cb', set_appointment:'s-sa', closed:'s-cl',
+               disqualified:'s-dq', mofo:'s-mofo', heute:'s-heute', aktion:'s-aktion'};
   if (map[f]) document.getElementById(map[f]).classList.add('on');
   render();
 }
 
 export function filterDue() { clearTablePin(); invalidateFilterCache(); S.dueMode = true; S.pg = 1; render(); }
 
-const OUTREACH_PROTECTED = ['gewonnen', 'demo_termin', 'door_open', 'interessiert', 'disqualified', 'archiviert', 'ghost'];
+const OUTREACH_PROTECTED = ['closed', 'set_appointment', 'disqualified', 'mofo'];
 
 export function recordOutreachOnFollowupChange(c, prevFollowup, newFollowup, opts) {
   opts = opts || {};
@@ -234,7 +240,7 @@ export function recordOutreachOnFollowupChange(c, prevFollowup, newFollowup, opt
   const userChangedStatus = statusFromForm != null && statusFromForm !== prevStatus;
 
   if (!opts.skipStatusAuto && !userChangedStatus && !OUTREACH_PROTECTED.includes(c.status)) {
-    c.status = 'kein_anschluss_2';
+    c.status = 'kein_anschluss';
   } else if (statusFromForm != null) {
     c.status = statusFromForm;
   }
@@ -246,8 +252,8 @@ export function recordOutreachOnFollowupChange(c, prevFollowup, newFollowup, opt
   const name = c.firma || c.company_name || '';
   if (userChangedStatus) {
     onStatusChanged(c.id, name, prevStatus, c.status);
-  } else if (prevStatus === 'kein_anschluss_2' && c.status === 'kein_anschluss_2') {
-    onOutreachRecorded(c.id, name, prevStatus, 'kein_anschluss_2');
+  } else if (prevStatus === 'kein_anschluss' && c.status === 'kein_anschluss') {
+    onOutreachRecorded(c.id, name, prevStatus, 'kein_anschluss');
   } else if (prevStatus !== c.status) {
     onStatusChanged(c.id, name, prevStatus, c.status);
   } else {
@@ -322,41 +328,95 @@ function populateSelectFilter(id, label, field) {
     }).join('');
 }
 
-export function render() {
-  populateSelectFilter('regionF', 'Region', 'region');
-  populateSelectFilter('gewerkF', 'Gewerk', 'gewerk');
+function inlineInput(id, field, value, extra) {
+  extra = extra || '';
+  return '<input class="idd inline-cell" data-id="' + id + '" data-field="' + field + '" value="' + esc(value || '') + '" onclick="event.stopPropagation()" onchange="inlineField(this)"' + extra + '>';
+}
+
+function buildRowHtml(c, pageOffset, i, t) {
+  const ovr = (c.followup && c.followup < t) ? ' ov' : '';
+  const aktion = isAktionNoetig(c);
+  const rowCls = (ovr ? ' ov' : '') + (aktion ? ' tr-aktion' : '');
+  const lastT = (c.touches && c.touches.slice().reverse().find(function(tx){ return tx.datum; })) || null;
+  const lastTDatum = lastT ? lastT.datum : null;
+  const lastTAge = lastTDatum ? Math.floor((new Date(td()) - new Date(lastTDatum)) / 86400000) : null;
+  const ageCls = lastTAge === null ? '' : (lastTAge <= 3 ? 'age-fresh' : lastTAge <= 7 ? 'age-warn' : 'age-old');
+  const ageStr = lastTDatum ? relAge(lastTDatum) : (c.created ? relAge(new Date(c.created).toISOString().slice(0,10)) : null);
+  const webVal = c.website || '';
+  return '<tr class="' + rowCls.trim() + '" data-id="' + c.id + '" onclick="openP(\'' + c.id + '\')" oncontextmenu="showCtxMenuAtEvent(event,\'' + c.id + '\')">' +
+    '<td class="col-sticky-num col-c-num" style="text-align:right;font-family:sans-serif;font-size:11px;color:#B0A898;padding-right:10px;user-select:none">' + (pageOffset + i + 1) + '</td>' +
+    '<td class="fc col-sticky-firma col-c-firma" onclick="event.stopPropagation()"><div class="col-firma-wrap">' +
+      inlineInput(c.id, 'firma', c.firma) +
+      (c.gewerk ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>' : '') +
+    '</div></td>' +
+    '<td class="col-c-kontakt" onclick="event.stopPropagation()">' + inlineInput(c.id, 'kontakt', c.kontakt) + '</td>' +
+    '<td class="col-c-tel" onclick="event.stopPropagation()">' + inlineInput(c.id, 'telefon', c.telefon, ' style="font-family:monospace;font-size:12.5px"') + '</td>' +
+    '<td class="col-web col-c-web" onclick="event.stopPropagation()">' + inlineInput(c.id, 'website', webVal, ' placeholder="https://…"') + '</td>' +
+    '<td class="st-cell col-c-status" onclick="event.stopPropagation()">' + statusSelectHtml(c) + '</td>' +
+    '<td onclick="event.stopPropagation()" class="fu-cell col-c-fu"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onfocus="inlineFUFocus(this)" onchange="inlineFU(this)" onblur="inlineFUBlur(this)" title="Follow-up Datum"></td>' +
+    (S.colVis.origin ? '<td class="col-c-origin" onclick="event.stopPropagation()">' + originBadge(c.lead_origin || 'manual') + '</td>' : '') +
+    (S.colVis.temp ? '<td class="col-c-temp" onclick="event.stopPropagation()">' + tempBadge(c.lead_temp || 'cold') + '</td>' : '') +
+    '<td class="notiz-cell col-c-notiz" onclick="event.stopPropagation()">' +
+      '<textarea class="nc inline-notiz" data-id="' + c.id + '" rows="1" onblur="saveNotiz(this)" onkeydown="notizKey(event,this)" onclick="event.stopPropagation()">' + esc((c.notiz || '').trim()) + '</textarea>' +
+      (ageStr ? '<span class="age-lbl ' + ageCls + '">' + (lastTDatum ? '&#128222; ' : '') + ageStr + '</span>' : '') +
+    '</td>' +
+    (S.colVis.stadt   ? '<td class="col-c-stadt" onclick="event.stopPropagation()">' + inlineInput(c.id, 'stadt', c.stadt) + '</td>' : '') +
+    (S.colVis.region  ? '<td class="col-c-region" onclick="event.stopPropagation()">' + inlineInput(c.id, 'region', c.region) + '</td>' : '') +
+    (S.colVis.gewerk  ? '<td class="col-c-gewerk" onclick="event.stopPropagation()">' + inlineInput(c.id, 'gewerk', c.gewerk) + '</td>' : '') +
+    '<td class="col-c-linkedin" onclick="event.stopPropagation()" style="text-align:center">' + linkedinCellHtml(getSocials(c)) + '</td>' +
+  '</tr>';
+}
+
+export function patchContactRow(contactId) {
+  const c = S.contacts.find(function(x) { return x.id === contactId; });
+  const tr = document.querySelector('#tbody tr[data-id="' + contactId + '"]');
+  if (!c || !tr) return;
+  const list = getList();
+  const idx = list.findIndex(function(x) { return x.id === contactId; });
+  if (idx < 0) {
+    tr.remove();
+    return;
+  }
+  const pageOffset = (S.pg - 1) * PG;
+  const rowIdx = idx - pageOffset;
+  if (rowIdx < 0 || rowIdx >= PG) return;
   const t = td();
-  const cnt = {all: S.contacts.length};
-  Object.keys(STATUS).forEach(function(k) { cnt[k] = S.contacts.filter(function(c) { return c.status === k; }).length; });
-  document.getElementById('c-all').textContent = cnt.all;
-  document.getElementById('c-neu').textContent = cnt.neu          || 0;
-  document.getElementById('c-ka').textContent  = cnt.kein_anschluss || 0;
-  const ka2El = document.getElementById('c-ka2');
-  if (ka2El) ka2El.textContent = cnt.kein_anschluss_2 || 0;
-  document.getElementById('c-gk').textContent  = cnt.gatekeeper   || 0;
-  document.getElementById('c-cb').textContent  = cnt.callback     || 0;
-  document.getElementById('c-en').textContent  = cnt.email_nurture|| 0;
-  document.getElementById('c-int').textContent = cnt.interessiert || 0;
-  document.getElementById('c-dt').textContent  = cnt.demo_termin  || 0;
-  document.getElementById('c-do').textContent  = cnt.door_open    || 0;
-  document.getElementById('c-ns').textContent  = cnt.no_show      || 0;
-  const npEl = document.getElementById('c-np');
-  if (npEl) npEl.textContent = cnt.nicht_passend || 0;
-  document.getElementById('c-dq').textContent  = cnt.disqualified || 0;
-  const ghEl = document.getElementById('c-gh');
-  if (ghEl) ghEl.textContent = cnt.ghost || 0;
-  document.getElementById('c-gw').textContent  = cnt.gewonnen     || 0;
-  const aktionEl = document.getElementById('c-aktion');
-  if (aktionEl) aktionEl.textContent = S.contacts.filter(isAktionNoetig).length;
-  const kaltEl = document.getElementById('c-kalt');
-  if (kaltEl) kaltEl.textContent = S.contacts.filter(isColdLead).length;
+  const tmp = document.createElement('tbody');
+  tmp.innerHTML = buildRowHtml(c, pageOffset, rowIdx, t);
+  const newTr = tmp.firstElementChild;
+  if (newTr) tr.replaceWith(newTr);
+}
 
+function renderStats() {
+  const t = td();
+  const cnt = { all: S.contacts.length };
+  Object.keys(STATUS).forEach(function(k) { cnt[k] = 0; });
+  S.contacts.forEach(function(c) {
+    const k = c.status || 'neu';
+    if (cnt[k] != null) cnt[k]++;
+    else cnt.neu = (cnt.neu || 0) + 1;
+  });
+  const set = function(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('c-all', cnt.all);
+  set('c-neu', cnt.neu || 0);
+  set('c-ka', cnt.kein_anschluss || 0);
+  set('c-gk', cnt.gatekeeper || 0);
+  set('c-cb', cnt.callback || 0);
+  set('c-sa', cnt.set_appointment || 0);
+  set('c-cl', cnt.closed || 0);
+  set('c-dq', cnt.disqualified || 0);
+  set('c-mofo', cnt.mofo || 0);
+  set('c-aktion', S.contacts.filter(isAktionNoetig).length);
+  set('c-kalt', S.contacts.filter(isColdLead).length);
   const due = S.contacts.filter(function(c) { return c.followup && c.followup <= t; }).length;
-  document.getElementById('c-heute').textContent = due;
-  document.getElementById('banner').classList.toggle('on', due > 0);
-  document.getElementById('bannerC').textContent = due;
+  set('c-heute', due);
+  const banner = document.getElementById('banner');
+  if (banner) banner.classList.toggle('on', due > 0);
+  set('bannerC', due);
   renderCalls();
+}
 
+function renderThead() {
   function thS(col, lbl, cls) {
     const idx = S.sortStack.findIndex(function(s) { return s.col === col; });
     const act = idx !== -1;
@@ -372,7 +432,7 @@ export function render() {
     thF('#', 'text-align:right', 'col-sticky-num col-c-num') +
     thS('firma', 'Firma', 'col-sticky-firma col-c-firma') +
     thF('Person', '', 'col-c-kontakt') + thF('Telefon', '', 'col-c-tel') +
-    thF('&#127760;', 'text-align:center', 'col-web col-c-web') +
+    thF('Website', '', 'col-web col-c-web') +
     thS('status', 'Status', 'col-c-status') + thS('followup', 'Follow-up', 'col-c-fu') +
     (S.colVis.origin ? thF('Herkunft', '', 'col-c-origin') : '') +
     (S.colVis.temp ? thF('Temp', '', 'col-c-temp') : '') +
@@ -382,13 +442,15 @@ export function render() {
     (S.colVis.gewerk  ? thS('gewerk', 'Gewerk', 'col-c-gewerk') : '') +
     thF('LinkedIn', 'text-align:center', 'col-c-linkedin') +
   '</tr>';
+}
 
+export function renderTableBody() {
+  const t = td();
   const list = getList();
   const tot  = list.length;
   const pages = Math.max(1, Math.ceil(tot / PG));
   if (S.pg > pages) S.pg = pages;
   const sl = list.slice((S.pg - 1) * PG, S.pg * PG);
-
   const tbody = document.getElementById('tbody');
   const empty = document.getElementById('empty');
   if (!sl.length) {
@@ -398,54 +460,46 @@ export function render() {
     empty.style.display = 'none';
     const pageOffset = (S.pg - 1) * PG;
     tbody.innerHTML = sl.map(function(c, i) {
-      const ovr = (c.followup && c.followup < t) ? ' ov' : '';
-      const aktion = isAktionNoetig(c);
-      const rowCls = (ovr ? ' ov' : '') + (aktion ? ' tr-aktion' : '');
-      const t1  = (c.touches && c.touches[0]) || {};
-      const lastT = (c.touches && c.touches.slice().reverse().find(function(t){ return t.datum; })) || null;
-      const lastTDatum = lastT ? lastT.datum : null;
-      const lastTAge = lastTDatum ? Math.floor((new Date(td()) - new Date(lastTDatum)) / 86400000) : null;
-      const ageCls = lastTAge === null ? '' : (lastTAge <= 3 ? 'age-fresh' : lastTAge <= 7 ? 'age-warn' : 'age-old');
-      const ageStr = lastTDatum ? relAge(lastTDatum) : (c.created ? relAge(new Date(c.created).toISOString().slice(0,10)) : null);
-      const aktionHint = (c.extra && c.extra.aktion_notiz) ? '<span class="aktion-hint">' + esc(c.extra.aktion_notiz) + '</span>' : '';
-      const aktionTitle = (c.extra && c.extra.aktion_notiz) ? esc(c.extra.aktion_notiz) : 'Aktion markieren';
-      const notizPreview = (c.notiz || '').trim();
-      return '<tr class="' + rowCls.trim() + '" data-id="' + c.id + '" onclick="openP(\'' + c.id + '\')" oncontextmenu="showCtxMenuAtEvent(event,\'' + c.id + '\')">' +
-        '<td class="col-sticky-num col-c-num" style="text-align:right;font-family:sans-serif;font-size:11px;color:#B0A898;padding-right:10px;user-select:none">' + (pageOffset + i + 1) + '</td>' +
-        '<td class="fc col-sticky-firma col-c-firma"><div class="col-firma-wrap"><span class="col-trunc" title="' + esc(c.firma) + '">' + esc(c.firma) + '</span>' + (c.gewerk ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>' : '') + '</div></td>' +
-        '<td class="col-c-kontakt"><span class="col-trunc" title="' + esc(c.kontakt || '') + '">' + esc(c.kontakt || '—') + '</span></td>' +
-        '<td class="col-c-tel"><a class="col-trunc col-tel-link" href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()" title="' + esc(c.telefon || '') + '" style="font-family:monospace;font-size:12.5px">' + esc(c.telefon || '—') + '</a></td>' +
-        '<td class="col-web col-c-web" onclick="event.stopPropagation()" style="text-align:center">' +
-          (c.website ? '<a class="wlink" href="' + webHref(c.website) + '" target="_blank" rel="noopener" title="' + webHref(c.website) + '">&#127760;</a>' : '<span class="wlink-none">&#127760;</span>') +
-        '</td>' +
-        '<td class="st-cell col-c-status" onclick="event.stopPropagation()">' + statusSelectHtml(c) + '</td>' +
-        '<td onclick="event.stopPropagation()" class="fu-cell col-c-fu"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onfocus="inlineFUFocus(this)" onchange="inlineFU(this)" onblur="inlineFUBlur(this)" title="Follow-up Datum"></td>' +
-        (S.colVis.origin ? '<td class="col-c-origin" onclick="event.stopPropagation()">' + originBadge(c.lead_origin || 'manual') + '</td>' : '') +
-        (S.colVis.temp ? '<td class="col-c-temp" onclick="event.stopPropagation()">' + tempBadge(c.lead_temp || 'cold') + '</td>' : '') +
-        '<td class="notiz-cell col-c-notiz">' +
-          '<span class="col-trunc notiz-preview" title="' + esc(notizPreview) + '">' + esc(notizPreview || '—') + '</span>' +
-          (ageStr ? '<span class="age-lbl ' + ageCls + '">' + (lastTDatum ? '&#128222; ' : '') + ageStr + '</span>' : '') +
-        '</td>' +
-        (S.colVis.stadt   ? '<td class="col-c-stadt" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.stadt || '') + '">' + esc(c.stadt  || '—') + '</span></td>' : '') +
-        (S.colVis.region  ? '<td class="col-c-region" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.region || '') + '">' + esc(c.region || '—') + '</span></td>' : '') +
-        (S.colVis.gewerk  ? '<td class="col-c-gewerk" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.gewerk || '') + '">' + esc(c.gewerk || '—') + '</span></td>' : '') +
-        '<td class="col-c-linkedin" onclick="event.stopPropagation()" style="text-align:center">' + linkedinCellHtml(getSocials(c)) + '</td>' +
-      '</tr>';
+      return buildRowHtml(c, pageOffset, i, t);
     }).join('');
   }
-
   renderMobileCards(sl);
-  renderAktionQueueBar();
-
   document.getElementById('rc').textContent = tot === S.contacts.length
     ? tot + ' Einträge' : tot + ' von ' + S.contacts.length;
-
   const pb = document.getElementById('pb');
   if (pages <= 1) { pb.innerHTML = ''; return; }
   pb.innerHTML = Array.from({length: pages}, function(_, i) { return i + 1; })
     .map(function(p) { return '<button class="pbb' + (p === S.pg ? ' on' : '') + '" onclick="goPg(' + p + ')">' + p + '</button>'; })
     .join('');
+}
 
+export function inlineField(el) {
+  const c = S.contacts.find(function(x) { return x.id === el.dataset.id; });
+  if (!c) return;
+  const field = el.dataset.field;
+  let val = el.value.trim();
+  if (field === 'website') val = normalizeWebsite(val);
+  if (field === 'gewerk') val = normalizeGewerk(val);
+  if ((c[field] || '') === (val || '')) return;
+  c[field] = val;
+  if (field === 'gewerk' && val) pushGewerkCloud(val, c.lebensbereich);
+  if (field === 'notiz') c.besonderheit = val;
+  markDirty(c);
+  schedulePersist();
+  schedulePushDirty();
+  patchContactRow(c.id);
+}
+
+export function render() {
+  if (_filtersRev !== S.contactsRev) {
+    populateSelectFilter('regionF', 'Region', 'region');
+    populateSelectFilter('gewerkF', 'Gewerk', 'gewerk');
+    _filtersRev = S.contactsRev;
+  }
+  renderStats();
+  if (!isProspectingActive()) return;
+  renderThead();
+  renderTableBody();
 }
 
 export function goPg(p) { S.pg = p; render(); }
@@ -496,7 +550,10 @@ export function saveQuickAdd() {
   if (gewerk) pushGewerkCloud(gewerk, lb);
   S.contacts.push(d);
   invalidateFilterCache();
-  persist(); closeQuickAdd(); render(); pushDirty();
+  schedulePersist();
+  closeQuickAdd();
+  render();
+  schedulePushDirty();
   toast('Lead hinzugefügt.');
 }
 
@@ -580,14 +637,13 @@ export function openP(id) {
 
   document.getElementById('pFoot').innerHTML =
     '<div class="pf-status-row">' +
-      '<button class="qs-chip" onclick="qs(\'' + id + '\',\'kein_anschluss\')">Kein Anschluss</button>' +
-      '<button class="qs-chip" onclick="qs(\'' + id + '\',\'kein_anschluss_2\')">Kein Anschluss 2</button>' +
-      '<button class="qs-chip" onclick="qs(\'' + id + '\',\'gatekeeper\')">Gatekeeper</button>' +
-      '<button class="qs-chip qs-chip-dt" onclick="qs(\'' + id + '\',\'callback\')">Callback</button>' +
-      '<button class="qs-chip qs-chip-dt" onclick="qs(\'' + id + '\',\'demo_termin\')">Demo Termin</button>' +
-      '<button class="qs-chip qs-chip-np" onclick="qs(\'' + id + '\',\'nicht_passend\')">Nicht passend</button>' +
+      '<button class="qs-chip qs-chip-ka" onclick="qs(\'' + id + '\',\'kein_anschluss\')">Kein Anschluss</button>' +
+      '<button class="qs-chip qs-chip-gk" onclick="qs(\'' + id + '\',\'gatekeeper\')">Gatekeeper</button>' +
+      '<button class="qs-chip qs-chip-cb" onclick="qs(\'' + id + '\',\'callback\')">Callback</button>' +
+      '<button class="qs-chip qs-chip-sa" onclick="qs(\'' + id + '\',\'set_appointment\')">Set Appointment</button>' +
+      '<button class="qs-chip qs-chip-cl" onclick="qs(\'' + id + '\',\'closed\')">Closed</button>' +
       '<button class="qs-chip qs-chip-dq" onclick="qs(\'' + id + '\',\'disqualified\')">Disqualified</button>' +
-      '<button class="qs-chip qs-chip-dq" onclick="qs(\'' + id + '\',\'ghost\')">Ghost</button>' +
+      '<button class="qs-chip qs-chip-mofo" onclick="qs(\'' + id + '\',\'mofo\')">MoFo</button>' +
     '</div>' +
     '<div class="pf-actions">' +
       '<button class="btn bp bsm" onclick="openE(\'' + id + '\');closeP()">&#9998; Bearbeiten</button>' +
@@ -610,18 +666,22 @@ export function qs(id, s) {
   touchLastContacted(c);
   bumpCall();
   if (!c.touches) c.touches = [];
-  const TOUCH_MAP = { kein_anschluss:'Nicht erreicht', kein_anschluss_2:'Nicht erreicht (2)',
-    gatekeeper:'Gatekeeper', callback:'Rückruf erbeten', demo_termin:'Termin vereinbart',
-    disqualified:'Kein Interesse', nicht_passend:'Nicht passend (vorab)', ghost:'Ghost' };
+  const TOUCH_MAP = { kein_anschluss:'Nicht erreicht', gatekeeper:'Gatekeeper', callback:'Rückruf erbeten',
+    set_appointment:'Set Appointment', closed:'Closed', disqualified:'Disqualified', mofo:'MoFo' };
   c.touches.push({ status: TOUCH_MAP[s] || (STATUS[s] ? STATUS[s].label : s), datum: td(), notiz: '' });
-  markDirty(c); persist(); render(); pushDirty(); closeP();
+  markDirty(c);
+  schedulePersist();
+  closeP();
   toast('Status: ' + (STATUS[s] ? STATUS[s].label : s));
   onStatusChanged(c.id, c.firma || c.company_name, _prev, s);
-  if (s === 'demo_termin' || s === 'gewonnen') {
+  renderStats();
+  patchContactRow(c.id);
+  schedulePushDirty();
+  if (s === 'set_appointment' || s === 'closed') {
     promptAutoClient(c, s);
     showDemoTodoPopup(c);
   }
-  if (s === 'demo_termin') {
+  if (s === 'set_appointment') {
     maybeOfferCalendar(c, 'demo');
   }
 }
@@ -645,8 +705,8 @@ export function inlineFU(inp) {
   S.pinContactId = c.id;
   markDirty(c);
   recordOutreachOnFollowupChange(c, prev, c.followup, { skipStatusAuto: true });
-  persist();
-  pushDirty();
+  schedulePersist();
+  schedulePushDirty();
   patchFollowupRow(c.id);
   if (c.status === 'callback' && c.followup && c.followup !== prev) {
     maybeOfferCalendar(c, 'rueckruf');
@@ -660,7 +720,7 @@ export function inlineFUBlur(inp) {
     if (row && row.contains(document.activeElement)) return;
     if (S.pinContactId !== id) return;
     clearTablePin();
-    render();
+    invalidateFilterCache();
   }, 80);
 }
 
@@ -678,9 +738,9 @@ export function saveNotiz(ta) {
   if (val === (c.notiz || c.besonderheit || '').trim()) return;
   c.notiz = val; c.besonderheit = val;
   markDirty(c);
-  persist(); pushDirty();
-  
-  // Visuelles Autosave-Feedback
+  schedulePersist();
+  schedulePushDirty();
+  patchContactRow(c.id);
   ta.classList.add('autosaved');
   setTimeout(function() {
     ta.classList.remove('autosaved');
@@ -710,7 +770,10 @@ export function saveQN() {
   c.notiz = document.getElementById('qnText').value.trim();
   c.besonderheit = c.notiz;
   markDirty(c);
-  persist(); render(); pushDirty(); closeQN();
+  schedulePersist();
+  schedulePushDirty();
+  closeQN();
+  patchContactRow(c.id);
   toast('Notiz gespeichert.');
 }
 
@@ -736,14 +799,6 @@ export function kbEdit() {
   if (btn) btn.click();
 }
 
-export function inlineROI(sel) {
-  const c = S.contacts.find(function(x) { return x.id === sel.dataset.id; });
-  if (!c) return;
-  c.roi = parseInt(sel.value) || null;
-  markDirty(c);
-  persist(); render(); pushDirty();
-}
-
 export function inlineST(sel) {
   const c = S.contacts.find(function(x) { return x.id === sel.dataset.id; });
   if (!c) return;
@@ -757,14 +812,17 @@ export function inlineST(sel) {
   touchContactNow(c);
   syncLeadTemp(c);
   markDirty(c);
-  persist(); render(); pushDirty();
+  schedulePersist();
   toast('Status: ' + (STATUS[c.status] ? STATUS[c.status].label : c.status));
   onStatusChanged(c.id, c.firma || c.company_name, prev, c.status);
-  if (c.status === 'demo_termin' || c.status === 'gewonnen') {
+  renderStats();
+  patchContactRow(c.id);
+  schedulePushDirty();
+  if (c.status === 'set_appointment' || c.status === 'closed') {
     promptAutoClient(c, c.status);
     showDemoTodoPopup(c);
   }
-  if (c.status === 'demo_termin') {
+  if (c.status === 'set_appointment') {
     maybeOfferCalendar(c, 'demo');
   }
 }
@@ -826,7 +884,7 @@ export function toggleDealField(status) {
   const row = document.getElementById('eDealRow');
   const deal = document.getElementById('eDeal');
   if (!row) return;
-  const show = status === 'gewonnen';
+  const show = status === 'closed';
   row.style.display = show ? '' : 'none';
   if (show && deal && !deal.value) deal.value = '1800';
 }
@@ -916,8 +974,8 @@ export function save() {
     notiz:       document.getElementById('en').value.trim(),
   };
   const dealRaw = document.getElementById('eDeal') ? document.getElementById('eDeal').value.trim() : '';
-  if (d.status === 'gewonnen' && dealRaw) d.deal_value_eur = parseFloat(dealRaw) || 1800;
-  else if (d.status !== 'gewonnen') d.deal_value_eur = null;
+  if (d.status === 'closed' && dealRaw) d.deal_value_eur = parseFloat(dealRaw) || 1800;
+  else if (d.status !== 'closed') d.deal_value_eur = null;
   if (S.eid) {
     const i = S.contacts.findIndex(function(c) { return c.id === S.eid; });
     if (i >= 0) {
@@ -947,7 +1005,10 @@ export function save() {
   }
   if (d.gewerk) pushGewerkCloud(d.gewerk, d.lebensbereich);
   invalidateFilterCache();
-  persist(); closeE(); render(); pushDirty();
+  schedulePersist();
+  closeE();
+  render();
+  schedulePushDirty();
   toast(S.eid ? 'Gespeichert.' : 'Kontakt hinzugefügt.');
 }
 
@@ -965,7 +1026,7 @@ export async function del(id) {
     return;
   }
   S.contacts = S.contacts.filter(function(x) { return x.id !== id; });
-  persist();
+  schedulePersist();
   closeE();
   if (typeof window.closeP === 'function') window.closeP();
   render();
@@ -973,7 +1034,7 @@ export async function del(id) {
 }
 
 export function openPurgeDq() {
-  const dqContacts = S.contacts.filter(function(c) { return c.status === 'disqualified'; });
+  const dqContacts = S.contacts.filter(function(c) { return PURGE_STATUSES.indexOf(c.status) >= 0; });
   document.getElementById('purge-count').textContent = dqContacts.length;
   document.getElementById('purgeDqModal').classList.add('on');
 }
@@ -983,7 +1044,7 @@ export function closePurgeDq() {
 }
 
 export async function purgeDq(mode) {
-  const dqContacts = S.contacts.filter(function(c) { return c.status === 'disqualified'; });
+  const dqContacts = S.contacts.filter(function(c) { return PURGE_STATUSES.indexOf(c.status) >= 0; });
   if (!dqContacts.length) { closePurgeDq(); return; }
   if (S.syncInProgress) { toast('Sync läuft — bitte kurz warten.'); closePurgeDq(); return; }
 
@@ -993,15 +1054,17 @@ export async function purgeDq(mode) {
 
   try {
     if (mode === 'archive') {
-      dqContacts.forEach(function(c) { c.status = 'archiviert'; });
+      dqContacts.forEach(function(c) { c.status = 'disqualified'; });
       for (let i = 0; i < dqContacts.length; i += 50) {
         const batch = dqContacts.slice(i, i + 50);
         await sbUpsert('/rest/v1/crm_contacts', batch.map(function(c) {
-          return { id: c.id, status: 'archiviert', synced_at: new Date().toISOString() };
+          return { id: c.id, status: 'disqualified', synced_at: new Date().toISOString() };
         }));
       }
-      persist(); render();
-      toast(dqContacts.length + ' Leads archiviert.');
+      schedulePersist();
+      renderStats();
+      renderTableBody();
+      toast(dqContacts.length + ' Leads als Disqualified markiert.');
     } else {
       const ids = dqContacts.map(function(c) { return c.id; });
       for (let i = 0; i < ids.length; i += 50) {
@@ -1009,9 +1072,11 @@ export async function purgeDq(mode) {
         const idList = batch.map(function(id) { return 'id.eq.' + id; }).join(',');
         await sbDelete('/rest/v1/crm_contacts?or=(' + idList + ')');
       }
-      S.contacts = S.contacts.filter(function(c) { return c.status !== 'disqualified'; });
-      persist(); render();
-      toast(ids.length + ' Leads gelöscht.');
+      S.contacts = S.contacts.filter(function(c) { return PURGE_STATUSES.indexOf(c.status) < 0; });
+      schedulePersist();
+      renderStats();
+      renderTableBody();
+      toast(ids.length + ' Leads gelöscht (Disqualified + MoFo).');
     }
   } catch(e) {
     toast('Fehler: ' + e.message);
@@ -1102,10 +1167,12 @@ export function saveAktionPop() {
   ex.aktion_notiz = text;
   markDirty(c);
   if (getActiveSession()) upsertAktionLead(c.id, c.firma || '', text);
-  persist();
-  pushDirty();
+  schedulePersist();
+  schedulePushDirty();
   closeAktionPop();
-  render();
+  renderStats();
+  patchContactRow(c.id);
+  renderAktionQueueBar();
   toast('Aktion gespeichert.');
 }
 
@@ -1115,10 +1182,12 @@ export function clearAktionPop() {
   _clearAktionExtra(c);
   markDirty(c);
   removeAktionLead(c.id);
-  persist();
-  pushDirty();
+  schedulePersist();
+  schedulePushDirty();
   closeAktionPop();
-  render();
+  renderStats();
+  patchContactRow(c.id);
+  renderAktionQueueBar();
   toast('Markierung aufgehoben.');
 }
 
@@ -1128,9 +1197,11 @@ export function checkAktionItem(contactId) {
   _clearAktionExtra(c);
   markDirty(c);
   completeAktionItem(contactId);
-  persist();
-  pushDirty();
-  render();
+  schedulePersist();
+  schedulePushDirty();
+  renderStats();
+  patchContactRow(contactId);
+  renderAktionQueueBar();
   toast('Aktion erledigt.');
 }
 
@@ -1194,7 +1265,8 @@ export async function purgeVersicherungsmakler() {
     }
     const remove = new Set(ids);
     S.contacts = S.contacts.filter(function(c) { return !remove.has(c.id); });
-    persist(); render();
+    schedulePersist();
+    render();
     toast(ids.length + ' Versicherungs-Leads gelöscht.');
   } catch(e) {
     toast('Fehler: ' + e.message);
@@ -1208,4 +1280,8 @@ document.addEventListener('click', function(e) {
     const d = document.getElementById('ctdrop');
     if (d) d.classList.remove('on');
   }
+});
+
+window.addEventListener('rais:page-change', function(e) {
+  if (e.detail.page === 'prospecting') render();
 });

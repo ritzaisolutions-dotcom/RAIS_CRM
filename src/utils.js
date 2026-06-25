@@ -1,5 +1,23 @@
+import { STATUS, STATUS_LEGACY_MAP } from './state.js';
+
 export function gid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
 export function td() { return new Date().toISOString().slice(0,10); }
+
+export function weekStart(d) {
+  const x = new Date(d || new Date());
+  x.setHours(0, 0, 0, 0);
+  const day = x.getDay() || 7;
+  x.setDate(x.getDate() - day + 1);
+  return x;
+}
+
+export function normalizeContactStatus(status) {
+  const s = (status || '').trim();
+  if (!s) return 'neu';
+  if (STATUS[s]) return s;
+  if (STATUS_LEGACY_MAP[s]) return STATUS_LEGACY_MAP[s];
+  return 'neu';
+}
 
 /** Ensures external website links have a scheme (avoids relative URLs on CRM origin). */
 export function normalizeWebsite(url) {
@@ -59,9 +77,9 @@ export function isColdLead(c) {
 /** Abgeleitete Temperatur — gleiche Logik wie SQL-Backfill + isColdLead. */
 export function deriveLeadTemp(c) {
   if (!c) return 'cold';
-  if (c.status === 'gewonnen') return 'hot';
+  if (c.status === 'closed') return 'hot';
   if (isColdLead(c)) return 'cold';
-  const closed = ['disqualified', 'archiviert', 'ghost', 'nicht_passend'];
+  const closed = ['disqualified', 'mofo'];
   if (closed.indexOf(c.status) >= 0) return c.lead_temp || 'cold';
   return 'warm';
 }
