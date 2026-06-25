@@ -328,11 +328,6 @@ function populateSelectFilter(id, label, field) {
     }).join('');
 }
 
-function inlineInput(id, field, value, extra) {
-  extra = extra || '';
-  return '<input class="idd inline-cell" data-id="' + id + '" data-field="' + field + '" value="' + esc(value || '') + '" onclick="event.stopPropagation()" onchange="inlineField(this)"' + extra + '>';
-}
-
 function buildRowHtml(c, pageOffset, i, t) {
   const ovr = (c.followup && c.followup < t) ? ' ov' : '';
   const aktion = isAktionNoetig(c);
@@ -342,27 +337,30 @@ function buildRowHtml(c, pageOffset, i, t) {
   const lastTAge = lastTDatum ? Math.floor((new Date(td()) - new Date(lastTDatum)) / 86400000) : null;
   const ageCls = lastTAge === null ? '' : (lastTAge <= 3 ? 'age-fresh' : lastTAge <= 7 ? 'age-warn' : 'age-old');
   const ageStr = lastTDatum ? relAge(lastTDatum) : (c.created ? relAge(new Date(c.created).toISOString().slice(0,10)) : null);
-  const webVal = c.website || '';
+  const notizPreview = (c.notiz || c.besonderheit || '').trim();
   return '<tr class="' + rowCls.trim() + '" data-id="' + c.id + '" onclick="openP(\'' + c.id + '\')" oncontextmenu="showCtxMenuAtEvent(event,\'' + c.id + '\')">' +
     '<td class="col-sticky-num col-c-num" style="text-align:right;font-family:sans-serif;font-size:11px;color:#B0A898;padding-right:10px;user-select:none">' + (pageOffset + i + 1) + '</td>' +
-    '<td class="fc col-sticky-firma col-c-firma" onclick="event.stopPropagation()"><div class="col-firma-wrap">' +
-      inlineInput(c.id, 'firma', c.firma) +
+    '<td class="fc col-sticky-firma col-c-firma"><div class="col-firma-wrap"><span class="col-trunc" title="' + esc(c.firma) + '">' + esc(c.firma) + '</span>' +
       (c.gewerk ? '<span class="gw-badge gw-' + gewerkSlug(c.gewerk) + '">' + gewerkKuerzel(c.gewerk) + '</span>' : '') +
     '</div></td>' +
-    '<td class="col-c-kontakt" onclick="event.stopPropagation()">' + inlineInput(c.id, 'kontakt', c.kontakt) + '</td>' +
-    '<td class="col-c-tel" onclick="event.stopPropagation()">' + inlineInput(c.id, 'telefon', c.telefon, ' style="font-family:monospace;font-size:12.5px"') + '</td>' +
-    '<td class="col-web col-c-web" onclick="event.stopPropagation()">' + inlineInput(c.id, 'website', webVal, ' placeholder="https://…"') + '</td>' +
+    '<td class="col-c-kontakt"><span class="col-trunc" title="' + esc(c.kontakt || '') + '">' + esc(c.kontakt || '—') + '</span></td>' +
+    '<td class="col-c-tel"><a class="col-trunc col-tel-link" href="tel:' + esc(c.telefon) + '" onclick="event.stopPropagation()" title="' + esc(c.telefon || '') + '" style="font-family:monospace;font-size:12.5px">' + esc(c.telefon || '—') + '</a></td>' +
+    '<td class="col-web col-c-web" style="text-align:center">' +
+      (c.website
+        ? '<a class="wlink" href="' + webHref(c.website) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="' + webHref(c.website) + '">&#127760;</a>'
+        : '<span class="wlink-none" title="Keine Website">&#127760;</span>') +
+    '</td>' +
     '<td class="st-cell col-c-status" onclick="event.stopPropagation()">' + statusSelectHtml(c) + '</td>' +
     '<td onclick="event.stopPropagation()" class="fu-cell col-c-fu"><input type="date" class="idd-date" data-id="' + c.id + '" value="' + esc(c.followup||'') + '" onfocus="inlineFUFocus(this)" onchange="inlineFU(this)" onblur="inlineFUBlur(this)" title="Follow-up Datum"></td>' +
     (S.colVis.origin ? '<td class="col-c-origin" onclick="event.stopPropagation()">' + originBadge(c.lead_origin || 'manual') + '</td>' : '') +
     (S.colVis.temp ? '<td class="col-c-temp" onclick="event.stopPropagation()">' + tempBadge(c.lead_temp || 'cold') + '</td>' : '') +
     '<td class="notiz-cell col-c-notiz" onclick="event.stopPropagation()">' +
-      '<textarea class="nc inline-notiz" data-id="' + c.id + '" rows="1" onblur="saveNotiz(this)" onkeydown="notizKey(event,this)" onclick="event.stopPropagation()">' + esc((c.notiz || '').trim()) + '</textarea>' +
+      '<textarea class="inline-notiz" data-id="' + c.id + '" rows="1" onblur="saveNotiz(this)" onkeydown="notizKey(event,this)" onclick="event.stopPropagation()">' + esc(notizPreview) + '</textarea>' +
       (ageStr ? '<span class="age-lbl ' + ageCls + '">' + (lastTDatum ? '&#128222; ' : '') + ageStr + '</span>' : '') +
     '</td>' +
-    (S.colVis.stadt   ? '<td class="col-c-stadt" onclick="event.stopPropagation()">' + inlineInput(c.id, 'stadt', c.stadt) + '</td>' : '') +
-    (S.colVis.region  ? '<td class="col-c-region" onclick="event.stopPropagation()">' + inlineInput(c.id, 'region', c.region) + '</td>' : '') +
-    (S.colVis.gewerk  ? '<td class="col-c-gewerk" onclick="event.stopPropagation()">' + inlineInput(c.id, 'gewerk', c.gewerk) + '</td>' : '') +
+    (S.colVis.stadt   ? '<td class="col-c-stadt" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.stadt || '') + '">' + esc(c.stadt || '—') + '</span></td>' : '') +
+    (S.colVis.region  ? '<td class="col-c-region" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.region || '') + '">' + esc(c.region || '—') + '</span></td>' : '') +
+    (S.colVis.gewerk  ? '<td class="col-c-gewerk" style="font-family:sans-serif;font-size:12px"><span class="col-trunc" title="' + esc(c.gewerk || '') + '">' + esc(c.gewerk || '—') + '</span></td>' : '') +
     '<td class="col-c-linkedin" onclick="event.stopPropagation()" style="text-align:center">' + linkedinCellHtml(getSocials(c)) + '</td>' +
   '</tr>';
 }
@@ -432,7 +430,7 @@ function renderThead() {
     thF('#', 'text-align:right', 'col-sticky-num col-c-num') +
     thS('firma', 'Firma', 'col-sticky-firma col-c-firma') +
     thF('Person', '', 'col-c-kontakt') + thF('Telefon', '', 'col-c-tel') +
-    thF('Website', '', 'col-web col-c-web') +
+    thF('&#127760;', 'text-align:center', 'col-web col-c-web') +
     thS('status', 'Status', 'col-c-status') + thS('followup', 'Follow-up', 'col-c-fu') +
     (S.colVis.origin ? thF('Herkunft', '', 'col-c-origin') : '') +
     (S.colVis.temp ? thF('Temp', '', 'col-c-temp') : '') +
@@ -471,23 +469,6 @@ export function renderTableBody() {
   pb.innerHTML = Array.from({length: pages}, function(_, i) { return i + 1; })
     .map(function(p) { return '<button class="pbb' + (p === S.pg ? ' on' : '') + '" onclick="goPg(' + p + ')">' + p + '</button>'; })
     .join('');
-}
-
-export function inlineField(el) {
-  const c = S.contacts.find(function(x) { return x.id === el.dataset.id; });
-  if (!c) return;
-  const field = el.dataset.field;
-  let val = el.value.trim();
-  if (field === 'website') val = normalizeWebsite(val);
-  if (field === 'gewerk') val = normalizeGewerk(val);
-  if ((c[field] || '') === (val || '')) return;
-  c[field] = val;
-  if (field === 'gewerk' && val) pushGewerkCloud(val, c.lebensbereich);
-  if (field === 'notiz') c.besonderheit = val;
-  markDirty(c);
-  schedulePersist();
-  schedulePushDirty();
-  patchContactRow(c.id);
 }
 
 export function render() {
