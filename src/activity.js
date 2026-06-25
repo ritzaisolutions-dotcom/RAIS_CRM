@@ -1,7 +1,7 @@
 import { S } from './state.js';
 import { sbGet, sbUpsert } from './supabase.js';
 import { td } from './utils.js';
-import { countLinkedInDmsInRange, countContentLiveInRange } from './analytics.js';
+import { countLinkedInDmsInRange, countContentLiveInRange, countCallTouchesInRange, rangesForGrain } from './analytics.js';
 
 const ACTIVITY_KEY = '/rest/v1/crm_activity_daily';
 
@@ -21,19 +21,6 @@ function countTouchesInRange(start, end) {
     (c.touches || []).forEach(function(t) {
       const d = parseDate(t.datum);
       if (d && inRange(d, start, end)) n++;
-    });
-  });
-  return n;
-}
-
-function countCallTouchesInRange(start, end) {
-  let n = 0;
-  (S.contacts || []).forEach(function(c) {
-    (c.touches || []).forEach(function(t) {
-      const d = parseDate(t.datum);
-      if (!d || !inRange(d, start, end)) return;
-      if (t.status === 'LinkedIn DM') return;
-      n++;
     });
   });
   return n;
@@ -85,6 +72,16 @@ export function mergedLinkedInDmsInRange(start, end, manualRows) {
     total += m + Math.max(0, c - m);
   });
   return total;
+}
+
+export function channelActivitySeries(grain, count, manualRows) {
+  return rangesForGrain(grain, count).map(function(r) {
+    return {
+      label: r.label,
+      calls: countCallTouchesInRange(r.start, r.end),
+      dms: mergedLinkedInDmsInRange(r.start, r.end, manualRows),
+    };
+  });
 }
 
 export function mergedMetaAdsInRange(start, end, manualRows) {

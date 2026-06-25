@@ -4,6 +4,7 @@ import { loadProjects, getProjectsSnapshot, todoCategoryLabel } from './projects
 import { fetchContentSnapshot } from './content.js';
 import {
   buildOutreachMix, fetchActivitySnapshot, getTodayActivity, upsertActivityDaily,
+  channelActivitySeries, mergedLinkedInDmsInRange,
 } from './activity.js';
 import { esc, toast } from './ui.js';
 import { navigateTo } from './sidebar.js';
@@ -11,10 +12,10 @@ import { setF, filterDue } from './prospecting.js';
 import { getSessionStats } from './sessions.js';
 import { fetchCalendarWeek } from './integrations.js';
 import {
-  computeFunnel, deltaHtml, periodRange,
-  rateSeries, touchVolumeSeries, contentLiveSeries, revenueWeeklySeries,
-  countContentLiveInRange, renderDualLineChart, renderVolumeChart,
-  renderPlatformLineChart, renderPieChart, renderRevenueChart,
+  computeFunnel, deltaHtml, periodRange, funnelMetricsForRange,
+  rateSeries, contentLiveMultiSeries, revenueWeeklySeries,
+  countContentLiveInRange, renderDualLineChart, renderMultiLineChart,
+  renderPieChart, renderRevenueChart, countCallTouchesInRange,
 } from './analytics.js';
 
 const GRAIN_KEY = 'rais_dash_grain';
@@ -134,13 +135,8 @@ function refreshKpiStrip(container, snap) {
     kpiCard(week.dials, 'Touches (Woche)', deltaHtml(week.dials, prevWeek.dials), 'dashGoProspecting(\'all\')', '', week.settingRatePer100 + ' /100 Setting') +
     kpiCard(week.settingRatePer100, 'Setting /100', deltaHtml(week.settingRatePer100, prevWeek.settingRatePer100), 'dashGoProspecting(\'set_appointment\')', 'positive', week.demosSet + ' Termine') +
     kpiCard(week.closingRatePer100, 'Closing /100', deltaHtml(week.closingRatePer100, prevWeek.closingRatePer100), 'dashGoProspecting(\'closed\')', 'positive', week.won + ' Closed') +
-    '<div class="dash-kpi dash-kpi--positive dash-kpi-split dash-kpi-click" role="button" tabindex="0" onclick="dashGoProspecting(\'closed\')">' +
-      '<div class="dash-kpi-split-row">' +
-        '<div><span class="dash-kpi-n dash-kpi-n-sm">' + formatEur(week.revenueEur) + '</span><span class="dash-kpi-l">Revenue Woche</span></div>' +
-        '<div><span class="dash-kpi-n dash-kpi-n-sm">' + formatEur(month.revenueEur) + '</span><span class="dash-kpi-l">Revenue Monat</span></div>' +
-      '</div>' +
-      '<span class="dash-kpi-d">' + deltaHtml(week.revenueEur, prevWeek.revenueEur) + ' W · ' + deltaHtml(month.revenueEur, prevMonth.revenueEur) + ' M</span>' +
-    '</div>' +
+    kpiCard(formatEur(week.revenueEur), 'Revenue (Woche)', deltaHtml(week.revenueEur, prevWeek.revenueEur), 'dashGoProspecting(\'closed\')', 'positive', week.won + ' Deals') +
+    kpiCard(formatEur(month.revenueEur), 'Revenue (Monat)', deltaHtml(month.revenueEur, prevMonth.revenueEur), 'dashGoProspecting(\'closed\')', 'positive', '') +
     kpiCard(snap.contentWeek, 'Content Live (Woche)', '', 'dashGoContent()', 'positive', 'YT ' + snap.contentYt + ' · IG ' + snap.contentIg + ' · LI ' + snap.contentLi) +
     kpiCard(outreach.total, 'Outreach gesamt (Woche)', '', '', '', 'Mix aus Calls, DMs, Ads, Content');
 }
@@ -148,24 +144,46 @@ function refreshKpiStrip(container, snap) {
 function renderDashboardCharts() {
   const grain = _dashGrain;
   const rateData = rateSeries(grain);
-  const touchData = touchVolumeSeries(grain);
+  const channelData = channelActivitySeries(grain, null, _activityRows);
+  const contentData = contentLiveMultiSeries(grain, _contentItems);
   const { start, end } = periodForGrain();
   const outreach = buildOutreachMix(start, end, _contentItems, _activityRows);
 
   renderDualLineChart(document.getElementById('dash-rate-chart'), rateData);
-  renderVolumeChart(document.getElementById('dash-touch-chart'), touchData, { key: 'touches' });
-  renderVolumeChart(document.getElementById('dash-touch-call-chart'), touchData, { key: 'callTouches', cls: 'chart-bar-fill--call' });
-  renderVolumeChart(document.getElementById('dash-touch-dm-chart'), touchData, { key: 'dms', cls: 'chart-bar-fill--linkedin' });
-  renderPlatformLineChart(document.getElementById('dash-content-yt'), contentLiveSeries(grain, null, 'youtube', _contentItems), PLATFORM_COLORS.youtube);
-  renderPlatformLineChart(document.getElementById('dash-content-ig'), contentLiveSeries(grain, null, 'instagram', _contentItems), PLATFORM_COLORS.instagram);
-  renderPlatformLineChart(document.getElementById('dash-content-li'), contentLiveSeries(grain, null, 'linkedin', _contentItems), PLATFORM_COLORS.linkedin);
+  renderMultiLineChart(document.getElementById('dash-channel-chart'), channelData, [
+    { key: 'calls', label: 'Calls', color: '#EC6A37' },
+    { key: 'dms', label: 'LinkedIn DMs', color: '#0A66C2' },
+  ]);
+  renderMultiLineChart(document.getElementById('dash-content-chart'), contentData, [
+    { key: 'youtube', label: 'YouTube', color: PLATFORM_COLORS.youtube },
+    { key: 'instagram', label: 'Instagram', color: PLATFORM_COLORS.instagram },
+    { key: 'linkedin', label: 'LinkedIn', color: PLATFORM_COLORS.linkedin },
+  ]);
   renderPieChart(document.getElementById('dash-outreach-pie'), outreach);
   renderRevenueChart(document.getElementById('dash-revenue-chart'), revenueWeeklySeries(8));
 
   const hint = document.getElementById('dash-rate-hint');
   if (hint && rateData.length) {
     const last = rateData[rateData.length - 1];
-    hint.textContent = 'Aktuell: Setting ' + last.settingRatePer100 + '/100 · Closing ' + last.closingRatePer100 + '/100';
+    const periodMetrics = funnelMetricsForRange(start, end);
+    const calls = countCallTouchesInRange(start, end);
+    const dms = mergedLinkedInDmsInRange(start, end, _activityRows);
+    const channelTotal = calls + dms;
+    const callPct = channelTotal > 0 ? Math.round((calls / channelTotal) * 100) : 0;
+    const revPer100 = periodMetrics.touches > 0
+      ? Math.round(periodMetrics.revenueEur / periodMetrics.touches * 100)
+      : 0;
+    hint.textContent =
+      'Aktuell: Setting ' + last.settingRatePer100 + '/100 · Closing ' + last.closingRatePer100 + '/100' +
+      ' · Revenue / 100 Touches: ' + formatEur(revPer100) +
+      ' · Kanal-Mix: ' + callPct + '% Calls';
+  }
+
+  const channelHint = document.getElementById('dash-channel-hint');
+  if (channelHint && channelData.length) {
+    const last = channelData[channelData.length - 1];
+    const sum = (last.calls || 0) + (last.dms || 0);
+    channelHint.textContent = 'Letzte Periode: ' + (last.calls || 0) + ' Calls · ' + (last.dms || 0) + ' DMs (Σ ' + sum + ')';
   }
 }
 
@@ -211,53 +229,48 @@ export async function renderDashboard() {
     _lastSnap = snap;
 
     root.innerHTML =
+      '<div class="dash-layout">' +
       '<div class="dash-kpis"></div>' +
       grainToggleHtml() +
 
-      '<section class="dash-section">' +
-        '<h2 class="dash-section-title">Setting & Closing pro 100 Touches</h2>' +
-        '<div class="dash-card dash-card-wide"><div id="dash-rate-chart"></div>' +
-          '<p class="dash-chart-hint" id="dash-rate-hint"></p></div>' +
-      '</section>' +
-
-      '<section class="dash-section">' +
-        '<h2 class="dash-section-title">Touch-Volumen</h2>' +
-        '<div class="dash-card dash-card-wide"><div id="dash-touch-chart"></div>' +
-          '<p class="dash-chart-hint">Gesamt-Touches</p></div>' +
-        '<div class="dash-grid dash-grid-2">' +
-          '<div class="dash-card"><h3>Calls</h3><div id="dash-touch-call-chart"></div></div>' +
-          '<div class="dash-card"><h3>LinkedIn DM (CRM)</h3><div id="dash-touch-dm-chart"></div></div>' +
+      '<div class="dash-grid-charts">' +
+        '<div class="dash-card">' +
+          '<h3 class="dash-card-title">Setting & Closing pro 100 Touches</h3>' +
+          '<div id="dash-rate-chart"></div>' +
+          '<p class="dash-chart-hint" id="dash-rate-hint"></p>' +
         '</div>' +
-      '</section>' +
+        '<div class="dash-card">' +
+          '<h3 class="dash-card-title">Calls vs. LinkedIn DMs</h3>' +
+          '<div id="dash-channel-chart"></div>' +
+          '<p class="dash-chart-hint" id="dash-channel-hint"></p>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="dash-grid-charts">' +
+        '<div class="dash-card">' +
+          '<h3 class="dash-card-title">Content Live</h3>' +
+          '<div id="dash-content-chart"></div>' +
+        '</div>' +
+        '<div class="dash-card dash-outreach-card">' +
+          '<h3 class="dash-card-title">Outreach-Mix</h3>' +
+          '<div class="dash-outreach-row">' +
+            '<div id="dash-outreach-pie"></div>' +
+            '<div class="dash-activity-log">' +
+              '<h4>Heute loggen</h4>' +
+              '<p class="dash-chart-hint">Manuell + CRM (DMs dedupliziert im Pie)</p>' +
+              '<div class="fr2">' +
+                '<div><label>LinkedIn DMs gesendet</label><input type="number" class="fs2" id="actDm" min="0" value="' + (todayAct.linkedin_dm_manual || 0) + '"></div>' +
+                '<div><label>Meta Ads Inbound</label><input type="number" class="fs2" id="actMeta" min="0" value="' + (todayAct.meta_ads_inbound_manual || 0) + '"></div>' +
+              '</div>' +
+              '<button type="button" class="btn bp bsm" onclick="saveActivityLog()" style="margin-top:10px">Speichern</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
 
       '<section class="dash-section">' +
         '<h2 class="dash-section-title">Revenue (8 Wochen)</h2>' +
         '<div class="dash-card dash-card-wide"><div id="dash-revenue-chart"></div></div>' +
-      '</section>' +
-
-      '<section class="dash-section">' +
-        '<h2 class="dash-section-title">Content Live</h2>' +
-        '<div class="dash-grid dash-grid-3">' +
-          '<div class="dash-card dash-card-platform dash-card-platform--yt"><h3>YouTube</h3><div id="dash-content-yt"></div></div>' +
-          '<div class="dash-card dash-card-platform dash-card-platform--ig"><h3>Instagram</h3><div id="dash-content-ig"></div></div>' +
-          '<div class="dash-card dash-card-platform dash-card-platform--li"><h3>LinkedIn</h3><div id="dash-content-li"></div></div>' +
-        '</div>' +
-      '</section>' +
-
-      '<section class="dash-section">' +
-        '<h2 class="dash-section-title">Outreach-Mix</h2>' +
-        '<div class="dash-grid dash-grid-2">' +
-          '<div class="dash-card"><div id="dash-outreach-pie"></div></div>' +
-          '<div class="dash-card dash-activity-log">' +
-            '<h3>Heute loggen</h3>' +
-            '<p class="dash-chart-hint">Manuell + CRM (DMs dedupliziert im Pie)</p>' +
-            '<div class="fr2">' +
-              '<div><label>LinkedIn DMs gesendet</label><input type="number" class="fs2" id="actDm" min="0" value="' + (todayAct.linkedin_dm_manual || 0) + '"></div>' +
-              '<div><label>Meta Ads Inbound</label><input type="number" class="fs2" id="actMeta" min="0" value="' + (todayAct.meta_ads_inbound_manual || 0) + '"></div>' +
-            '</div>' +
-            '<button type="button" class="btn bp bsm" onclick="saveActivityLog()" style="margin-top:10px">Speichern</button>' +
-          '</div>' +
-        '</div>' +
       '</section>' +
 
       '<section class="dash-section dash-secondary">' +
@@ -272,7 +285,8 @@ export async function renderDashboard() {
             '<section class="dash-card"><h3>Sessions (Woche)</h3>' + renderSessSection(_lastSess) + '</section>' +
           '</div>' +
         '</div>' +
-      '</section>';
+      '</section>' +
+      '</div>';
 
     refreshKpiStrip(root.querySelector('.dash-kpis'), snap);
     renderDashboardCharts();

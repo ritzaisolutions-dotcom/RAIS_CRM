@@ -130,12 +130,13 @@ export function funnelMetricsForRange(start, end) {
   const won = countWonInRange(start, end);
   return {
     touches, demosSet, won,
+    revenueEur: revenueInRange(start, end),
     settingRatePer100: touches > 0 ? Math.round((demosSet / touches) * 1000) / 10 : 0,
     closingRatePer100: closingRatePer100(touches, won),
   };
 }
 
-function countCallTouchesInRange(start, end) {
+export function countCallTouchesInRange(start, end) {
   let n = 0;
   (S.contacts || []).forEach(function(c) {
     (c.touches || []).forEach(function(t) {
@@ -173,6 +174,17 @@ export function contentLiveSeries(grain, count, platform, items) {
     return {
       label: r.label,
       count: countContentLiveInRange(items, r.start, r.end, platform || null),
+    };
+  });
+}
+
+export function contentLiveMultiSeries(grain, items, count) {
+  return rangesForGrain(grain, count).map(function(r) {
+    return {
+      label: r.label,
+      youtube: countContentLiveInRange(items, r.start, r.end, 'youtube'),
+      instagram: countContentLiveInRange(items, r.start, r.end, 'instagram'),
+      linkedin: countContentLiveInRange(items, r.start, r.end, 'linkedin'),
     };
   });
 }
@@ -348,10 +360,11 @@ export function dailyTouchSeries(days) {
   return series;
 }
 
-export function renderDualLineChart(container, series) {
-  if (!container || !series.length) return;
+export function renderMultiLineChart(container, series, lines) {
+  if (!container || !series.length || !lines || !lines.length) return;
   const maxY = Math.max.apply(null, series.reduce(function(arr, d) {
-    return arr.concat([d.settingRatePer100, d.closingRatePer100]);
+    lines.forEach(function(ln) { arr.push(d[ln.key] || 0); });
+    return arr;
   }, []).concat([1]));
   const w = 100;
   const h = 100;
@@ -359,23 +372,40 @@ export function renderDualLineChart(container, series) {
   function pts(key) {
     return series.map(function(d, i) {
       const x = pad + (i / Math.max(series.length - 1, 1)) * (w - pad * 2);
-      const y = h - pad - ((d[key] / maxY) * (h - pad * 2));
+      const y = h - pad - (((d[key] || 0) / maxY) * (h - pad * 2));
       return x.toFixed(1) + ',' + y.toFixed(1);
     }).join(' ');
   }
+  const gridLines = [0.25, 0.5, 0.75].map(function(frac) {
+    const y = (h - pad) - frac * (h - pad * 2);
+    return '<line x1="' + pad + '" y1="' + y.toFixed(1) + '" x2="' + (w - pad) + '" y2="' + y.toFixed(1) + '" class="chart-grid-line"/>';
+  }).join('');
+  const polylines = lines.map(function(ln) {
+    const dash = ln.dashed ? ' stroke-dasharray="4 3"' : '';
+    const cls = ln.cls ? ' class="' + ln.cls + '"' : '';
+    return '<polyline points="' + pts(ln.key) + '" fill="none" stroke="' + ln.color + '" stroke-width="2" vector-effect="non-scaling-stroke"' + dash + cls + '/>';
+  }).join('');
+  const legend = lines.map(function(ln) {
+    const swatchCls = ln.cls ? ' chart-line-swatch ' + ln.cls : ' chart-line-swatch';
+    const swatchStyle = ln.dashed && !ln.cls ? ' style="background:transparent;border-bottom:2px dashed ' + ln.color + '"' : (ln.cls ? '' : ' style="background:' + ln.color + '"');
+    return '<span class="chart-line-legend-item"><i class="' + swatchCls.trim() + '"' + swatchStyle + '></i> ' + esc(ln.label) + '</span>';
+  }).join('');
   const labels = series.map(function(d) {
     return '<span class="chart-line-lbl">' + esc(d.label) + '</span>';
   }).join('');
   container.innerHTML =
-    '<div class="chart-line-legend">' +
-      '<span class="chart-line-legend-item"><i class="chart-line-swatch chart-line-swatch--setting"></i> Setting /100</span>' +
-      '<span class="chart-line-legend-item"><i class="chart-line-swatch chart-line-swatch--closing"></i> Closing /100</span>' +
-    '</div>' +
-    '<svg class="chart-line-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
-      '<polyline class="chart-line-setting" points="' + pts('settingRatePer100') + '"/>' +
-      '<polyline class="chart-line-closing" points="' + pts('closingRatePer100') + '"/>' +
+    '<div class="chart-line-legend">' + legend + '</div>' +
+    '<svg class="chart-svg chart-line-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet">' +
+      gridLines + polylines +
     '</svg>' +
     '<div class="chart-line-labels">' + labels + '</div>';
+}
+
+export function renderDualLineChart(container, series) {
+  renderMultiLineChart(container, series, [
+    { key: 'settingRatePer100', label: 'Setting /100', color: '#1A7A40', cls: 'chart-line-setting' },
+    { key: 'closingRatePer100', label: 'Closing /100', color: '#0A5C24', dashed: true, cls: 'chart-line-closing' },
+  ]);
 }
 
 export function renderVolumeChart(container, series, opts) {
@@ -394,23 +424,10 @@ export function renderVolumeChart(container, series, opts) {
 
 export function renderPlatformLineChart(container, series, color) {
   if (!container || !series.length) return;
-  const max = Math.max.apply(null, series.map(function(d) { return d.count; }).concat([1]));
-  const w = 100;
-  const h = 60;
-  const pad = 6;
-  const points = series.map(function(d, i) {
-    const x = pad + (i / Math.max(series.length - 1, 1)) * (w - pad * 2);
-    const y = h - pad - ((d.count / max) * (h - pad * 2));
-    return x.toFixed(1) + ',' + y.toFixed(1);
-  }).join(' ');
-  const labels = series.map(function(d) {
-    return '<span class="chart-line-lbl">' + esc(d.label) + '</span>';
-  }).join('');
-  container.innerHTML =
-    '<svg class="chart-platform-svg" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">' +
-      '<polyline points="' + points + '" fill="none" stroke="' + color + '" stroke-width="2" vector-effect="non-scaling-stroke"/>' +
-    '</svg>' +
-    '<div class="chart-line-labels">' + labels + '</div>';
+  const data = series.map(function(d) { return { label: d.label, count: d.count }; });
+  renderMultiLineChart(container, data, [{ key: 'count', label: '', color: color }]);
+  const leg = container.querySelector('.chart-line-legend');
+  if (leg) leg.hidden = true;
 }
 
 export function renderPieChart(container, data) {
