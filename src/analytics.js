@@ -291,6 +291,44 @@ export function revenueWeeklySeries(weeks) {
   });
 }
 
+export function revenueMonthlySeries(months) {
+  return monthlyRanges(months || GRAIN_POINTS.month).map(function(r) {
+    return { label: r.label, revenueEur: revenueInRange(r.start, r.end) };
+  });
+}
+
+export function revenueAllTime() {
+  let sum = 0;
+  (S.contacts || []).forEach(function(c) {
+    if (c.status !== 'closed') return;
+    const v = parseFloat(c.deal_value_eur);
+    sum += isNaN(v) ? 1800 : v;
+  });
+  return sum;
+}
+
+export function rateValueSeries(grain, key, count) {
+  return rateSeries(grain, count).map(function(d) {
+    return { label: d.label, value: d[key] || 0 };
+  });
+}
+
+export function settingRateMonthlySeries(months) {
+  return rateValueSeries('month', 'settingRatePer100', months);
+}
+
+export function closingRateMonthlySeries(months) {
+  return rateValueSeries('month', 'closingRatePer100', months);
+}
+
+export function renderSingleLineChart(container, series, opts) {
+  if (!container || !series.length) return;
+  const color = (opts && opts.color) || '#1A7A40';
+  const label = (opts && opts.label) || '';
+  const dashed = !!(opts && opts.dashed);
+  renderMultiLineChart(container, series, [{ key: 'value', label: label, color: color, dashed: dashed }]);
+}
+
 export function linkedInDmWeeklySeries(weeks) {
   return weeklySeries(weeks, function(start, end) {
     return { dms: countLinkedInDmsInRange(start, end) };
@@ -412,10 +450,11 @@ export function renderVolumeChart(container, series, opts) {
   if (!container || !series.length) return;
   const key = (opts && opts.key) || 'touches';
   const cls = (opts && opts.cls) || '';
+  const barMax = (opts && opts.barMax) || 72;
   const max = Math.max.apply(null, series.map(function(d) { return d[key]; }).concat([1]));
   container.innerHTML = '<div class="chart-bar">' + series.map(function(d) {
     const val = d[key] || 0;
-    const height = Math.round((val / max) * 72);
+    const height = Math.round((val / max) * barMax);
     return '<div class="chart-bar-col">' +
       '<div class="chart-bar-fill' + (cls ? ' ' + cls : '') + '" style="height:' + height + 'px" title="' + val + '"></div>' +
       '<span class="chart-bar-label">' + esc(d.label) + '</span></div>';

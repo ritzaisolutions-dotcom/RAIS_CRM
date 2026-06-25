@@ -1701,8 +1701,19 @@ body:not(.session-active) .aktion-queue-bar { display: none !important; }
   margin-bottom: 20px;
 }
 @media (max-width: 700px) {
-  .dash-kpis { grid-template-columns: repeat(2, 1fr); }
+  .dash-kpis { grid-template-columns: 1fr; }
 }
+.dash-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.dash-chart-hero .chart-bar { min-height: 200px; align-items: flex-end; }
+.dash-chart-hero .chart-bar-col { min-width: 0; }
+.dash-chart-sm .chart-svg,
+.dash-chart-sm .chart-line-svg { height: 140px; max-height: 140px; aspect-ratio: auto; }
+.dash-chart-hero .dash-card-title { margin-bottom: 14px; }
 .dash-kpi {
   background: var(--sf);
   border: 1px solid var(--bd);
