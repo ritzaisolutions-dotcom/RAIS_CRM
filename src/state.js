@@ -60,6 +60,18 @@ export const LEBENSBEREICHE = [
 ];
 export const MEDIUM_ICONS = { whatsapp:'📱', telegram:'✈️', email:'✉️', telefon:'📞', sonstiges:'💬' };
 
+/** To-do / Projekt-Kategorien (slug → Anzeige) */
+export const TODO_CATEGORIES = [
+  { id: 'rais_sales',       label: 'RAIS - Sales' },
+  { id: 'rais_building',    label: 'RAIS - Building' },
+  { id: 'eckstein_podcast', label: 'ECKSTEIN Podcast' },
+  { id: 'personal_brand',   label: 'personal brand' },
+  { id: 'private',          label: 'private' },
+  { id: 'education',        label: 'education' },
+  { id: 'faith',            label: 'faith' },
+  { id: 'health',           label: 'health' },
+];
+
 export const TSTAT = ['','Nicht kontaktiert','Nicht erreicht','Mailbox','Rückruf erbeten','Gatekeeper','Interessiert','Termin vereinbart','Angebot gesendet','Kein Interesse'];
 export const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'ni','Rückruf erbeten':'fu','Gatekeeper':'gk','Interessiert':'in','Termin vereinbart':'te','Angebot gesendet':'ib','Kein Interesse':'ki'};
 

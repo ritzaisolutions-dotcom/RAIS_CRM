@@ -1,9 +1,22 @@
-import { S, PRJ_KEY_SB, TODO_KEY_SB } from './state.js';
+import { S, PRJ_KEY_SB, TODO_KEY_SB, TODO_CATEGORIES } from './state.js';
 import { sbGet, sbUpsert, sbDelete } from './supabase.js';
 import { esc, toast } from './ui.js';
 import { td } from './utils.js';
 
 let _inited = false;
+
+export function todoCategoryLabel(slug) {
+  const c = TODO_CATEGORIES.find(function(x) { return x.id === slug; });
+  return c ? c.label : (slug || '—');
+}
+
+function fillCategorySelect(elId, selected) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = TODO_CATEGORIES.map(function(c) {
+    return '<option value="' + c.id + '"' + (c.id === selected ? ' selected' : '') + '>' + esc(c.label) + '</option>';
+  }).join('');
+}
 
 window.addEventListener('rais:page-change', function(e) {
   if (e.detail.page === 'projects') initProjectsPage();
@@ -50,13 +63,13 @@ export function renderProjectsPage() {
     const done = ptodos.filter(function(t) { return t.done; }).length;
     const pct = ptodos.length ? Math.round((done / ptodos.length) * 100) : (p.progress_pct || 0);
     html += '<section class="dash-card proj-card" data-id="' + p.id + '">' +
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">' +
-        '<h3 style="margin:0">' + esc(p.name) + '</h3>' +
-        '<div class="ra" style="opacity:1">' +
+      '<div class="proj-card-head">' +
+        '<h3 class="proj-card-title">' + esc(p.name) + '</h3>' +
+        '<div class="proj-card-actions">' +
           '<button class="btn bg bsm" onclick="openProjectEdit(\'' + p.id + '\')" title="Bearbeiten">✎</button>' +
           '<button class="btn bg bsm" onclick="delProject(\'' + p.id + '\')" title="Löschen" style="color:var(--rd)">🗑</button>' +
         '</div></div>' +
-      '<p style="font-size:12px;color:var(--st);margin:6px 0">' + esc(p.category || '—') + ' · ' + esc(p.status || 'aktiv') + '</p>' +
+      '<p style="font-size:12px;color:var(--st);margin:6px 0">' + esc(todoCategoryLabel(p.category)) + ' · ' + esc(p.status || 'aktiv') + '</p>' +
       '<div class="dash-bar-track" style="margin:8px 0"><div class="dash-bar-fill" style="width:' + pct + '%;background:var(--sg)"></div></div>' +
       '<span style="font-size:11px;color:var(--st)">' + pct + '% · ' + done + '/' + ptodos.length + ' To-dos</span>' +
     '</section>';
@@ -67,29 +80,44 @@ export function renderProjectsPage() {
   if (!openTodos.length) {
     html += '<p class="dash-empty">Keine offenen To-dos.</p>';
   } else {
-    html += '<ul class="dash-todo-list">' + openTodos.map(function(t) {
-      const proj = projects.find(function(p) { return p.id === t.project_id; });
-      return '<li class="dash-todo-item">' +
-        '<label><input type="checkbox" onchange="toggleTodoDone(\'' + t.id + '\', this.checked)"> ' +
-        esc(t.title) + '</label>' +
-        '<span style="font-size:11px;color:var(--st)">' +
-          (t.due_date ? esc(t.due_date) : '') +
-          (proj ? ' · ' + esc(proj.name) : '') +
-        '</span>' +
-        '<button class="btn bg bsm" onclick="delTodo(\'' + t.id + '\')" style="color:var(--rd)">🗑</button>' +
-      '</li>';
-    }).join('') + '</ul>';
+    TODO_CATEGORIES.forEach(function(cat) {
+      const group = openTodos.filter(function(t) { return t.category === cat.id; });
+      if (!group.length) return;
+      html += '<h4 class="todo-cat-head">' + esc(cat.label) + '</h4>';
+      html += '<ul class="dash-todo-list">' + group.map(function(t) {
+        return renderTodoRow(t, projects);
+      }).join('') + '</ul>';
+    });
+    const known = TODO_CATEGORIES.map(function(c) { return c.id; });
+    const other = openTodos.filter(function(t) { return !t.category || known.indexOf(t.category) < 0; });
+    if (other.length) {
+      html += '<h4 class="todo-cat-head">Sonstiges</h4>';
+      html += '<ul class="dash-todo-list">' + other.map(function(t) {
+        return renderTodoRow(t, projects);
+      }).join('') + '</ul>';
+    }
   }
   html += '</section>';
 
   root.innerHTML = html;
 }
 
+function renderTodoRow(t, projects) {
+  const proj = projects.find(function(p) { return p.id === t.project_id; });
+  const meta = (t.due_date ? esc(t.due_date) : '') + (proj ? ' · ' + esc(proj.name) : '');
+  return '<li class="dash-todo-item">' +
+    '<label class="dash-todo-main"><input type="checkbox" onchange="toggleTodoDone(\'' + t.id + '\', this.checked)"> ' +
+    esc(t.title) + '</label>' +
+    (meta ? '<span class="dash-todo-meta">' + meta + '</span>' : '<span class="dash-todo-meta"></span>') +
+    '<button class="btn bg bsm dash-todo-del" onclick="delTodo(\'' + t.id + '\')" title="Löschen" style="color:var(--rd)">🗑</button>' +
+  '</li>';
+}
+
 export function openProjectAdd() {
   S.prjEid = null;
   document.getElementById('prjModalTitle').textContent = 'Projekt hinzufügen';
   document.getElementById('prjName').value = '';
-  document.getElementById('prjCategory').value = 'sonstiges';
+  fillCategorySelect('prjCategory', 'rais_sales');
   document.getElementById('prjProgress').value = '0';
   document.getElementById('prjNotiz').value = '';
   document.getElementById('projectModal').classList.add('on');
@@ -101,7 +129,7 @@ export function openProjectEdit(id) {
   S.prjEid = id;
   document.getElementById('prjModalTitle').textContent = 'Projekt bearbeiten';
   document.getElementById('prjName').value = p.name || '';
-  document.getElementById('prjCategory').value = p.category || 'sonstiges';
+  fillCategorySelect('prjCategory', p.category || 'rais_sales');
   document.getElementById('prjProgress').value = String(p.progress_pct || 0);
   document.getElementById('prjNotiz').value = p.notiz || '';
   document.getElementById('projectModal').classList.add('on');
@@ -148,6 +176,7 @@ export function openTodoAdd() {
   document.getElementById('todoModalTitle').textContent = 'To-do hinzufügen';
   document.getElementById('todoTitle').value = '';
   document.getElementById('todoDue').value = td();
+  fillCategorySelect('todoCategory', 'rais_sales');
   document.getElementById('todoProject').innerHTML = projectOptions('');
   document.getElementById('todoModal').classList.add('on');
 }
@@ -166,8 +195,11 @@ export function closeTodoModal() {
 export async function saveTodo() {
   const title = document.getElementById('todoTitle').value.trim();
   if (!title) { toast('Titel fehlt.'); return; }
+  const category = document.getElementById('todoCategory').value;
+  if (!category) { toast('Kategorie fehlt.'); return; }
   const row = {
     title: title,
+    category: category,
     due_date: document.getElementById('todoDue').value || null,
     project_id: document.getElementById('todoProject').value || null,
     source: 'crm',

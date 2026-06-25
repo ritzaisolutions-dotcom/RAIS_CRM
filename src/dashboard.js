@@ -1,7 +1,7 @@
 import { S } from './state.js';
 import { isColdLead } from './utils.js';
 import { loadClients } from './clients.js';
-import { loadProjects, getProjectsSnapshot } from './projects.js';
+import { loadProjects, getProjectsSnapshot, todoCategoryLabel } from './projects.js';
 import { esc } from './ui.js';
 import { navigateTo } from './sidebar.js';
 import { setF, filterDue } from './prospecting.js';
@@ -128,7 +128,8 @@ function renderTodosSection(todos) {
   const weekTodos = (todos || []).slice(0, 8);
   if (!weekTodos.length) return '<p class="dash-empty">Keine offenen To-dos.</p>';
   return '<ul class="dash-todo-list">' + weekTodos.map(function(t) {
-    return '<li class="dash-todo-item"><span>' + esc(t.title) + '</span>' +
+    return '<li class="dash-todo-item"><span>' + esc(t.title) +
+      ' <span style="font-size:10px;color:var(--st);opacity:.85">' + esc(todoCategoryLabel(t.category)) + '</span></span>' +
       '<span style="font-size:11px;color:var(--st)">' + esc(t.due_date || '') + '</span></li>';
   }).join('') + '</ul><button class="btn bs bsm" onclick="dashGoProjects()" style="margin-top:8px">Alle Projekte</button>';
 }

@@ -667,14 +667,7 @@
     <div class="mh"><h2 id="prjModalTitle">Projekt</h2><button class="btn bg" onclick="closeProjectModal()">✕</button></div>
     <div class="mb">
       <div class="fr"><label>Name *</label><input type="text" id="prjName"></div>
-      <div class="fr2"><div><label>Kategorie</label><select class="fs2" id="prjCategory">
-        <option value="podcast">Podcast</option>
-        <option value="personal_brand">Personal Brand</option>
-        <option value="linkedin">LinkedIn</option>
-        <option value="cold_calling">Cold Calling</option>
-        <option value="client">Client</option>
-        <option value="sonstiges">Sonstiges</option>
-      </select></div>
+      <div class="fr2"><div><label>Kategorie</label><select class="fs2" id="prjCategory"></select></div>
       <div><label>Fortschritt %</label><input type="number" id="prjProgress" min="0" max="100" value="0"></div></div>
       <div class="fr"><label>Notiz</label><textarea id="prjNotiz" rows="3"></textarea></div>
     </div>
@@ -688,8 +681,9 @@
     <div class="mh"><h2 id="todoModalTitle">To-do</h2><button class="btn bg" onclick="closeTodoModal()">✕</button></div>
     <div class="mb">
       <div class="fr"><label>Titel *</label><input type="text" id="todoTitle"></div>
-      <div class="fr2"><div><label>Fällig</label><input type="date" id="todoDue"></div>
-      <div><label>Projekt</label><select class="fs2" id="todoProject"></select></div></div>
+      <div class="fr2"><div><label>Kategorie *</label><select class="fs2" id="todoCategory"></select></div>
+      <div><label>Fällig</label><input type="date" id="todoDue"></div></div>
+      <div class="fr"><label>Projekt (optional)</label><select class="fs2" id="todoProject"></select></div>
     </div>
     <div class="mf"><button class="btn bs" onclick="closeTodoModal()">Abbrechen</button><button class="btn bp" onclick="saveTodo()">Speichern</button></div>
   </div>
