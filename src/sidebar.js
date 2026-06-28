@@ -5,9 +5,7 @@ const PAGES = [
   { id: 'network',     icon: '🤝', label: 'Netzwerk'    },
   { id: 'prospecting', icon: '📋', label: 'Prospects'   },
   { id: 'clients',     icon: '👥', label: 'Clients'     },
-  { id: 'content',     icon: '🎬', label: 'Content'     },
   { id: 'sessions',    icon: '🏁', label: 'Sessions'    },
-  { id: 'projects',    icon: '📁', label: 'Projekte'    },
 ];
 
 let _currentPage = 'prospecting';

@@ -16,7 +16,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst body = item.body || item;\n\nlet weekStart = body.week_start;\nif (!weekStart) {\n  const now = new Date();\n  const day = now.getDay() || 7;\n  const mon = new Date(now);\n  mon.setDate(now.getDate() - day + 1);\n  mon.setHours(0, 0, 0, 0);\n  weekStart = mon.toISOString().slice(0, 10);\n}\n\nconst start = new Date(weekStart + 'T00:00:00');\nif (isNaN(start.getTime())) {\n  return [{ json: { mode: 'error', message: 'Ungültiges week_start' } }];\n}\nconst end = new Date(start);\nend.setDate(end.getDate() + 7);\n\nreturn [{\n  json: {\n    mode: 'list',\n    timeMin: start.toISOString(),\n    timeMax: end.toISOString()\n  }\n}];"
+        "jsCode": "const _hdrs = ($input.first().json.headers || {});\nconst _expected = $env.N8N_PROXY_SECRET;\nconst _got = _hdrs['x-crm-proxy-secret'] || _hdrs['X-CRM-Proxy-Secret'] || '';\nif (!_expected || _got !== _expected) throw new Error('Unauthorized');\n\nconst item = $input.first().json;\nconst body = item.body || item;\n\nlet weekStart = body.week_start;\nif (!weekStart) {\n  const now = new Date();\n  const day = now.getDay() || 7;\n  const mon = new Date(now);\n  mon.setDate(now.getDate() - day + 1);\n  mon.setHours(0, 0, 0, 0);\n  weekStart = mon.toISOString().slice(0, 10);\n}\n\nconst start = new Date(weekStart + 'T00:00:00');\nif (isNaN(start.getTime())) {\n  return [{ json: { mode: 'error', message: 'Ungültiges week_start' } }];\n}\nconst end = new Date(start);\nend.setDate(end.getDate() + 7);\n\nreturn [{\n  json: {\n    mode: 'list',\n    timeMin: start.toISOString(),\n    timeMax: end.toISOString()\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

@@ -28,10 +28,6 @@ export const S = {
   clClients:     [],
   clEid:         null,
   nwEid:         null,
-  projects:      [],
-  todos:         [],
-  prjEid:        null,
-  todoEid:       null,
   contactsRev:   0,
 };
 
@@ -39,8 +35,6 @@ export const PG     = 30;
 export const CC_KEY = 'rais_crm_calls';
 export const CL_KEY_SB   = '/rest/v1/crm_clients';
 export const NW_KEY_SB   = '/rest/v1/crm_network';
-export const PRJ_KEY_SB  = '/rest/v1/crm_projects';
-export const TODO_KEY_SB = '/rest/v1/crm_todos';
 export const LB_KEY_SB   = '/rest/v1/crm_lebensbereiche';
 
 export const LEAD_ORIGIN = {
@@ -53,8 +47,6 @@ export const LEAD_ORIGIN = {
   meta_ads:  { label: 'Meta Ads', cls: 'origin-meta' },
 };
 
-export const OUTREACH_CHANNELS = ['calls', 'linkedin', 'meta_ads', 'content'];
-
 export const LEAD_TEMP = { cold: 'Kalt', warm: 'Warm', hot: 'Heiß' };
 
 export const LEBENSBEREICHE = [
@@ -62,18 +54,6 @@ export const LEBENSBEREICHE = [
   'Gesundheit', 'Gastronomie', 'Einzelhandel', 'Dienstleistung', 'Sonstiges',
 ];
 export const MEDIUM_ICONS = { whatsapp:'📱', telegram:'✈️', email:'✉️', telefon:'📞', sonstiges:'💬' };
-
-/** To-do / Projekt-Kategorien (slug → Anzeige) */
-export const TODO_CATEGORIES = [
-  { id: 'rais_sales',       label: 'RAIS - Sales' },
-  { id: 'rais_building',    label: 'RAIS - Building' },
-  { id: 'eckstein_podcast', label: 'ECKSTEIN Podcast' },
-  { id: 'personal_brand',   label: 'personal brand' },
-  { id: 'private',          label: 'private' },
-  { id: 'education',        label: 'education' },
-  { id: 'faith',            label: 'faith' },
-  { id: 'health',           label: 'health' },
-];
 
 export const TSTAT = ['','Nicht kontaktiert','Nicht erreicht','Mailbox','Rückruf erbeten','Gatekeeper','Interessiert','Termin vereinbart','Angebot gesendet','Kein Interesse'];
 export const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'ni','Rückruf erbeten':'fu','Gatekeeper':'gk','Interessiert':'in','Termin vereinbart':'te','Angebot gesendet':'ib','Kein Interesse':'ki'};

@@ -56,13 +56,21 @@ async function init() {
       setAuthToken(session.access_token);
       wall.style.display = 'none';
     } else {
+      clearLocalCrmData();
       document.body.style.overflow = 'hidden';
     }
     _sb.auth.onAuthStateChange(function(event, session) {
       if (session?.access_token) {
         setAuthToken(session.access_token);
-      } else if (event === 'SIGNED_OUT') {
+      } else if (event === 'SIGNED_OUT' || !session) {
         setAuthToken(SB_KEY);
+        clearLocalCrmData();
+        localStorage.removeItem(HISTORY_KEY);
+        localStorage.removeItem(SESSION_KEY);
+        S.contacts = [];
+        wall.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        if (window.render) window.render();
       }
     });
   } catch (e) {

@@ -1,5 +1,5 @@
 import { sbGet, sbUpsert, sbDelete } from './supabase.js';
-import { toast } from './ui.js';
+import { toast, esc } from './ui.js';
 import { navigateTo } from './sidebar.js';
 import { S, STATUS, STATUS_GROUPS } from './state.js';
 import { weekStart } from './utils.js';
@@ -717,7 +717,7 @@ function startRename(sessionId, containerEl) {
   const nameEl = containerEl.querySelector('#sp-name-' + sessionId);
   if (!nameEl) return;
   const current = nameEl.dataset.name || '';
-  nameEl.innerHTML = '<input type="text" class="sp-rename-input" value="' + current + '" placeholder="Session Name">';
+  nameEl.innerHTML = '<input type="text" class="sp-rename-input" value="' + esc(current) + '" placeholder="Session Name">';
   const inp = nameEl.querySelector('input');
   inp.focus(); inp.select();
   async function save() {
@@ -725,17 +725,17 @@ function startRename(sessionId, containerEl) {
     try {
       await sbUpsert('/rest/v1/crm_sessions?id=eq.' + sessionId, [{ id: parseInt(sessionId), name: val || null }]);
       nameEl.dataset.name = val;
-      nameEl.innerHTML = val ? '"' + val + '"' : '<span style="color:var(--st);font-style:italic">Unbenannt</span>';
+      nameEl.innerHTML = val ? '"' + esc(val) + '"' : '<span style="color:var(--st);font-style:italic">Unbenannt</span>';
     } catch(e) {
       toast('Umbenennen fehlgeschlagen: ' + e.message);
-      nameEl.innerHTML = val ? '"' + val + '"' : '<span style="color:var(--st);font-style:italic">Unbenannt</span>';
+      nameEl.innerHTML = val ? '"' + esc(val) + '"' : '<span style="color:var(--st);font-style:italic">Unbenannt</span>';
     }
   }
   inp.addEventListener('blur', save);
   inp.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); save(); }
     if (e.key === 'Escape') {
-      nameEl.innerHTML = current ? '"' + current + '"' : '<span style="color:var(--st);font-style:italic">Unbenannt</span>';
+      nameEl.innerHTML = current ? '"' + esc(current) + '"' : '<span style="color:var(--st);font-style:italic">Unbenannt</span>';
     }
   });
 }

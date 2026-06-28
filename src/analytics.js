@@ -50,7 +50,6 @@ function inRange(date, start, end) {
 
 const APPT_TOUCH_LABELS = ['Set Appointment', 'Termin vereinbart', 'Demo Termin'];
 const LINKEDIN_DM_LABEL = 'LinkedIn DM';
-const CONTENT_PLATFORMS = ['youtube', 'instagram', 'linkedin'];
 
 function isoWeekNumber(d) {
   const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -169,26 +168,6 @@ export function touchVolumeSeries(grain, count) {
   });
 }
 
-export function contentLiveSeries(grain, count, platform, items) {
-  return rangesForGrain(grain, count).map(function(r) {
-    return {
-      label: r.label,
-      count: countContentLiveInRange(items, r.start, r.end, platform || null),
-    };
-  });
-}
-
-export function contentLiveMultiSeries(grain, items, count) {
-  return rangesForGrain(grain, count).map(function(r) {
-    return {
-      label: r.label,
-      youtube: countContentLiveInRange(items, r.start, r.end, 'youtube'),
-      instagram: countContentLiveInRange(items, r.start, r.end, 'instagram'),
-      linkedin: countContentLiveInRange(items, r.start, r.end, 'linkedin'),
-    };
-  });
-}
-
 function countTouchesInRange(start, end) {
   let n = 0;
   (S.contacts || []).forEach(function(c) {
@@ -256,26 +235,6 @@ export function countLinkedInDmsInRange(start, end) {
   return n;
 }
 
-function contentLiveDate(item) {
-  if (item.status !== 'live') return null;
-  return parseDate(item.publish_date) || parseDate(item.created_at);
-}
-
-function contentPlatform(item) {
-  return (item.platforms || 'youtube').split(',')[0].trim().toLowerCase();
-}
-
-export function countContentLiveInRange(items, start, end, platform) {
-  let n = 0;
-  (items || []).forEach(function(item) {
-    const d = contentLiveDate(item);
-    if (!d || !inRange(d, start, end)) return;
-    if (platform && contentPlatform(item) !== platform) return;
-    n++;
-  });
-  return n;
-}
-
 export function akquiseWeeklySeries(weeks) {
   return weeklySeries(weeks, function(start, end) {
     const touches = countTouchesInRange(start, end);
@@ -333,20 +292,6 @@ export function linkedInDmWeeklySeries(weeks) {
   return weeklySeries(weeks, function(start, end) {
     return { dms: countLinkedInDmsInRange(start, end) };
   });
-}
-
-export function contentLiveWeeklyByPlatform(items, weeks) {
-  const ranges = weeklyRanges(weeks);
-  const out = { youtube: [], instagram: [], linkedin: [] };
-  CONTENT_PLATFORMS.forEach(function(plat) {
-    out[plat] = ranges.map(function(r) {
-      return {
-        label: r.label,
-        count: countContentLiveInRange(items, r.start, r.end, plat),
-      };
-    });
-  });
-  return out;
 }
 
 /** Aktuelle Pipeline: positive Status im CRM (Set Appointment + Closed) */

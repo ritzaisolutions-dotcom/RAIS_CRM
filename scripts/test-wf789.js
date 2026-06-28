@@ -1,15 +1,20 @@
 /**
  * Live smoke tests for WF7, WF8, WF9 webhooks.
  * Usage: node scripts/test-wf789.js
- * WF7: preview only (no email sent). WF8: creates one test calendar event if credentials OK.
+ *
+ * WARNUNG: Ruft n8n-Webhooks DIREKT auf (nicht /api/n8n-proxy).
+ * In Produktion sind WF7–WF12 per N8N_PROXY_SECRET geschützt.
+ * Setze N8N_PROXY_SECRET in der Umgebung für erfolgreiche Tests.
  */
 const WH_BASE = 'https://n8n.ritz-ai.solutions/webhook/';
+const PROXY_SECRET = process.env.N8N_PROXY_SECRET || '';
 
 const results = [];
 
 async function call(name, url, body, opts) {
   opts = opts || {};
   const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+  if (PROXY_SECRET) headers['X-CRM-Proxy-Secret'] = PROXY_SECRET;
   const timeout = opts.timeoutMs || 90000;
   const ctrl = new AbortController();
   const timer = setTimeout(function() { ctrl.abort(); }, timeout);

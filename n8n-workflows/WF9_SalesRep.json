@@ -16,7 +16,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json;\nconst body = item.body || item;\n\nconst firma = (body.firma || '').trim();\nif (!firma) {\n  return [{ json: { mode: 'error', message: 'Firma fehlt' } }];\n}\n\nlet website = (body.website || '').trim();\nif (website && !/^https?:\\/\\//i.test(website)) website = 'https://' + website;\n\nreturn [{\n  json: {\n    mode: 'research',\n    contact_id: body.contact_id || '',\n    crm_mode: body.mode || 'free',\n    firma,\n    website,\n    stadt: (body.stadt || '').trim(),\n    gewerk: (body.gewerk || '').trim(),\n    notiz: (body.notiz || '').trim(),\n    website_ok: false,\n    http_status: null\n  }\n}];"
+        "jsCode": "const _hdrs = ($input.first().json.headers || {});\nconst _expected = $env.N8N_PROXY_SECRET;\nconst _got = _hdrs['x-crm-proxy-secret'] || _hdrs['X-CRM-Proxy-Secret'] || '';\nif (!_expected || _got !== _expected) throw new Error('Unauthorized');\n\nconst item = $input.first().json;\nconst body = item.body || item;\n\nconst firma = (body.firma || '').trim();\nif (!firma) {\n  return [{ json: { mode: 'error', message: 'Firma fehlt' } }];\n}\n\nlet website = (body.website || '').trim();\nif (website && !/^https?:\\/\\//i.test(website)) website = 'https://' + website;\n\nreturn [{\n  json: {\n    mode: 'research',\n    contact_id: body.contact_id || '',\n    crm_mode: body.mode || 'free',\n    firma,\n    website,\n    stadt: (body.stadt || '').trim(),\n    gewerk: (body.gewerk || '').trim(),\n    notiz: (body.notiz || '').trim(),\n    website_ok: false,\n    http_status: null\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,

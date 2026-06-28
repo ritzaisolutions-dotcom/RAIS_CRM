@@ -1,0 +1,18 @@
+name: Validate
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm run validate
+      - name: Secret scan (tracked files)
+        run: |
+          ! grep -rE 'AIza[0-9A-Za-z_-]{20,}|service_role' n8n-workflows/ src/ scripts/ || \
+            (echo 'Hardcoded secrets found' && exit 1)

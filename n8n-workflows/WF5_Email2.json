@@ -69,7 +69,7 @@
             {
               "id": "cfg-sb-key",
               "name": "sb_key",
-              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkeXdhZW5tb2pkeGhmeHFidnVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDYwMTYsImV4cCI6MjA5MDk4MjAxNn0.rfIzS2eY3yZCvap0pKdB7V-AfKmnvQLx_QLaFEi1gts",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
               "type": "string"
             }
           ]

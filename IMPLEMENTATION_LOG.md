@@ -2,6 +2,28 @@
 
 ---
 
+## [2026-06-30] Infra-Cleanup, Security & Lean Scope
+
+**Status:** ✓ Abgeschlossen (inkl. Supabase-Migrationen angewendet)
+
+- Content- und Projekte-Seiten entfernt (`content.js`, `projects.js`, `thumbnail.js`, `activity.js`)
+- Duplikat-n8n-Ordner und Fremdprojekt-Dateien gelöscht
+- PII-Import-Artefakte entfernt + `.gitignore`
+- RLS-Fix-Migration (`2026-06-30_fix_anon_policies.sql`)
+- Drop-Migration Content/Projekte (`2026-06-30_drop_content_and_projects.sql`)
+- n8n: Secrets aus JSON → Env-Platzhalter; WF7–WF12 Proxy-Secret-Check
+- `api/n8n-proxy.js`: `X-CRM-Proxy-Secret` Header
+- Security-Headers in `vercel.json`, `localStorage`-Härtung in `auth.js`
+- README, SECURITY.md, `.env.example`, GitHub Action `validate.yml`
+
+**Manuell (Kevin):**
+- Migrationen in Supabase SQL Editor ausführen
+- `N8N_PROXY_SECRET` in Vercel + n8n setzen
+- WF7–WF12 in n8n re-importieren
+- Google Maps API-Key rotieren
+
+---
+
 ## [2026-05-20] Phase 1.1 — Backup-Vorbereitung
 
 **Status:** ✓ Teilweise abgeschlossen (was automatisch möglich war)

@@ -1,4 +1,5 @@
 -- ============================================================
+-- EMERGENCY ONLY — DO NOT RUN IN NORMAL OPERATIONS
 -- ROLLBACK: Restore anon access policies
 -- Date:      2026-05-20
 -- Use:       Emergency rollback if 2026-05-20_enable_rls.sql breaks things

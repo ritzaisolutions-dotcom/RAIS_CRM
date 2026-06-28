@@ -26,8 +26,6 @@ export function dashGoProspecting(filter) {
 }
 
 export function dashGoClients() { navigateTo('clients'); }
-export function dashGoProjects() { navigateTo('projects'); }
-export function dashGoContent() { navigateTo('content'); }
 
 export function toggleDashSecondary() {
   const body = document.getElementById('dash-secondary-body');

@@ -31,8 +31,9 @@ This is a **static, no-build CRM** — a single `index.html` entry point that lo
 | `calendar.js` | Google Calendar via WF8 (`wf8-calendar`, ritzaisolutions@gmail.com): Demo/Sales, Rückruf, Kundentermin (je 15 Min); Rechtsklick + Popup; syncs `followup` + `extra.google_cal` |
 | `contextmenu.js` | Right-click menu on contact rows/cards (mark, email, sales rep, delete) |
 | `salesrep.js` | Sales Rep Assistant — modal + tab, WF9 (`wf9-salesrep`), history in `rais_salesrep_history` |
-| `content.js` | Content-Pipeline (crm_content): CRUD, Filter, Stats; Sub-Tabs Pipeline / Thumbnail |
-| `thumbnail.js` | YouTube-Thumbnail-Editor unter Content → Thumbnail; RAIS-Branding, lazy init |
+| `dashboard.js` | Dashboard KPIs und Charts |
+| `network.js` | Persönliches Netzwerk (`crm_network`) |
+| `analytics.js` | Funnel-, Touch- und Revenue-Berechnungen für Dashboard |
 | `mobile.js` | Mobile-native Kaltakquise: Call Mode Overlay, Quick-Log Bottom-Sheet, Long-Press Action Sheet; init via `initMobile()` nach Auth |
 | `clients.js` | Clients tab — CRUD for signed clients stored in `crm_clients`; listens on `rais:page-change` for lazy init |
 | `calls.js` | Daily/weekly call counter stored in a separate `localStorage` key |
@@ -56,6 +57,8 @@ This is a **static, no-build CRM** — a single `index.html` entry point that lo
 | `crm_clients` | `clients.js` |
 | `crm_sessions` | `sessions.js` — one row per session, `is_active` flag, duration/breakdown on close |
 | `crm_session_events` | `sessions.js` — one row per status change while a session is running |
+| `crm_network` | `network.js` |
+| `crm_gewerke`, `crm_lebensbereiche` | Taxonomie für Netzwerk/Prospects |
 
 ### Page initialization pattern
 
@@ -67,7 +70,11 @@ window.addEventListener('rais:page-change', function(e) {
 });
 ```
 
-`clients.js`, `content.js`, and `projects.js` register their own `rais:page-change` listeners internally. `thumbnail.js` is lazy-init on first visit to Content → Thumbnail. `salesrep.js` is modal-only (context menu / popup).
+`clients.js` and `network.js` register their own `rais:page-change` listeners internally. `salesrep.js` is modal-only (context menu / popup).
+
+### Security
+
+See `SECURITY.md`. n8n WF7–WF12 require `N8N_PROXY_SECRET` header. No secrets in workflow JSON exports.
 
 ### Globals exposed on `window`
 
@@ -75,7 +82,7 @@ window.addEventListener('rais:page-change', function(e) {
 
 ### n8n integration
 
-WF7/WF8/WF9 (Email, Kalender, Sales Rep) call n8n via `src/wh.js` → Vercel `api/n8n-proxy.js` (Supabase JWT only, no webhook token). Workflow definitions live in `lead pipeline/`, `email automation/`, `n8n-workflows/`, and `supabase workflows/` as `.json` exports.
+WF7–WF12 (Email, Kalender, Sales Rep, Notion) call n8n via `src/wh.js` → Vercel `api/n8n-proxy.js` (Supabase JWT + `X-CRM-Proxy-Secret`). Workflow definitions live in `n8n-workflows/` only.
 
 ## Key conventions
 

@@ -10,3 +10,9 @@ backups/
 .env
 .env.local
 .env.*.local
+
+# Import-Artefakte mit PII — nie committen
+scripts/hausverwaltungen-import*.json
+scripts/hausverwaltungen-import*.sql
+hausverwaltungen_rlp_prospektliste.csv
+scripts/one-off/

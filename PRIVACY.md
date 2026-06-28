@@ -1,17 +1,21 @@
 # Datenschutz — RAIS CRM
 
 ## Zweck
-Das CRM dient der Verwaltung von Geschäftskontakten, Kaltakquise, Kundenbetreuung und internen Projekten für Ritz AI Solutions.
+Das CRM dient der Verwaltung von Geschäftskontakten, Kaltakquise und Kundenbetreuung für Ritz AI Solutions.
 
 ## Verarbeitete Daten
 - Kontaktdaten (Firma, Name, Telefon, E-Mail, Website, Notizen)
 - Anruf- und Touch-Historie
 - Kalender-Termine (über Google Calendar via n8n)
-- Optional: Notion-Projektdaten (Phase 2)
+- Persönliches Netzwerk (`crm_network`)
 
 ## Rechtsgrundlage
 - Einwilligung, berechtigtes Interesse oder eigenes Netzwerk (`consent_basis` am Kontakt)
-- Keine Weitergabe an Dritte außer technisch notwendige Auftragsverarbeiter: Supabase (Hosting), Google (Kalender), optional Notion
+- Auftragsverarbeiter: Supabase (Hosting), Google (Kalender), n8n (Automation)
+
+## Lokale Speicherung
+- Kontakte werden in `localStorage` gecacht (`rais_crm_v3`) für Offline-Nutzung
+- Bei Logout und Session-Ablauf werden lokale CRM-Daten gelöscht (`clearLocalCrmData`)
 
 ## Speicherdauer
 - Kontakte bleiben gespeichert, bis sie im CRM gelöscht werden
@@ -23,4 +27,6 @@ Das CRM dient der Verwaltung von Geschäftskontakten, Kaltakquise, Kundenbetreuu
 
 ## Technische Maßnahmen
 - Zugriff nur nach Login (Supabase Auth)
+- Row Level Security: CRM-Tabellen nur für `authenticated`
 - n8n-Workflows loggen keine Telefonnummern oder E-Mails in Code-Nodes
+- Keine Kontaktlisten in Git committen (siehe `.gitignore`)

@@ -39,9 +39,13 @@ export default async function handler(req, res) {
   const payload = Object.assign({}, body);
   delete payload.workflow;
 
+  const proxyHeaders = { 'Content-Type': 'application/json' };
+  const proxySecret = process.env.N8N_PROXY_SECRET;
+  if (proxySecret) proxyHeaders['X-CRM-Proxy-Secret'] = proxySecret;
+
   const n8nRes = await fetch(target, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: proxyHeaders,
     body: JSON.stringify(payload),
   });
 
