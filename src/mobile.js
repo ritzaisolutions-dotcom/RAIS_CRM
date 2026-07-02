@@ -1,4 +1,4 @@
-import { S, STATUS } from './state.js';
+import { S, STATUS, KEIN_ANSCHLUSS_STAGES } from './state.js';
 import { esc, escJs, toast } from './ui.js';
 import { td, relAge, gewerkKuerzel, gewerkSlug } from './utils.js';
 
@@ -9,7 +9,7 @@ let _idx = 0;
 let _currentId = null;
 
 const ACTIVE_STATUSES = new Set([
-  'neu', 'kein_anschluss', 'gatekeeper', 'callback', 'vernetzt',
+  'neu', ...KEIN_ANSCHLUSS_STAGES, 'gatekeeper', 'callback', 'vernetzt',
 ]);
 
 const QUICK_STATUS_ITEMS = [
@@ -20,6 +20,7 @@ const QUICK_STATUS_ITEMS = [
   { icon: '&#128197;', label: 'Set Appointment',    status: 'set_appointment' },
   { icon: '&#9989;',  label: 'Closed',             status: 'closed' },
   { icon: '&#128226;', label: 'Disqualified',       status: 'disqualified' },
+  { icon: '&#128465;', label: 'Löschen',            status: 'loeschen' },
   { icon: '&#128128;', label: 'MoFo',               status: 'mofo' },
 ];
 

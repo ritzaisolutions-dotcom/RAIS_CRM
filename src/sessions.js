@@ -1,8 +1,8 @@
 import { sbGet, sbUpsert, sbDelete } from './supabase.js';
 import { toast, esc } from './ui.js';
 import { navigateTo } from './sidebar.js';
-import { S, STATUS, STATUS_GROUPS } from './state.js';
-import { weekStart } from './utils.js';
+import { S, STATUS, STATUS_GROUPS, SESSION_SKIP_STATUSES } from './state.js';
+import { weekStart, isKeinAnschlussStatus } from './utils.js';
 
 // --- STATE ---
 let activeSession = null;  // { id, startedTs, pausedAt, pausedSeconds, timerMode, targetSeconds, breakdown, leadsPlayed, aktionLeads }
@@ -27,6 +27,7 @@ const STATUS_COLORS = {
 };
 
 function statusColor(s) {
+  if (isKeinAnschlussStatus(s)) return STATUS_COLORS.kein_anschluss;
   if (STATUS_COLORS[s]) return STATUS_COLORS[s];
   if (STATUS_GROUPS_LOCAL.positive.includes(s)) return STATUS_COLORS.set_appointment;
   if (STATUS_GROUPS_LOCAL.negative.includes(s)) return STATUS_COLORS.disqualified;
@@ -35,7 +36,21 @@ function statusColor(s) {
 }
 
 function statusLabel(s) {
+  if (isKeinAnschlussStatus(s)) return 'Kein Anschluss';
   return (STATUS[s] && STATUS[s].label) || String(s || '').replace(/_/g, ' ');
+}
+
+function breakdownDisplayEntries(breakdown) {
+  const out = {};
+  let kaTotal = 0;
+  Object.keys(breakdown || {}).forEach(function(k) {
+    const n = breakdown[k];
+    if (!n) return;
+    if (isKeinAnschlussStatus(k)) kaTotal += n;
+    else out[k] = n;
+  });
+  if (kaTotal > 0) out.kein_anschluss_1 = kaTotal;
+  return out;
 }
 
 function normalizeActiveSession() {
@@ -338,12 +353,13 @@ function showCelebrationModal(elapsed, leads, breakdown, name, aktionLeads) {
   }
   
   // Breakdown-Pills rendern
-  const bdKeys = Object.keys(breakdown).filter(function(k) { return breakdown[k] > 0; });
+  const bdDisplay = breakdownDisplayEntries(breakdown);
+  const bdKeys = Object.keys(bdDisplay).filter(function(k) { return bdDisplay[k] > 0; });
   if (bdKeys.length > 0) {
     breakdownEl.innerHTML = bdKeys.map(function(k) {
       const col = statusColor(k);
       return '<span class="badge" style="background-color:rgba(120,110,100,0.06); color:' + col + '; border:1px solid ' + col + '; font-size:10px; margin:2px">' +
-        statusLabel(k) + ': ' + breakdown[k] +
+        statusLabel(k) + ': ' + bdDisplay[k] +
       '</span>';
     }).join('');
   } else {
@@ -493,6 +509,7 @@ export async function discardSession() {
 export function onStatusChanged(contactId, contactName, fromStatus, toStatus) {
   if (!activeSession) return;
   if (!toStatus || toStatus === 'neu') return;
+  if (SESSION_SKIP_STATUSES.includes(toStatus)) return;
   if (fromStatus === toStatus) return;
   normalizeActiveSession();
   activeSession.leadsPlayed += 1;
@@ -504,7 +521,8 @@ export function onStatusChanged(contactId, contactName, fromStatus, toStatus) {
 
 export function onOutreachRecorded(contactId, contactName, statusFrom, statusTo) {
   if (!activeSession) return;
-  const key = statusTo || 'kein_anschluss';
+  const key = statusTo || 'kein_anschluss_1';
+  if (SESSION_SKIP_STATUSES.includes(key)) return;
   normalizeActiveSession();
   activeSession.leadsPlayed += 1;
   activeSession.breakdown[key] = (activeSession.breakdown[key] || 0) + 1;
@@ -651,7 +669,7 @@ function renderSessionCard(s) {
   const timeStr = start ? start.toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' }) : '';
   const endStr  = end   ? end.toLocaleTimeString('de-DE',   { hour:'2-digit', minute:'2-digit' }) : '';
   const dur = s.duration_seconds ? fmtTime(s.duration_seconds) : '—';
-  const bd  = s.status_breakdown || {};
+  const bd  = breakdownDisplayEntries(s.status_breakdown || {});
   const total = Object.values(bd).reduce(function(a, b) { return a + b; }, 0);
 
   const barsHtml = Object.keys(bd).filter(function(k) { return bd[k] > 0; }).sort(function(a,b) { return bd[b]-bd[a]; }).map(function(k) {

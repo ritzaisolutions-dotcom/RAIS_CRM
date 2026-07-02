@@ -1,5 +1,5 @@
-import { S, PG, STATUS, TSTAT, TSCLS, LEAD_ORIGIN, LEBENSBEREICHE, PURGE_STATUSES } from './state.js';
-import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite, normalizeGewerk, getCustomGewerke, addCustomGewerk, isColdLead, getSocials, syncLeadTemp, deriveLeadTemp, normalizeContactStatus } from './utils.js';
+import { S, PG, STATUS, TSTAT, TSCLS, LEAD_ORIGIN, LEBENSBEREICHE, PURGE_STATUSES, KEIN_ANSCHLUSS_STAGES } from './state.js';
+import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite, normalizeGewerk, getCustomGewerke, addCustomGewerk, isColdLead, getSocials, syncLeadTemp, deriveLeadTemp, normalizeContactStatus, isKeinAnschlussStatus, nextKeinAnschlussStatus, keinAnschlussStage, countKeinAnschlussContacts } from './utils.js';
 import { sbadge, roib, fdc, esc, ir, toast, originBadge, tempBadge, socialIconsHtml, syncStatusSelectColor } from './ui.js';
 import { markDirty, schedulePersist, schedulePushDirty, isAktionNoetig, pushGewerkCloud, bumpContactsRev } from './sync.js';
 import { sbDelete, sbUpsert } from './supabase.js';
@@ -47,8 +47,8 @@ function touchContactNow(c) {
 
 const STATUS_SELECT_GROUPS = [
   { label: '── Default ──', keys: ['neu'] },
-  { label: '── Calling ──', keys: ['kein_anschluss', 'gatekeeper', 'callback', 'vernetzt', 'set_appointment', 'closed'] },
-  { label: '── Entfernt ──', keys: ['disqualified', 'mofo'] },
+  { label: '── Calling ──', keys: KEIN_ANSCHLUSS_STAGES.concat(['gatekeeper', 'callback', 'vernetzt', 'set_appointment', 'closed']) },
+  { label: '── Entfernt ──', keys: ['disqualified', 'mofo', 'loeschen'] },
 ];
 
 const AKTION_SUGGESTIONS = [
@@ -115,7 +115,7 @@ function hvNumInput(c, field, title) {
 }
 
 function statusSelectHtml(c) {
-  const cur = c.status || 'neu';
+  const cur = normalizeContactStatus(c.status || 'neu');
   let html = '<select class="idd st-dd st-' + cur + '" data-id="' + c.id + '" onchange="inlineST(this)" onclick="event.stopPropagation()" title="Status direkt ändern">';
   STATUS_SELECT_GROUPS.forEach(function(g) {
     html += '<optgroup label="' + g.label + '">';
@@ -142,7 +142,9 @@ export function getList() {
     if (S.flt === 'heute') { const t = td(); return c.followup && c.followup <= t; }
     if (S.flt === 'aktion') return isAktionNoetig(c);
     if (S.flt === 'kalt') return isColdLead(c);
-    if (S.flt !== 'all' && c.status !== S.flt) return false;
+    if (S.flt === 'kein_anschluss') {
+      if (!isKeinAnschlussStatus(c.status)) return false;
+    } else if (S.flt !== 'all' && c.status !== S.flt) return false;
     if (roi === '0' && c.roi) return false;
     if (roi && roi !== '0' && String(c.roi||'') !== roi) return false;
     if (regionF && (c.region || '') !== regionF) return false;
@@ -223,14 +225,69 @@ export function setF(f) {
   document.querySelectorAll('.stat').forEach(function(el) { el.classList.remove('on'); });
   const map = {all:'s-all', kalt:'s-kalt', neu:'s-neu', kein_anschluss:'s-ka', gatekeeper:'s-gk',
                callback:'s-cb', vernetzt:'s-vn', set_appointment:'s-sa', closed:'s-cl',
-               disqualified:'s-dq', mofo:'s-mofo', heute:'s-heute', aktion:'s-aktion'};
+               disqualified:'s-dq', mofo:'s-mofo', loeschen:'s-lo', heute:'s-heute', aktion:'s-aktion'};
   if (map[f]) document.getElementById(map[f]).classList.add('on');
   render();
 }
 
 export function filterDue() { clearTablePin(); invalidateFilterCache(); S.dueMode = true; S.pg = 1; render(); }
 
-const OUTREACH_PROTECTED = ['closed', 'set_appointment', 'disqualified', 'mofo'];
+const OUTREACH_PROTECTED = ['closed', 'set_appointment', 'disqualified', 'mofo', 'loeschen'];
+
+function validTouchCount(c) {
+  return (c.touches || []).filter(function(tx) { return tx.status || tx.datum; }).length;
+}
+
+function touchLabelForStatus(s) {
+  if (isKeinAnschlussStatus(s)) {
+    const stage = keinAnschlussStage(s);
+    return 'Nicht erreicht #' + (stage || 1);
+  }
+  const TOUCH_MAP = {
+    gatekeeper: 'Gatekeeper', callback: 'Rückruf erbeten', vernetzt: 'LinkedIn DM',
+    set_appointment: 'Set Appointment', closed: 'Closed', disqualified: 'Disqualified', mofo: 'MoFo',
+    loeschen: 'Löschen',
+  };
+  return TOUCH_MAP[s] || (STATUS[s] ? STATUS[s].label : s);
+}
+
+function resolveQsStatus(requested, currentStatus) {
+  if (requested === 'kein_anschluss') return nextKeinAnschlussStatus(currentStatus);
+  return requested;
+}
+
+function recordKeinAnschlussAttempt(c, prevStatus) {
+  if (!c.touches) c.touches = [];
+  const touchN = validTouchCount(c) + 1;
+  c.touches.push({
+    status: 'Nicht erreicht #' + touchN,
+    datum: td(),
+    notiz: '',
+  });
+  touchContactNow(c);
+  touchLastContacted(c);
+  bumpCall();
+  markDirty(c);
+  schedulePersist();
+  closeP();
+  toast('Status: Kein Anschluss #' + Math.min(touchN, KEIN_ANSCHLUSS_STAGES.length));
+  onOutreachRecorded(c.id, c.firma || c.company_name, prevStatus, c.status);
+  renderStats();
+  patchContactRow(c.id);
+  schedulePushDirty();
+}
+
+function applyLoeschenStatus(c) {
+  c.status = 'loeschen';
+  c.status_changed_at = td();
+  markDirty(c);
+  schedulePersist();
+  closeP();
+  toast('Status: Löschen');
+  renderStats();
+  patchContactRow(c.id);
+  schedulePushDirty();
+}
 
 export function recordOutreachOnFollowupChange(c, prevFollowup, newFollowup, opts) {
   opts = opts || {};
@@ -238,10 +295,10 @@ export function recordOutreachOnFollowupChange(c, prevFollowup, newFollowup, opt
   if (!getActiveSession()) return false;
 
   if (!c.touches) c.touches = [];
-  const touchN = c.touches.length + 1;
+  const touchN = validTouchCount(c) + 1;
   const prevLabel = prevFollowup || '—';
   c.touches.push({
-    status: 'Nicht erreicht (2)',
+    status: 'Nicht erreicht #' + touchN,
     datum: td(),
     notiz: 'Outreach #' + touchN + ' · FU: ' + prevLabel + ' → ' + (newFollowup || '—'),
   });
@@ -251,7 +308,7 @@ export function recordOutreachOnFollowupChange(c, prevFollowup, newFollowup, opt
   const userChangedStatus = statusFromForm != null && statusFromForm !== prevStatus;
 
   if (!opts.skipStatusAuto && !userChangedStatus && !OUTREACH_PROTECTED.includes(c.status)) {
-    c.status = 'kein_anschluss';
+    c.status = nextKeinAnschlussStatus(c.status);
   } else if (statusFromForm != null) {
     c.status = statusFromForm;
   }
@@ -263,10 +320,10 @@ export function recordOutreachOnFollowupChange(c, prevFollowup, newFollowup, opt
   const name = c.firma || c.company_name || '';
   if (userChangedStatus) {
     onStatusChanged(c.id, name, prevStatus, c.status);
-  } else if (prevStatus === 'kein_anschluss' && c.status === 'kein_anschluss') {
-    onOutreachRecorded(c.id, name, prevStatus, 'kein_anschluss');
   } else if (prevStatus !== c.status) {
     onStatusChanged(c.id, name, prevStatus, c.status);
+  } else if (isKeinAnschlussStatus(c.status)) {
+    onOutreachRecorded(c.id, name, prevStatus, c.status);
   } else {
     onOutreachRecorded(c.id, name, prevStatus, c.status);
   }
@@ -410,13 +467,14 @@ function renderStats() {
   const set = function(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; };
   set('c-all', cnt.all);
   set('c-neu', cnt.neu || 0);
-  set('c-ka', cnt.kein_anschluss || 0);
+  set('c-ka', countKeinAnschlussContacts(S.contacts));
   set('c-gk', cnt.gatekeeper || 0);
   set('c-cb', cnt.callback || 0);
   set('c-vn', cnt.vernetzt || 0);
   set('c-sa', cnt.set_appointment || 0);
   set('c-cl', cnt.closed || 0);
   set('c-dq', cnt.disqualified || 0);
+  set('c-lo', cnt.loeschen || 0);
   set('c-mofo', cnt.mofo || 0);
   set('c-aktion', S.contacts.filter(isAktionNoetig).length);
   set('c-kalt', S.contacts.filter(isColdLead).length);
@@ -640,6 +698,7 @@ export function openP(id) {
       '<button class="qs-chip qs-chip-sa" onclick="qs(\'' + id + '\',\'set_appointment\')">Set Appointment</button>' +
       '<button class="qs-chip qs-chip-cl" onclick="qs(\'' + id + '\',\'closed\')">Closed</button>' +
       '<button class="qs-chip qs-chip-dq" onclick="qs(\'' + id + '\',\'disqualified\')">Disqualified</button>' +
+      '<button class="qs-chip qs-chip-lo" onclick="qs(\'' + id + '\',\'loeschen\')">Löschen</button>' +
       '<button class="qs-chip qs-chip-mofo" onclick="qs(\'' + id + '\',\'mofo\')">MoFo</button>' +
     '</div>' +
     '<div class="pf-actions">' +
@@ -655,30 +714,37 @@ export function closeP() { document.getElementById('po').classList.remove('on');
 export function qs(id, s) {
   const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
+  if (s === 'loeschen') {
+    applyLoeschenStatus(c);
+    return;
+  }
   const _prev = c.status;
-  if (_prev === s) return;
+  const target = resolveQsStatus(s, _prev);
+  if (target === _prev && isKeinAnschlussStatus(_prev)) {
+    recordKeinAnschlussAttempt(c, _prev);
+    return;
+  }
+  if (_prev === target) return;
   c.status_changed_at = td();
-  c.status = s;
+  c.status = target;
   touchContactNow(c);
   touchLastContacted(c);
   bumpCall();
   if (!c.touches) c.touches = [];
-  const TOUCH_MAP = { kein_anschluss:'Nicht erreicht', gatekeeper:'Gatekeeper', callback:'Rückruf erbeten',
-    vernetzt:'LinkedIn DM', set_appointment:'Set Appointment', closed:'Closed', disqualified:'Disqualified', mofo:'MoFo' };
-  c.touches.push({ status: TOUCH_MAP[s] || (STATUS[s] ? STATUS[s].label : s), datum: td(), notiz: '' });
+  c.touches.push({ status: touchLabelForStatus(target), datum: td(), notiz: '' });
   markDirty(c);
   schedulePersist();
   closeP();
-  toast('Status: ' + (STATUS[s] ? STATUS[s].label : s));
-  onStatusChanged(c.id, c.firma || c.company_name, _prev, s);
+  toast('Status: ' + (STATUS[target] ? STATUS[target].label : target));
+  onStatusChanged(c.id, c.firma || c.company_name, _prev, target);
   renderStats();
   patchContactRow(c.id);
   schedulePushDirty();
-  if (s === 'set_appointment' || s === 'closed') {
-    promptAutoClient(c, s);
+  if (target === 'set_appointment' || target === 'closed') {
+    promptAutoClient(c, target);
     showDemoTodoPopup(c);
   }
-  if (s === 'set_appointment') {
+  if (target === 'set_appointment') {
     maybeOfferCalendar(c, 'demo');
   }
 }
@@ -811,7 +877,18 @@ export function inlineST(sel) {
   const c = S.contacts.find(function(x) { return x.id === sel.dataset.id; });
   if (!c) return;
   const prev = c.status;
-  c.status = sel.value;
+  let next = sel.value;
+  if (next === 'loeschen') {
+    applyLoeschenStatus(c);
+    syncStatusSelectColor(sel);
+    return;
+  }
+  if (isKeinAnschlussStatus(next) && next === prev) {
+    recordKeinAnschlussAttempt(c, prev);
+    syncStatusSelectColor(sel);
+    return;
+  }
+  c.status = next;
   if (prev === c.status) return;
   touchLastContacted(c);
   clearTablePin();
@@ -911,7 +988,7 @@ export function openE(id) {
   document.getElementById('et').value          = c.telefon      || '';
   document.getElementById('em').value          = c.email        || '';
   document.getElementById('ew').value          = c.website      || '';
-  document.getElementById('es').value          = c.status       || 'neu';
+  document.getElementById('es').value          = normalizeContactStatus(c.status || 'neu');
   syncStatusSelectColor(document.getElementById('es'));
   document.getElementById('efu').value         = c.followup     || '';
   document.getElementById('er').value          = c.roi ? String(c.roi) : '';

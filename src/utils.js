@@ -1,4 +1,4 @@
-import { STATUS, STATUS_LEGACY_MAP } from './state.js';
+import { STATUS, STATUS_LEGACY_MAP, KEIN_ANSCHLUSS_STAGES } from './state.js';
 
 export function gid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,5); }
 export function td() { return new Date().toISOString().slice(0,10); }
@@ -9,6 +9,29 @@ export function weekStart(d) {
   const day = x.getDay() || 7;
   x.setDate(x.getDate() - day + 1);
   return x;
+}
+
+export function isKeinAnschlussStatus(status) {
+  const s = (status || '').trim();
+  if (s === 'kein_anschluss') return true;
+  return KEIN_ANSCHLUSS_STAGES.indexOf(s) >= 0;
+}
+
+export function keinAnschlussStage(status) {
+  const s = normalizeContactStatus(status);
+  if (s === 'kein_anschluss') return 1;
+  const m = /^kein_anschluss_(\d+)$/.exec(s);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+export function nextKeinAnschlussStatus(status) {
+  const stage = keinAnschlussStage(status);
+  if (stage >= KEIN_ANSCHLUSS_STAGES.length) return KEIN_ANSCHLUSS_STAGES[KEIN_ANSCHLUSS_STAGES.length - 1];
+  return KEIN_ANSCHLUSS_STAGES[stage];
+}
+
+export function countKeinAnschlussContacts(contacts) {
+  return (contacts || []).filter(function(c) { return isKeinAnschlussStatus(c.status); }).length;
 }
 
 export function normalizeContactStatus(status) {
@@ -79,8 +102,8 @@ export function deriveLeadTemp(c) {
   if (!c) return 'cold';
   if (c.status === 'closed') return 'hot';
   if (isColdLead(c)) return 'cold';
-  const closed = ['disqualified', 'mofo'];
-  if (closed.indexOf(c.status) >= 0) return c.lead_temp || 'cold';
+  const closed = ['disqualified', 'mofo', 'loeschen'];
+  if (closed.indexOf(normalizeContactStatus(c.status)) >= 0) return c.lead_temp || 'cold';
   return 'warm';
 }
 

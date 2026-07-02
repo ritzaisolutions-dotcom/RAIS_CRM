@@ -58,11 +58,11 @@ export const MEDIUM_ICONS = { whatsapp:'📱', telegram:'✈️', email:'✉️'
 export const TSTAT = ['','Nicht kontaktiert','Nicht erreicht','Mailbox','Rückruf erbeten','Gatekeeper','Interessiert','Termin vereinbart','Angebot gesendet','Kein Interesse'];
 export const TSCLS = {'Nicht kontaktiert':'ki','Nicht erreicht':'ni','Mailbox':'ni','Rückruf erbeten':'fu','Gatekeeper':'gk','Interessiert':'in','Termin vereinbart':'te','Angebot gesendet':'ib','Kein Interesse':'ki'};
 
-/** Alte Slugs → neue 8-Status-Taxonomie */
+/** Alte Slugs → aktuelle Taxonomie */
 export const STATUS_LEGACY_MAP = {
-  kein_anschluss_2: 'kein_anschluss',
-  no_show: 'kein_anschluss',
-  email_nurture: 'kein_anschluss',
+  kein_anschluss: 'kein_anschluss_1',
+  no_show: 'kein_anschluss_1',
+  email_nurture: 'kein_anschluss_1',
   demo_termin: 'set_appointment',
   interessiert: 'set_appointment',
   door_open: 'set_appointment',
@@ -72,27 +72,40 @@ export const STATUS_LEGACY_MAP = {
   archiviert: 'disqualified',
 };
 
+export const KEIN_ANSCHLUSS_STAGES = [
+  'kein_anschluss_1', 'kein_anschluss_2', 'kein_anschluss_3',
+  'kein_anschluss_4', 'kein_anschluss_5',
+];
+
 export const STATUS = {
   neu:              { cls: 'b-neu',  label: 'Neu',              group: 'default' },
   disqualified:     { cls: 'b-dq',   label: 'Disqualified',     group: 'negative' },
   set_appointment:  { cls: 'b-sa',   label: 'Set Appointment',  group: 'positive' },
   closed:           { cls: 'b-cl',   label: 'Closed',           group: 'positive' },
-  kein_anschluss:   { cls: 'b-ka',   label: 'Kein Anschluss',   group: 'neutral' },
+  kein_anschluss_1: { cls: 'b-ka',   label: 'Kein Anschluss (1)', group: 'neutral' },
+  kein_anschluss_2: { cls: 'b-ka',   label: 'Kein Anschluss (2)', group: 'neutral' },
+  kein_anschluss_3: { cls: 'b-ka',   label: 'Kein Anschluss (3)', group: 'neutral' },
+  kein_anschluss_4: { cls: 'b-ka',   label: 'Kein Anschluss (4)', group: 'neutral' },
+  kein_anschluss_5: { cls: 'b-ka',   label: 'Kein Anschluss (5)', group: 'neutral' },
   callback:         { cls: 'b-cb',   label: 'Callback',         group: 'neutral' },
   vernetzt:         { cls: 'b-vn',   label: 'LinkedIn DM',      group: 'neutral' },
   gatekeeper:       { cls: 'b-gk',   label: 'Gatekeeper',       group: 'neutral' },
   mofo:             { cls: 'b-mofo', label: 'MoFo',             group: 'negative' },
+  loeschen:         { cls: 'b-lo',   label: 'Löschen',          group: 'negative' },
 };
 
-export const PURGE_STATUSES = ['disqualified', 'mofo'];
+/** Vorab-DQ — nicht in Session-Tracker zählen */
+export const SESSION_SKIP_STATUSES = ['loeschen'];
+
+export const PURGE_STATUSES = ['disqualified', 'mofo', 'loeschen'];
 
 /** Positive Pipeline-Status (Dashboard-KPIs, Funnel, Sessions) */
 export const POSITIVE_STATUSES = ['set_appointment', 'closed'];
 
 export const STATUS_GROUPS = {
   positive: POSITIVE_STATUSES,
-  negative: ['disqualified', 'mofo'],
-  neutral:  ['neu', 'kein_anschluss', 'gatekeeper', 'callback', 'vernetzt'],
+  negative: ['disqualified', 'mofo', 'loeschen'],
+  neutral:  ['neu'].concat(KEIN_ANSCHLUSS_STAGES, ['gatekeeper', 'callback', 'vernetzt']),
 };
 
 export function isPositiveStatus(status) {

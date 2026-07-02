@@ -167,6 +167,7 @@
     </div>
     <div class="stat-group stat-group-closed">
       <div class="stat" id="s-dq"     onclick="setF('disqualified')"> <span class="sn" id="c-dq">0</span>  <span class="sl">Disqualified</span></div>
+      <div class="stat" id="s-lo"     onclick="setF('loeschen')">     <span class="sn" id="c-lo">0</span>  <span class="sl">Löschen</span></div>
       <div class="stat" id="s-mofo"   onclick="setF('mofo')">        <span class="sn" id="c-mofo">0</span><span class="sl">MoFo</span></div>
     </div>
   </div>
@@ -344,13 +345,18 @@
       <div class="fr2">
         <div><label>Status</label><select class="fs2 st-dd st-neu" id="es" onchange="toggleDealField(this.value); syncStatusSelectColor(this)">
           <option value="neu" class="st-opt-neu">Neu</option>
-          <option value="kein_anschluss" class="st-opt-kein_anschluss">Kein Anschluss</option>
+          <option value="kein_anschluss_1" class="st-opt-kein_anschluss_1">Kein Anschluss (1)</option>
+          <option value="kein_anschluss_2" class="st-opt-kein_anschluss_2">Kein Anschluss (2)</option>
+          <option value="kein_anschluss_3" class="st-opt-kein_anschluss_3">Kein Anschluss (3)</option>
+          <option value="kein_anschluss_4" class="st-opt-kein_anschluss_4">Kein Anschluss (4)</option>
+          <option value="kein_anschluss_5" class="st-opt-kein_anschluss_5">Kein Anschluss (5)</option>
           <option value="gatekeeper" class="st-opt-gatekeeper">Gatekeeper</option>
           <option value="callback" class="st-opt-callback">Callback</option>
           <option value="vernetzt" class="st-opt-vernetzt">LinkedIn DM</option>
           <option value="set_appointment" class="st-opt-set_appointment">Set Appointment</option>
           <option value="closed" class="st-opt-closed">Closed</option>
           <option value="disqualified" class="st-opt-disqualified">Disqualified</option>
+          <option value="loeschen" class="st-opt-loeschen">Löschen</option>
           <option value="mofo" class="st-opt-mofo">MoFo</option>
         </select></div>
         <div><label>Follow-up Datum</label><input type="date" id="efu"><div class="fu-shortcuts"><button type="button" onclick="shiftFU(1)">+1d</button><button type="button" onclick="shiftFU(3)">+3d</button><button type="button" onclick="shiftFU(7)">+7d</button><button type="button" onclick="shiftFU(14)">+14d</button></div></div>
