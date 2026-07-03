@@ -4,6 +4,7 @@ import { esc, toast } from './ui.js';
 import { td } from './utils.js';
 import { openP } from './prospecting.js';
 import { whFetch } from './wh.js';
+import { recordCallTouchEvent } from './call-events.js';
 
 const MAIL_ANLASS = [
   { value: 'nach_call', label: 'Nach Telefonat / Rückruf' },
@@ -61,6 +62,14 @@ export function logEmailOnContact(c, subject, bodyPreview) {
     status: 'Email',
     datum: td(),
     notiz: 'Gesendet: ' + (subject || '(ohne Betreff)'),
+  });
+  recordCallTouchEvent({
+    contactId: c.id,
+    contactName: c.firma || c.company_name || '',
+    statusTo: c.status || null,
+    touchLabel: 'Email',
+    source: 'email',
+    occurredAt: td(),
   });
 }
 

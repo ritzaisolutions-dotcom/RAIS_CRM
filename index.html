@@ -245,6 +245,72 @@
 </main>
 </div>
 
+<div class="rais-page" id="page-dm-akquise">
+<main>
+  <div class="stats">
+    <div class="stat on" data-dm-filter="all" onclick="setDmF('all')"><span class="sn" id="dm-c-all">0</span><span class="sl">Gesamt</span></div>
+    <div class="stat" data-dm-filter="heute" onclick="setDmF('heute')"><span class="sn" id="dm-c-heute">0</span><span class="sl">Heute fällig</span></div>
+    <div class="stat" data-dm-filter="erstkontakt" onclick="setDmF('erstkontakt')"><span class="sn" id="dm-c-erstkontakt">0</span><span class="sl">Erstkontakt</span></div>
+    <div class="stat" data-dm-filter="follow_up_1" onclick="setDmF('follow_up_1')"><span class="sn" id="dm-c-follow_up_1">0</span><span class="sl">Follow-up 1</span></div>
+    <div class="stat" data-dm-filter="follow_up_2" onclick="setDmF('follow_up_2')"><span class="sn" id="dm-c-follow_up_2">0</span><span class="sl">Follow-up 2</span></div>
+    <div class="stat" data-dm-filter="ghost_1" onclick="setDmF('ghost_1')"><span class="sn" id="dm-c-ghost_1">0</span><span class="sl">Ghost 1</span></div>
+    <div class="stat" data-dm-filter="ghost_2" onclick="setDmF('ghost_2')"><span class="sn" id="dm-c-ghost_2">0</span><span class="sl">Ghost 2</span></div>
+    <div class="stat" data-dm-filter="ghost_3" onclick="setDmF('ghost_3')"><span class="sn" id="dm-c-ghost_3">0</span><span class="sl">Ghost 3</span></div>
+    <div class="stat" data-dm-filter="ghost_4" onclick="setDmF('ghost_4')"><span class="sn" id="dm-c-ghost_4">0</span><span class="sl">Ghost 4</span></div>
+    <div class="stat" data-dm-filter="termin_gesetzt" onclick="setDmF('termin_gesetzt')"><span class="sn" id="dm-c-termin_gesetzt">0</span><span class="sl">Termin gesetzt</span></div>
+    <div class="stat" data-dm-filter="kein_interesse" onclick="setDmF('kein_interesse')"><span class="sn" id="dm-c-kein_interesse">0</span><span class="sl">Kein Interesse</span></div>
+    <div class="stat" data-dm-filter="nicht_erreichbar_final" onclick="setDmF('nicht_erreichbar_final')"><span class="sn" id="dm-c-nicht_erreichbar_final">0</span><span class="sl">Nicht erreichbar</span></div>
+    <div class="stat" data-dm-filter="disqualified" onclick="setDmF('disqualified')"><span class="sn" id="dm-c-disqualified">0</span><span class="sl">Disqualified</span></div>
+  </div>
+
+  <div class="tb">
+    <input class="srch" id="dm-srch" type="text" placeholder="Name, Firma, LinkedIn, Notiz …" oninput="scheduleDmRender()">
+    <select class="fs" id="dmStatusF" onchange="scheduleDmRender()">
+      <option value="">Status: Alle</option>
+      <option value="erstkontakt">Erstkontakt</option>
+      <option value="follow_up_1">Follow-up 1</option>
+      <option value="follow_up_2">Follow-up 2</option>
+      <option value="ghost_1">Ghost 1</option>
+      <option value="ghost_2">Ghost 2</option>
+      <option value="ghost_3">Ghost 3</option>
+      <option value="ghost_4">Ghost 4</option>
+      <option value="termin_gesetzt">Termin gesetzt</option>
+      <option value="kein_interesse">Kein Interesse</option>
+      <option value="nicht_erreichbar_final">Nicht erreichbar (final)</option>
+      <option value="disqualified">Disqualified</option>
+    </select>
+    <button class="btn bp" onclick="openDmAdd()">+ DM-Lead</button>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead>
+        <tr style="background:var(--ch)">
+          <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;width:36px">#</th>
+          <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Name</th>
+          <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Firma</th>
+          <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">LinkedIn Name</th>
+          <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Telefon</th>
+          <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Status</th>
+          <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Nächster Touch</th>
+          <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Stadt</th>
+          <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Region</th>
+          <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase">Notiz</th>
+          <th style="color:#fff;padding:10px 12px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;width:64px"></th>
+        </tr>
+      </thead>
+      <tbody id="dmTbody"></tbody>
+    </table>
+    <div id="dmEmpty" class="empty" style="display:none">
+      <div style="font-size:32px;margin-bottom:10px">🔗</div>
+      <h3>Keine DM-Leads</h3>
+      <p>Filter anpassen oder + DM-Lead klicken.</p>
+    </div>
+    <div class="tf"><span id="dmRc"></span><div class="pb" id="dmPb"></div></div>
+  </div>
+</main>
+</div>
+
 <!-- ── Page 3: Clients CRM ───────────────────────────────────────────────── -->
 <div class="rais-page" id="page-clients">
 <main>
@@ -317,6 +383,47 @@
     </div>
     <div class="pb2" id="clPBody"></div>
     <div class="pf" id="clPFoot"></div>
+  </div>
+</div>
+
+<!-- DM Lead Modal -->
+<div class="ovl" id="dmModal">
+  <div class="modal" style="max-width:680px">
+    <div class="mh"><h2 id="dmModalTitle">DM-Lead hinzufügen</h2><button class="btn bg" onclick="closeDmModal()">✕</button></div>
+    <div class="mb">
+      <div class="fr2"><div><label>Name *</label><input type="text" id="dmName"></div><div><label>Firma</label><input type="text" id="dmFirma"></div></div>
+      <div class="fr2"><div><label>LinkedIn Name</label><input type="text" id="dmLinkedinName"></div><div><label>Telefon</label><input type="tel" id="dmTel"></div></div>
+      <div class="fr2"><div><label>LinkedIn URL</label><input type="text" id="dmLinkedinUrl"></div><div><label>Gewerk</label><input type="text" id="dmGewerk"></div></div>
+      <div class="fr2"><div><label>Status</label><select class="fs2 st-dd st-erstkontakt" id="dmStatus" onchange="syncStatusSelectColor(this)">
+        <option value="erstkontakt" class="st-opt-erstkontakt">Erstkontakt</option>
+        <option value="follow_up_1" class="st-opt-follow_up_1">Follow-up 1</option>
+        <option value="follow_up_2" class="st-opt-follow_up_2">Follow-up 2</option>
+        <option value="ghost_1" class="st-opt-ghost_1">Ghost 1</option>
+        <option value="ghost_2" class="st-opt-ghost_2">Ghost 2</option>
+        <option value="ghost_3" class="st-opt-ghost_3">Ghost 3</option>
+        <option value="ghost_4" class="st-opt-ghost_4">Ghost 4</option>
+        <option value="termin_gesetzt" class="st-opt-termin_gesetzt">Termin gesetzt</option>
+        <option value="kein_interesse" class="st-opt-kein_interesse">Kein Interesse</option>
+        <option value="nicht_erreichbar_final" class="st-opt-nicht_erreichbar_final">Nicht erreichbar (final)</option>
+        <option value="disqualified" class="st-opt-disqualified">Disqualified</option>
+      </select></div><div><label>Nächster Touch</label><input type="date" id="dmNextTouch"></div></div>
+      <div class="fr2"><div><label>Stadt</label><input type="text" id="dmStadt"></div><div><label>Region</label><input type="text" id="dmRegion"></div></div>
+      <div class="fr"><label>Notiz</label><textarea id="dmNotiz"></textarea></div>
+    </div>
+    <div class="mf"><button class="btn bs" onclick="closeDmModal()">Abbrechen</button><button class="btn bp" onclick="saveDm()">Speichern</button></div>
+  </div>
+</div>
+
+<!-- DM Side Panel -->
+<div class="po" id="dmPo">
+  <div class="pbg" onclick="closeDmPanel()"></div>
+  <div class="panel">
+    <div class="ph">
+      <div><div class="ph-firma" id="dmPFirma"></div><div class="ph-sub" id="dmPSub"></div></div>
+      <button class="btn bg" onclick="closeDmPanel()">✕</button>
+    </div>
+    <div class="pb2" id="dmPBody"></div>
+    <div class="pf" id="dmPFoot"></div>
   </div>
 </div>
 
@@ -828,6 +935,10 @@
     <span class="mn-tab-icon">&#128203;</span>
     <span class="mn-tab-label">Prospects</span>
   </button>
+  <button class="mn-tab" data-page="dm-akquise">
+    <span class="mn-tab-icon">&#128279;</span>
+    <span class="mn-tab-label">DM Akquise</span>
+  </button>
   <button class="mn-tab" data-page="network">
     <span class="mn-tab-icon">&#129309;</span>
     <span class="mn-tab-label">Netzwerk</span>
@@ -844,7 +955,7 @@
 
 <script type="module">
 import { S } from './src/state.js';
-import { load, syncCloud } from './src/sync.js';
+import { load, syncCloud, syncDmOverlapFlags } from './src/sync.js';
 import { isAuthenticated } from './src/supabase.js';
 import { initRealtime } from './src/realtime.js';
 import { render, setF, filterDue, goPg, openP, closeP, qs, openQN, closeQN, saveQN,
@@ -872,10 +983,11 @@ import { openSalesRepPop, closeSalesRepPop, salesRepRun, salesRepApplyToContact 
 import { initSidebar } from './src/sidebar.js';
 import { initHeaderWidget, initSessionsPage } from './src/sessions.js';
 import { initMobile } from './src/mobile.js';
+import { loadDmLeads, renderDm, setDmF, goDmPg, scheduleDmRender, inlineDmStatus, inlineDmDate, saveDmNotiz, openDmAdd, openDmEdit, closeDmModal, saveDm, delDm, openDmPanel, closeDmPanel } from './src/dm-akquise.js';
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeSalesRepPop(); closeClPanel(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); closeQuickAdd(); closeNwModal(); closeNwPanel(); closeNwBulkPaste(); }
+  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeSalesRepPop(); closeClPanel(); closeDmPanel(); closeDmModal(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); closeQuickAdd(); closeNwModal(); closeNwPanel(); closeNwBulkPaste(); }
   const tag = document.activeElement.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (inInput) return;
@@ -897,8 +1009,9 @@ window.addEventListener('rais:page-change', function(e) {
 
 await window._authReady;
 
-window.loadCrmData = function() {
+window.loadCrmData = async function() {
   load();
+  await syncDmOverlapFlags();
   render();
   renderCalls();
 };
@@ -906,6 +1019,7 @@ window.initRealtimeAuth = initRealtime;
 
 if (isAuthenticated()) {
   load();
+  await syncDmOverlapFlags();
   render();
   renderCalls();
   syncCloud(true);
@@ -943,6 +1057,7 @@ Object.assign(window, {
   syncCloud, doLogout, toggleAcc, toggleCol, toggleColMenu, toggleMobileMenu, closePurgeVersicherung, closeSessionCelebration,
   dashGoProspecting, dashGoClients, toggleDashSecondary,
   openAktionPop, closeAktionPop, saveAktionPop, clearAktionPop, fillAktionSuggestion, checkAktionItem, scrollToAktionQueue,
+  loadDmLeads, renderDm, setDmF, goDmPg, scheduleDmRender, inlineDmStatus, inlineDmDate, saveDmNotiz, openDmAdd, openDmEdit, closeDmModal, saveDm, delDm, openDmPanel, closeDmPanel,
 });
 
 </script>

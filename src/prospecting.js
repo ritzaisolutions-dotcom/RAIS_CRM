@@ -14,6 +14,7 @@ import {
 import { promptAutoClient } from './clients.js';
 import { showDemoTodoPopup } from './todopop.js';
 import { maybeOfferCalendar } from './calendar.js';
+import { recordCallTouchEvent } from './call-events.js';
 
 export function isVersicherungsLead(c) {
   if (!c) return false;
@@ -264,6 +265,16 @@ function recordKeinAnschlussAttempt(c, prevStatus) {
     datum: td(),
     notiz: '',
   });
+  recordCallTouchEvent({
+    contactId: c.id,
+    contactName: c.firma || c.company_name || '',
+    statusFrom: prevStatus,
+    statusTo: c.status,
+    touchLabel: 'Nicht erreicht #' + touchN,
+    resultBucket: 'no_answer',
+    source: 'prospecting',
+    occurredAt: td(),
+  });
   touchContactNow(c);
   touchLastContacted(c);
   bumpCall();
@@ -277,13 +288,14 @@ function recordKeinAnschlussAttempt(c, prevStatus) {
   schedulePushDirty();
 }
 
-function applyLoeschenStatus(c) {
+function applyLoeschenStatus(c, prevStatus) {
   c.status = 'loeschen';
   c.status_changed_at = td();
   markDirty(c);
   schedulePersist();
   closeP();
   toast('Status: Löschen');
+  onStatusChanged(c.id, c.firma || c.company_name || '', prevStatus, c.status);
   renderStats();
   patchContactRow(c.id);
   schedulePushDirty();
@@ -312,6 +324,17 @@ export function recordOutreachOnFollowupChange(c, prevFollowup, newFollowup, opt
   } else if (statusFromForm != null) {
     c.status = statusFromForm;
   }
+
+  recordCallTouchEvent({
+    contactId: c.id,
+    contactName: c.firma || c.company_name || '',
+    statusFrom: prevStatus,
+    statusTo: c.status,
+    touchLabel: 'Nicht erreicht #' + touchN,
+    resultBucket: 'no_answer',
+    source: 'followup',
+    occurredAt: td(),
+  });
 
   bumpCall();
   syncLeadTemp(c);
@@ -399,7 +422,7 @@ function populateSelectFilter(id, label, field) {
 function buildRowHtml(c, pageOffset, i, t) {
   const ovr = (c.followup && c.followup < t) ? ' ov' : '';
   const aktion = isAktionNoetig(c);
-  const rowCls = (ovr ? ' ov' : '') + (aktion ? ' tr-aktion' : '');
+  const rowCls = (ovr ? ' ov' : '') + (aktion ? ' tr-aktion' : '') + (c._dm_duplicate ? ' cross-channel' : '');
   const lastT = (c.touches && c.touches.slice().reverse().find(function(tx){ return tx.datum; })) || null;
   const lastTDatum = lastT ? lastT.datum : null;
   const lastTAge = lastTDatum ? Math.floor((new Date(td()) - new Date(lastTDatum)) / 86400000) : null;
@@ -714,11 +737,11 @@ export function closeP() { document.getElementById('po').classList.remove('on');
 export function qs(id, s) {
   const c = S.contacts.find(function(x) { return x.id === id; });
   if (!c) return;
+  const _prev = c.status;
   if (s === 'loeschen') {
-    applyLoeschenStatus(c);
+    applyLoeschenStatus(c, _prev);
     return;
   }
-  const _prev = c.status;
   const target = resolveQsStatus(s, _prev);
   if (target === _prev && isKeinAnschlussStatus(_prev)) {
     recordKeinAnschlussAttempt(c, _prev);
@@ -731,7 +754,17 @@ export function qs(id, s) {
   touchLastContacted(c);
   bumpCall();
   if (!c.touches) c.touches = [];
-  c.touches.push({ status: touchLabelForStatus(target), datum: td(), notiz: '' });
+  const touchLabel = touchLabelForStatus(target);
+  c.touches.push({ status: touchLabel, datum: td(), notiz: '' });
+  recordCallTouchEvent({
+    contactId: c.id,
+    contactName: c.firma || c.company_name || '',
+    statusFrom: _prev,
+    statusTo: target,
+    touchLabel: touchLabel,
+    source: 'quick_status',
+    occurredAt: td(),
+  });
   markDirty(c);
   schedulePersist();
   closeP();
@@ -879,7 +912,7 @@ export function inlineST(sel) {
   const prev = c.status;
   let next = sel.value;
   if (next === 'loeschen') {
-    applyLoeschenStatus(c);
+    applyLoeschenStatus(c, prev);
     syncStatusSelectColor(sel);
     return;
   }

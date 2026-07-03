@@ -86,10 +86,15 @@ Findet Ansprechpartner, Email, Social Media.
 
 ### WF4 — Email 1 (`wf4-email1`) — *deprecated (CRM-UI entfernt)*
 Legacy-Sequenz. Nicht mehr aus dem CRM aufgerufen.
+JSON-Export liegt unter `n8n-workflows/deprecated/WF4_Email1.json`.
 
 ---
 
 ### WF5 / WF6 — *deprecated (CRM-UI entfernt)*
+JSON-Exporte liegen unter:
+
+- `n8n-workflows/deprecated/WF5_Email2.json`
+- `n8n-workflows/deprecated/WF6_Email3.json`
 
 ---
 

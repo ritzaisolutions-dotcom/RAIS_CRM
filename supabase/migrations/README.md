@@ -1,6 +1,6 @@
 # Supabase Migrations
 
-## Verzeichnis (Stand 2026-06-30)
+## Verzeichnis (Stand 2026-07-03)
 
 | Datei | Beschreibung |
 |-------|--------------|
@@ -27,6 +27,9 @@
 | `2026-06-29_lead_origin_meta_ads.sql` | Meta Ads Origin |
 | `2026-06-30_fix_anon_policies.sql` | anon_all schließen (network, gewerke, lebensbereiche) |
 | `2026-06-30_drop_content_and_projects.sql` | crm_content, crm_projects, crm_todos droppen |
+| `2026-07-03_create_linkedin_outreach_table.sql` | Tabelle `linkedin_outreach` inkl. RLS |
+| `2026-07-03_crm_contacts_dm_overlap_view.sql` | View `v_crm_contacts_dm_overlap` (CRM/DM Duplikat-Flag) |
+| `2026-07-03_linkedin_outreach_status_taxonomy_and_tracking.sql` | DM-Status-Taxonomie, Event-Tracking, Daily KPI View |
 
 ## Neue Migration
 
@@ -43,4 +46,4 @@
 
 ## Schema-Stand
 
-2026-06-30 — Lean CRM ohne Content/Projekte-Tabellen. RLS authenticated für alle CRM-Tabellen.
+2026-07-03 — Lean CRM mit DM-Outreach-Tracking (`linkedin_outreach`, Status-Events, Dashboard-KPIs) und authenticated RLS.

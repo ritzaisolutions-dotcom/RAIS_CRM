@@ -4,6 +4,7 @@ const PAGES = [
   { id: 'dashboard',   icon: '📊', label: 'Dashboard'   },
   { id: 'network',     icon: '🤝', label: 'Netzwerk'    },
   { id: 'prospecting', icon: '📋', label: 'Prospects'   },
+  { id: 'dm-akquise',  icon: '🔗', label: 'DM Akquise'  },
   { id: 'clients',     icon: '👥', label: 'Clients'     },
   { id: 'sessions',    icon: '🏁', label: 'Sessions'    },
 ];

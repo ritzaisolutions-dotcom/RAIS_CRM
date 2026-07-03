@@ -9,9 +9,6 @@ Kanonischer Export-Ordner für alle n8n-Workflows.
 | `WF1_Discover.json` | wf1-discover | Google Places → neue Leads in crm_contacts |
 | `WF2_Qualify.json` | wf2-qualify | Website-Analyse + Lead Score |
 | `WF3_Enrich.json` | wf3-enrich | Kontakt/Email/Social Media anreichern |
-| `WF4_Email1.json` | wf4-email1 | LLM-generierte Email 1 erstellen + senden |
-| `WF5_Email2.json` | wf5-email2 | Follow-up Email 2 senden |
-| `WF6_Email3.json` | wf6-email3 | Abschluss-Follow-up Email 3 senden |
 | `WF7_Compose.json` | wf7-compose | CRM Einzelmail (kevin@ritz-ai.solutions) |
 | `WF8_Calendar.json` | wf8-calendar | CRM Demo/Rückruf → Google Kalender |
 | `WF9_SalesRep.json` | wf9-salesrep | CRM Sales Rep Assistant (Gemini) |
@@ -19,13 +16,24 @@ Kanonischer Export-Ordner für alle n8n-Workflows.
 
 WF11/WF12 (Notion) sind im Proxy definiert, noch ohne JSON-Export im Repo.
 
+## Deprecated Exports
+
+Legacy-Workflow-Exporte liegen aus historischen Gründen in `n8n-workflows/deprecated/`:
+
+- `deprecated/WF4_Email1.json`
+- `deprecated/WF5_Email2.json`
+- `deprecated/WF6_Email3.json`
+
+Diese Flows sind im CRM-UI nicht mehr aktiv und dienen nur als Referenz.
+
 ## Webhook-Endpunkte
 
 Basis-URL: `https://n8n.ritz-ai.solutions/webhook/`
 
 | Workflow | Pfad |
 |---------|------|
-| WF1–WF6 | `wf1-discover` … `wf6-email3` |
+| WF1–WF3 | `wf1-discover` … `wf3-enrich` |
+| WF4–WF6 (deprecated) | `wf4-email1` … `wf6-email3` |
 | WF7–WF12 | `wf7-compose` … `wf12-notion-update` |
 
 ## Auth

@@ -1,4 +1,4 @@
-import { S, KEY, CC_KEY, LB_KEY_SB } from './state.js';
+import { S, KEY, CC_KEY, LB_KEY_SB, DM_OVERLAP_SB } from './state.js';
 import { sbGet, sbUpsert, isAuthenticated } from './supabase.js';
 import { toast } from './ui.js';
 import { getCustomGewerke, addCustomGewerk, getSocials, normalizeContactStatus } from './utils.js';
@@ -64,6 +64,20 @@ export function flushPersistAndPush() {
 
 function safeRender() {
   if (typeof window.render === 'function') window.render();
+}
+
+export async function syncDmOverlapFlags(renderAfter) {
+  if (!isAuthenticated()) return;
+  try {
+    const rows = await sbGet(DM_OVERLAP_SB + '?select=id&is_duplicate=eq.true');
+    const dupIds = new Set((rows || []).map(function(r) { return r.id; }));
+    S.contacts.forEach(function(c) {
+      c._dm_duplicate = dupIds.has(c.id);
+    });
+    if (renderAfter !== false) safeRender();
+  } catch (e) {
+    // Non-blocking: duplicate hint should never break core CRM sync.
+  }
 }
 
 const EXTRA_KEYS = [
@@ -226,6 +240,7 @@ export async function syncCloud(silent) {
     persist();
     await syncGewerkeCloud();
     await syncLebensbereicheCloud();
+    await syncDmOverlapFlags(false);
     safeRender();
     toast('☁ Sync erfolgreich — ' + S.contacts.length + ' Kontakte.');
   } catch(e) {

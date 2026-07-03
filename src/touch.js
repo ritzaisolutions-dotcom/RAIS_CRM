@@ -3,6 +3,7 @@ import { markDirty, schedulePersist, schedulePushDirty, bumpContactsRev } from '
 import { esc, toast } from './ui.js';
 import { syncLeadTemp } from './utils.js';
 import { openP } from './prospecting.js';
+import { recordCallTouchEvent } from './call-events.js';
 
 export function toggleAcc(el) {
   const tah = el.closest ? el : el;
@@ -24,8 +25,19 @@ export function saveTF(id, idx, field, val) {
   if (!c) return;
   if (!c.touches) c.touches = [];
   while (c.touches.length <= idx) c.touches.push({status:'',datum:'',notiz:''});
+  const prevVal = c.touches[idx][field];
   c.touches[idx][field] = val;
   if (field === 'datum' && val) touchLastContacted(c);
+  if (field === 'datum' && !prevVal && val) {
+    recordCallTouchEvent({
+      contactId: c.id,
+      contactName: c.firma || c.company_name || '',
+      statusTo: c.status || null,
+      touchLabel: c.touches[idx].status || ('Touch ' + (idx + 1)),
+      source: 'touch_editor',
+      occurredAt: val,
+    });
+  }
   syncLeadTemp(c);
   markDirty(c);
   schedulePersist();

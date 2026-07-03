@@ -27,13 +27,22 @@ export const S = {
   salesrepReport:    null,
   clClients:     [],
   clEid:         null,
+  dmLeads:       [],
+  dmFlt:         'all',
+  dmPg:          1,
+  dmEid:         null,
   nwEid:         null,
   contactsRev:   0,
 };
 
 export const PG     = 30;
+export const DM_PG  = 30;
 export const CC_KEY = 'rais_crm_calls';
 export const CL_KEY_SB   = '/rest/v1/crm_clients';
+export const DM_KEY_SB   = '/rest/v1/linkedin_outreach';
+export const DM_VIEW_SB  = '/rest/v1/v_linkedin_outreach_flagged';
+export const DM_OVERLAP_SB = '/rest/v1/v_crm_contacts_dm_overlap';
+export const CALL_EVENTS_KEY_SB = '/rest/v1/crm_call_events';
 export const NW_KEY_SB   = '/rest/v1/crm_network';
 export const LB_KEY_SB   = '/rest/v1/crm_lebensbereiche';
 
@@ -92,6 +101,36 @@ export const STATUS = {
   gatekeeper:       { cls: 'b-gk',   label: 'Gatekeeper',       group: 'neutral' },
   mofo:             { cls: 'b-mofo', label: 'MoFo',             group: 'negative' },
   loeschen:         { cls: 'b-lo',   label: 'Löschen',          group: 'negative' },
+};
+
+export const DM_STATUS_ORDER = [
+  'erstkontakt',
+  'follow_up_1',
+  'follow_up_2',
+  'ghost_1',
+  'ghost_2',
+  'ghost_3',
+  'ghost_4',
+  'termin_gesetzt',
+  'kein_interesse',
+  'nicht_erreichbar_final',
+  'disqualified',
+];
+
+export const DM_STATUS = {
+  erstkontakt:            { cls: 'b-dm-neu',    label: 'Erstkontakt',              group: 'neutral' },
+  follow_up_1:            { cls: 'b-dm-wait',   label: 'Follow-up 1',              group: 'waiting' },
+  follow_up_2:            { cls: 'b-dm-wait',   label: 'Follow-up 2',              group: 'waiting' },
+  ghost_1:                { cls: 'b-dm-ghost',  label: 'Ghost 1',                  group: 'ghost' },
+  ghost_2:                { cls: 'b-dm-ghost',  label: 'Ghost 2',                  group: 'ghost' },
+  ghost_3:                { cls: 'b-dm-ghost',  label: 'Ghost 3',                  group: 'ghost' },
+  ghost_4:                { cls: 'b-dm-ghost',  label: 'Ghost 4',                  group: 'ghost' },
+  termin_gesetzt:         { cls: 'b-dm-won',    label: 'Termin gesetzt',           group: 'positive' },
+  kein_interesse:         { cls: 'b-dm-closed', label: 'Kein Interesse',           group: 'negative' },
+  nicht_erreichbar_final: { cls: 'b-dm-closed', label: 'Nicht erreichbar (final)', group: 'negative' },
+  disqualified:           { cls: 'b-dm-closed', label: 'Disqualified',             group: 'negative' },
+  connection_sent:        { cls: 'b-dm-neu',    label: 'Connection Sent',          group: 'neutral' },
+  connected:              { cls: 'b-dm-neu',    label: 'Connected',                group: 'neutral' },
 };
 
 /** Vorab-DQ — nicht in Session-Tracker zählen */

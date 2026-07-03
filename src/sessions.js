@@ -3,6 +3,7 @@ import { toast, esc } from './ui.js';
 import { navigateTo } from './sidebar.js';
 import { S, STATUS, STATUS_GROUPS, SESSION_SKIP_STATUSES } from './state.js';
 import { weekStart, isKeinAnschlussStatus } from './utils.js';
+import { recordCallStatusEvents } from './call-events.js';
 
 // --- STATE ---
 let activeSession = null;  // { id, startedTs, pausedAt, pausedSeconds, timerMode, targetSeconds, breakdown, leadsPlayed, aktionLeads }
@@ -507,10 +508,17 @@ export async function discardSession() {
 }
 
 export function onStatusChanged(contactId, contactName, fromStatus, toStatus) {
-  if (!activeSession) return;
   if (!toStatus || toStatus === 'neu') return;
-  if (SESSION_SKIP_STATUSES.includes(toStatus)) return;
   if (fromStatus === toStatus) return;
+  recordCallStatusEvents({
+    contactId: contactId,
+    contactName: contactName || '',
+    fromStatus: fromStatus || null,
+    toStatus: toStatus,
+    source: 'status_change',
+  });
+  if (!activeSession) return;
+  if (SESSION_SKIP_STATUSES.includes(toStatus)) return;
   normalizeActiveSession();
   activeSession.leadsPlayed += 1;
   activeSession.breakdown[toStatus] = (activeSession.breakdown[toStatus] || 0) + 1;
