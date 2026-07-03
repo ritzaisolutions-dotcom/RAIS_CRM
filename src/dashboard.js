@@ -5,38 +5,65 @@ import { getSessionStats } from './sessions.js';
 import { sbGet } from './supabase.js';
 import { td } from './utils.js';
 import {
+  buildPerformanceRanges,
   channelPerformanceSeries,
   summarizeChannelSeries,
   renderMultiLineChart,
 } from './analytics.js';
 
-const PERFORMANCE_MONTHS = 6;
+const PERFORMANCE_PAGE_SIZE = 1000;
+const PERFORMANCE_PERIODS = {
+  week: { label: 'Woche' },
+  month: { label: 'Monat' },
+  year: { label: 'Jahr 2026' },
+  alltime: { label: 'All time' },
+};
 const PERFORMANCE_METRICS = {
   touches: {
     key: 'touches',
     label: 'Touches / Anwahlen',
-    subtitle: 'Volumen der Kontaktversuche pro Monat',
+    subtitles: {
+      week: 'Volumen der Kontaktversuche (Mo bis So dieser Woche)',
+      month: 'Volumen der Kontaktversuche (1. bis Monatsende)',
+      year: 'Volumen der Kontaktversuche in 2026',
+      alltime: 'Volumen der Kontaktversuche über die gesamte Historie',
+    },
     callKey: 'callTouches',
     dmKey: 'dmTouches',
   },
   conversations: {
     key: 'conversations',
     label: 'Gespräche / Antworten',
-    subtitle: 'Reaktionen auf Touches pro Monat',
+    subtitles: {
+      week: 'Reaktionen auf Touches (Mo bis So dieser Woche)',
+      month: 'Reaktionen auf Touches (1. bis Monatsende)',
+      year: 'Reaktionen auf Touches in 2026',
+      alltime: 'Reaktionen auf Touches über die gesamte Historie',
+    },
     callKey: 'callConversations',
     dmKey: 'dmConversations',
   },
   appointments: {
     key: 'appointments',
     label: 'Gelegte Termine',
-    subtitle: 'Termin-Conversion in beiden Kanälen',
+    subtitles: {
+      week: 'Termin-Conversion dieser Woche',
+      month: 'Termin-Conversion des aktuellen Monats',
+      year: 'Termin-Conversion im Jahr 2026',
+      alltime: 'Termin-Conversion über die gesamte Historie',
+    },
     callKey: 'callAppointments',
     dmKey: 'dmAppointments',
   },
   closes: {
     key: 'closes',
     label: 'Closes',
-    subtitle: 'Gewonnene Deals nach Kanal',
+    subtitles: {
+      week: 'Gewonnene Deals dieser Woche',
+      month: 'Gewonnene Deals des aktuellen Monats',
+      year: 'Gewonnene Deals im Jahr 2026',
+      alltime: 'Gewonnene Deals über die gesamte Historie',
+    },
     callKey: 'callCloses',
     dmKey: 'dmCloses',
   },
@@ -46,6 +73,7 @@ let _inited = false;
 let _lastSess = { count: 0, totalLeads: 0, totalMinutes: 0 };
 let _channelSeries = [];
 let _activeMetric = 'touches';
+let _activePeriod = 'month';
 
 window.addEventListener('rais:page-change', function(e) {
   if (e.detail.page === 'dashboard') initDashboard();
@@ -85,6 +113,20 @@ function metricButtonsHtml() {
   }).join('');
 }
 
+function periodButtonsHtml() {
+  return Object.keys(PERFORMANCE_PERIODS).map(function(periodKey) {
+    const cfg = PERFORMANCE_PERIODS[periodKey];
+    const on = periodKey === _activePeriod ? ' on' : '';
+    return '<button type="button" class="dash-grain-btn' + on + '" data-dash-period="' + periodKey + '">' + cfg.label + '</button>';
+  }).join('');
+}
+
+function metricSubtitle(metricKey, periodKey) {
+  const cfg = PERFORMANCE_METRICS[metricKey] || PERFORMANCE_METRICS.touches;
+  if (!cfg.subtitles) return '';
+  return cfg.subtitles[periodKey] || cfg.subtitles.month || '';
+}
+
 function setText(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = value;
@@ -117,11 +159,14 @@ function renderPerformanceChart() {
       dm: row[cfg.dmKey] || 0,
     };
   });
-  setText('dash-performance-subtitle', cfg.subtitle);
+  setText('dash-performance-subtitle', metricSubtitle(_activeMetric, _activePeriod));
+  const labelStep = _activePeriod === 'alltime'
+    ? Math.max(1, Math.ceil(series.length / 12))
+    : (_activePeriod === 'month' ? Math.max(1, Math.ceil(series.length / 10)) : 1);
   renderMultiLineChart(container, series, [
-    { key: 'call', label: 'Cold Calls', color: '#EC6A37', area: true, areaOpacity: 0.15, points: true },
-    { key: 'dm', label: 'DM-Outbound', color: '#789464', area: true, areaOpacity: 0.12, points: true },
-  ]);
+    { key: 'call', label: 'Cold Calls', color: '#EC6A37', area: true, areaOpacity: 0.15, points: 'auto' },
+    { key: 'dm', label: 'DM-Outbound', color: '#789464', area: true, areaOpacity: 0.12, points: 'auto' },
+  ], { labelStep: labelStep });
 }
 
 function bindMetricButtons(root) {
@@ -134,32 +179,129 @@ function bindMetricButtons(root) {
       renderPerformanceChart();
     });
   });
+  root.querySelectorAll('[data-dash-period]').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const next = btn.getAttribute('data-dash-period') || 'month';
+      if (next === _activePeriod) return;
+      _activePeriod = next;
+      root.querySelectorAll('[data-dash-period]').forEach(function(el) {
+        el.classList.toggle('on', el === btn);
+      });
+      await reloadPerformanceData(root);
+    });
+  });
   const callBtn = root.querySelector('[data-dash-open="prospecting"]');
   if (callBtn) callBtn.addEventListener('click', function() { dashGoProspecting('all'); });
   const dmBtn = root.querySelector('[data-dash-open="dm"]');
   if (dmBtn) dmBtn.addEventListener('click', function() { navigateTo('dm-akquise'); });
 }
 
-async function loadChannelSeries() {
-  const start = new Date();
-  start.setDate(1);
-  start.setMonth(start.getMonth() - (PERFORMANCE_MONTHS - 1));
-  start.setHours(0, 0, 0, 0);
-  const startIso = start.toISOString();
-  const startDate = startIso.slice(0, 10);
+function periodBounds(period) {
+  const now = new Date();
+  if (period === 'week') {
+    const day = now.getDay();
+    const diff = day === 0 ? -6 : (1 - day);
+    const start = new Date(now);
+    start.setDate(now.getDate() + diff);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start: start, end: end };
+  }
+  if (period === 'month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    return { start: start, end: end };
+  }
+  if (period === 'year') {
+    return {
+      start: new Date(2026, 0, 1, 0, 0, 0, 0),
+      end: new Date(2026, 11, 31, 23, 59, 59, 999),
+    };
+  }
+  return {
+    start: null,
+    end: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999),
+  };
+}
+
+async function fetchPaged(path) {
+  let offset = 0;
+  const rows = [];
+  while (true) {
+    const page = await sbGet(path + '&limit=' + PERFORMANCE_PAGE_SIZE + '&offset=' + offset);
+    if (!Array.isArray(page) || !page.length) break;
+    rows.push.apply(rows, page);
+    if (page.length < PERFORMANCE_PAGE_SIZE) break;
+    offset += PERFORMANCE_PAGE_SIZE;
+  }
+  return rows;
+}
+
+function minDateFromRows(rows, key) {
+  let min = null;
+  (rows || []).forEach(function(row) {
+    const raw = row && row[key];
+    if (!raw) return;
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return;
+    if (!min || d < min) min = d;
+  });
+  return min;
+}
+
+async function loadChannelSeries(period) {
+  const bounds = periodBounds(period);
+  const startIso = bounds.start ? bounds.start.toISOString() : null;
+  const endIso = bounds.end ? bounds.end.toISOString() : null;
+  const startDate = startIso ? startIso.slice(0, 10) : null;
+  const endDate = endIso ? endIso.slice(0, 10) : null;
+
+  const callPath = '/rest/v1/crm_call_events?select=event_type,result_bucket,occurred_at&order=occurred_at.asc'
+    + (startIso ? '&occurred_at=gte.' + startIso : '')
+    + (endIso ? '&occurred_at=lte.' + endIso : '');
+  const dmEventPath = '/rest/v1/linkedin_outreach_events?select=status_to,changed_at&order=changed_at.asc'
+    + (startIso ? '&changed_at=gte.' + startIso : '')
+    + (endIso ? '&changed_at=lte.' + endIso : '');
+  const dmLeadsPath = '/rest/v1/linkedin_outreach?select=crm_contact_id&order=created_at.asc';
+  const dmClosedPath = '/rest/v1/crm_contacts?select=id,status,status_changed_at&status=eq.closed&order=status_changed_at.asc'
+    + (startDate ? '&status_changed_at=gte.' + startDate : '')
+    + (endDate ? '&status_changed_at=lte.' + endDate : '');
 
   const results = await Promise.allSettled([
-    sbGet('/rest/v1/crm_call_events?select=event_type,result_bucket,occurred_at&occurred_at=gte.' + startIso + '&order=occurred_at.asc'),
-    sbGet('/rest/v1/linkedin_outreach_events?select=status_to,changed_at&changed_at=gte.' + startIso + '&order=changed_at.asc'),
-    sbGet('/rest/v1/linkedin_outreach?select=crm_contact_id'),
-    sbGet('/rest/v1/crm_contacts?select=id,status,status_changed_at&status=eq.closed&status_changed_at=gte.' + startDate),
+    fetchPaged(callPath),
+    fetchPaged(dmEventPath),
+    fetchPaged(dmLeadsPath),
+    fetchPaged(dmClosedPath),
   ]);
 
   const callEvents = results[0].status === 'fulfilled' && Array.isArray(results[0].value) ? results[0].value : [];
   const dmEvents = results[1].status === 'fulfilled' && Array.isArray(results[1].value) ? results[1].value : [];
   const dmLeads = results[2].status === 'fulfilled' && Array.isArray(results[2].value) ? results[2].value : [];
   const dmClosedContacts = results[3].status === 'fulfilled' && Array.isArray(results[3].value) ? results[3].value : [];
-  return channelPerformanceSeries('month', PERFORMANCE_MONTHS, { callEvents, dmEvents, dmLeads, dmClosedContacts });
+
+  const allTimeStart = (function() {
+    if (period !== 'alltime') return null;
+    const mins = [
+      minDateFromRows(callEvents, 'occurred_at'),
+      minDateFromRows(dmEvents, 'changed_at'),
+      minDateFromRows(dmClosedContacts, 'status_changed_at'),
+    ].filter(Boolean);
+    if (!mins.length) return null;
+    mins.sort(function(a, b) { return a - b; });
+    return mins[0];
+  })();
+  const ranges = buildPerformanceRanges(period, { allTimeStart: allTimeStart });
+  return channelPerformanceSeries('month', ranges.length, { callEvents, dmEvents, dmLeads, dmClosedContacts }, { ranges: ranges });
+}
+
+async function reloadPerformanceData(root) {
+  const container = root && root.querySelector ? root.querySelector('#dash-performance-chart') : null;
+  if (container) container.innerHTML = '<p class="dash-empty">Performance wird geladen…</p>';
+  _channelSeries = await loadChannelSeries(_activePeriod);
+  updateChannelKpis();
+  renderPerformanceChart();
 }
 
 async function renderSchlagzahlHeute(container) {
@@ -199,10 +341,11 @@ export async function renderDashboard() {
         '<div class="dash-hero-head">' +
           '<div>' +
             '<h3 class="dash-card-title">Performance über Zeit</h3>' +
-            '<p class="dash-chart-hint" id="dash-performance-subtitle">Volumen der Kontaktversuche pro Monat</p>' +
+            '<p class="dash-chart-hint" id="dash-performance-subtitle">' + metricSubtitle(_activeMetric, _activePeriod) + '</p>' +
           '</div>' +
           '<div class="dash-metric-tabs">' + metricButtonsHtml() + '</div>' +
         '</div>' +
+        '<div class="dash-grain-toggle">' + periodButtonsHtml() + '</div>' +
         '<div id="dash-performance-chart"></div>' +
       '</section>' +
 
@@ -249,9 +392,7 @@ export async function renderDashboard() {
 
     bindMetricButtons(root);
     await renderSchlagzahlHeute(document.getElementById('dash-schlagzahl'));
-    _channelSeries = await loadChannelSeries();
-    updateChannelKpis();
-    renderPerformanceChart();
+    await reloadPerformanceData(root);
   } catch (e) {
     console.error('Dashboard render:', e);
     root.innerHTML = '<p class="dash-empty">Dashboard konnte nicht geladen werden.</p>';

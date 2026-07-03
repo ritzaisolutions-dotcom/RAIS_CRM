@@ -16,6 +16,12 @@ function startOfDay(d) {
   return x;
 }
 
+function endOfDay(d) {
+  const x = new Date(d);
+  x.setHours(23, 59, 59, 999);
+  return x;
+}
+
 export function periodRange(period) {
   const now = new Date();
   const end = new Date(now);
@@ -128,6 +134,64 @@ export function monthlyRanges(months) {
     });
   }
   return ranges;
+}
+
+function dayRangesBetween(start, end) {
+  const ranges = [];
+  const s = startOfDay(start);
+  const e = endOfDay(end);
+  for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+    const dayStart = new Date(d);
+    const dayEnd = endOfDay(d);
+    ranges.push({
+      start: dayStart,
+      end: dayEnd,
+      label: dayStart.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric' }),
+    });
+  }
+  return ranges;
+}
+
+function monthRangesBetween(start, end) {
+  const ranges = [];
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const endMonth = new Date(end.getFullYear(), end.getMonth(), 1);
+  while (cursor <= endMonth) {
+    const monthStart = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0, 23, 59, 59, 999);
+    ranges.push({
+      start: monthStart,
+      end: monthEnd,
+      label: monthStart.toLocaleDateString('de-DE', { month: 'short', year: '2-digit' }),
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return ranges;
+}
+
+export function buildPerformanceRanges(period, options) {
+  options = options || {};
+  const now = options.now ? new Date(options.now) : new Date();
+  if (period === 'week') {
+    const start = weekStart(now);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    return dayRangesBetween(start, end);
+  }
+  if (period === 'month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return dayRangesBetween(start, end);
+  }
+  if (period === 'year') {
+    return monthRangesBetween(new Date(2026, 0, 1), new Date(2026, 11, 31));
+  }
+  if (period === 'alltime') {
+    const start = options.allTimeStart ? new Date(options.allTimeStart) : new Date(now.getFullYear(), now.getMonth(), 1);
+    const normalizedStart = isNaN(start.getTime()) ? new Date(now.getFullYear(), now.getMonth(), 1) : start;
+    return monthRangesBetween(normalizedStart, now);
+  }
+  return monthlyRanges(GRAIN_POINTS.month);
 }
 
 export function rangesForGrain(grain, count) {
@@ -287,7 +351,8 @@ export function countLinkedInDmsInRange(start, end) {
   return n;
 }
 
-export function channelPerformanceSeries(grain, count, data) {
+export function channelPerformanceSeries(grain, count, data, opts) {
+  opts = opts || {};
   const callEvents = (data && Array.isArray(data.callEvents)) ? data.callEvents : [];
   const dmEvents = (data && Array.isArray(data.dmEvents)) ? data.dmEvents : [];
   const dmLeads = (data && Array.isArray(data.dmLeads)) ? data.dmLeads : [];
@@ -300,7 +365,10 @@ export function channelPerformanceSeries(grain, count, data) {
   );
   const dmResponseStatuses = new Set(DM_RESPONSE_STATUSES);
 
-  return rangesForGrain(grain, count).map(function(r) {
+  const ranges = Array.isArray(opts.ranges) && opts.ranges.length
+    ? opts.ranges
+    : rangesForGrain(grain, count);
+  return ranges.map(function(r) {
     const useCallEvents = callEvents.length > 0;
     const callTouches = useCallEvents
       ? countCallEventsInRange(callEvents, r.start, r.end, function(ev) { return ev.event_type === 'touch_logged'; })
@@ -476,8 +544,9 @@ export function dailyTouchSeries(days) {
   return series;
 }
 
-export function renderMultiLineChart(container, series, lines) {
+export function renderMultiLineChart(container, series, lines, opts) {
   if (!container || !series.length || !lines || !lines.length) return;
+  opts = opts || {};
   const maxY = Math.max.apply(null, series.reduce(function(arr, d) {
     lines.forEach(function(ln) { arr.push(d[ln.key] || 0); });
     return arr;
@@ -518,7 +587,8 @@ export function renderMultiLineChart(container, series, lines) {
   }).join('');
   const circles = lines.map(function(ln) {
     if (ln.points === false) return '';
-    const showPoints = ln.points === true || series.length <= 16;
+    const autoPoints = ln.points == null || ln.points === 'auto';
+    const showPoints = ln.points === true ? true : (autoPoints && series.length <= 16);
     if (!showPoints) return '';
     return points(ln.key).map(function(p) {
       return '<circle cx="' + p.x + '" cy="' + p.y + '" r="1.6" fill="' + ln.color + '" class="chart-line-point"/>';
@@ -529,8 +599,12 @@ export function renderMultiLineChart(container, series, lines) {
     const swatchStyle = ln.dashed && !ln.cls ? ' style="background:transparent;border-bottom:2px dashed ' + ln.color + '"' : (ln.cls ? '' : ' style="background:' + ln.color + '"');
     return '<span class="chart-line-legend-item"><i class="' + swatchCls.trim() + '"' + swatchStyle + '></i> ' + esc(ln.label) + '</span>';
   }).join('');
-  const labels = series.map(function(d) {
-    return '<span class="chart-line-lbl">' + esc(d.label) + '</span>';
+  const autoLabelStep = series.length > 24 ? Math.ceil(series.length / 10) : 1;
+  const labelStep = Math.max(1, Number(opts.labelStep || autoLabelStep));
+  const labels = series.map(function(d, i) {
+    const show = i === 0 || i === series.length - 1 || i % labelStep === 0;
+    const text = show ? esc(d.label) : '&nbsp;';
+    return '<span class="chart-line-lbl" title="' + esc(d.label) + '">' + text + '</span>';
   }).join('');
   container.innerHTML =
     '<div class="chart-line-legend">' + legend + '</div>' +
