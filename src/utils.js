@@ -112,19 +112,6 @@ export function syncLeadTemp(c) {
   c.lead_temp = deriveLeadTemp(c);
 }
 
-export function normalizeLeadOrigin(v) {
-  const k = (v || '').trim().toLowerCase();
-  const map = {
-    scraped: 'scraped', gescrapt: 'scraped',
-    manual: 'manual', manuell: 'manual',
-    in_person: 'in_person', persoenlich: 'in_person', persönlich: 'in_person',
-    external: 'external', extern: 'external',
-    referral: 'referral', empfehlung: 'referral',
-    import: 'import', meta_ads: 'meta_ads', 'meta ads': 'meta_ads',
-  };
-  return map[k] || (k || 'manual');
-}
-
 export function getSocials(c) {
   const s = (c && c.socials) ? Object.assign({}, c.socials) : {};
   if (c && c.extra) {

@@ -37,13 +37,8 @@ function getContact(id) {
   return S.contacts.find(function(x) { return x.id === id; });
 }
 
-function chatId(fromPage) {
-  return fromPage ? 'srPageChat' : 'srChat';
-}
-
-function applyId(fromPage) {
-  return fromPage ? 'srPageApply' : 'srApply';
-}
+function chatId() { return 'srChat'; }
+function applyId() { return 'srApply'; }
 
 function readForm(prefix) {
   const p = prefix || 'sr';
@@ -67,20 +62,20 @@ function fillForm(prefix, data) {
   if (elG) elG.value = data.gewerk || '';
 }
 
-function scrollChat(fromPage) {
-  const el = document.getElementById(chatId(fromPage));
+function scrollChat() {
+  const el = document.getElementById(chatId());
   if (el) el.scrollTop = el.scrollHeight;
 }
 
-function clearChat(fromPage) {
-  const el = document.getElementById(chatId(fromPage));
+function clearChat() {
+  const el = document.getElementById(chatId());
   if (el) el.innerHTML = '';
-  const apply = document.getElementById(applyId(fromPage));
+  const apply = document.getElementById(applyId());
   if (apply) { apply.hidden = true; apply.innerHTML = ''; }
 }
 
-function appendChatMsg(fromPage, role, innerHtml) {
-  const el = document.getElementById(chatId(fromPage));
+function appendChatMsg(role, innerHtml) {
+  const el = document.getElementById(chatId());
   if (!el) return;
   const wrap = document.createElement('div');
   wrap.className = 'salesrep-msg salesrep-msg-' + role;
@@ -88,7 +83,7 @@ function appendChatMsg(fromPage, role, innerHtml) {
     '<div class="salesrep-msg-avatar" aria-hidden="true">' + (role === 'user' ? 'Du' : 'SR') + '</div>' +
     '<div class="salesrep-msg-body">' + innerHtml + '</div>';
   el.appendChild(wrap);
-  scrollChat(fromPage);
+  scrollChat();
 }
 
 function userMessageHtml(form) {
@@ -99,8 +94,8 @@ function userMessageHtml(form) {
   return parts.join('');
 }
 
-function showTyping(fromPage, on) {
-  const el = document.getElementById(chatId(fromPage));
+function showTyping(on) {
+  const el = document.getElementById(chatId());
   if (!el) return;
   let typing = el.querySelector('.salesrep-msg-typing');
   if (on) {
@@ -111,22 +106,22 @@ function showTyping(fromPage, on) {
       '<div class="salesrep-msg-avatar" aria-hidden="true">SR</div>' +
       '<div class="salesrep-msg-body"><p class="salesrep-typing-text">Sales Rep Assistant recherchiert…</p></div>';
     el.appendChild(typing);
-    scrollChat(fromPage);
+    scrollChat();
   } else if (typing) {
     typing.remove();
   }
 }
 
-function welcomeChat(fromPage) {
-  clearChat(fromPage);
-  appendChatMsg(fromPage, 'assistant',
+function welcomeChat() {
+  clearChat();
+  appendChatMsg('assistant',
     '<p class="salesrep-msg-welcome">' + esc(CHAT_WELCOME) + '</p>');
 }
 
-function loadChatExchange(fromPage, form, report) {
-  clearChat(fromPage);
-  appendChatMsg(fromPage, 'user', userMessageHtml(form));
-  appendChatMsg(fromPage, 'assistant', reportHtml(report));
+function loadChatExchange(form, report) {
+  clearChat();
+  appendChatMsg('user', userMessageHtml(form));
+  appendChatMsg('assistant', reportHtml(report));
 }
 
 function reportHtml(report) {
@@ -169,7 +164,8 @@ function reportHtml(report) {
   return html;
 }
 
-function renderApplySection(report, contactId, containerId) {
+function renderApplySection(report, contactId) {
+  const containerId = applyId();
   const box = document.getElementById(containerId);
   if (!box) return;
   if (!contactId || !report) {
@@ -202,13 +198,12 @@ function renderApplySection(report, contactId, containerId) {
   box.querySelector('.salesrep-apply-btn')?.addEventListener('click', function() {
     salesRepApplyToContact(contactId, box);
   });
-  scrollChat(containerId.indexOf('Page') >= 0);
+  scrollChat();
 }
 
-function setLoading(loading, prefix) {
-  const fromPage = prefix === 'srPage';
-  const runBtn = document.getElementById((prefix || 'sr') + 'RunBtn');
-  showTyping(fromPage, loading);
+function setLoading(loading) {
+  const runBtn = document.getElementById('srRunBtn');
+  showTyping(loading);
   if (runBtn) {
     runBtn.disabled = loading;
     runBtn.textContent = loading ? 'Sales Rep Assistant recherchiert…' : 'Recherche starten';
@@ -225,40 +220,6 @@ function pushHistory(entry) {
   } catch (e) { /* ignore */ }
 }
 
-function renderHistoryList() {
-  const el = document.getElementById('srPageHistory');
-  if (!el) return;
-  let list = [];
-  try { list = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch (e) { list = []; }
-  if (!list.length) {
-    el.innerHTML = '<p class="salesrep-empty">Noch keine Recherchen.</p>';
-    return;
-  }
-  el.innerHTML = list.map(function(h, i) {
-    return '<button type="button" class="salesrep-hist-item" data-idx="' + i + '">' +
-      esc(h.firma || '—') + ' <span class="salesrep-hist-date">' + esc(h.at || '') + '</span></button>';
-  }).join('');
-  el.querySelectorAll('.salesrep-hist-item').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      const h = list[parseInt(btn.dataset.idx, 10)];
-      if (!h) return;
-      fillForm('srPage', h);
-      const form = {
-        firma: h.firma || '',
-        website: h.website || '',
-        stadt: h.stadt || '',
-        gewerk: h.gewerk || '',
-      };
-      if (h.report) {
-        loadChatExchange(true, form, h.report);
-        S.salesrepReport = h.report;
-        S.salesrepContactId = null;
-        renderApplySection(null, null, applyId(true));
-      }
-    });
-  });
-}
-
 export function openSalesRepPop(contactId) {
   S.salesrepContactId = contactId || null;
   S.salesrepReport = null;
@@ -273,8 +234,8 @@ export function openSalesRepPop(contactId) {
   });
   const meta = document.getElementById('srMeta');
   if (meta) meta.textContent = c ? ('Lead: ' + (c.firma || '—')) : 'Freie Recherche';
-  welcomeChat(false);
-  setLoading(false, 'sr');
+  welcomeChat();
+  setLoading(false);
   pop.classList.add('on');
 }
 
@@ -285,19 +246,18 @@ export function closeSalesRepPop() {
   S.salesrepReport = null;
 }
 
-export async function salesRepRun(fromPage) {
-  const prefix = fromPage ? 'srPage' : 'sr';
-  const form = readForm(prefix);
+export async function salesRepRun() {
+  const form = readForm('sr');
   if (!form.firma) {
     toast('Bitte Firmennamen eingeben.');
     return;
   }
-  const contactId = fromPage ? null : S.salesrepContactId;
+  const contactId = S.salesrepContactId;
   const c = contactId ? getContact(contactId) : null;
   const mode = contactId ? 'contact' : 'free';
 
-  appendChatMsg(fromPage, 'user', userMessageHtml(form));
-  setLoading(true, prefix);
+  appendChatMsg('user', userMessageHtml(form));
+  setLoading(true);
 
   try {
     const resp = await whFetch('wf9-salesrep', {
@@ -312,9 +272,9 @@ export async function salesRepRun(fromPage) {
     const report = await parseSalesRepResponse(resp);
 
     S.salesrepReport = report;
-    appendChatMsg(fromPage, 'assistant', reportHtml(report));
+    appendChatMsg('assistant', reportHtml(report));
 
-    renderApplySection(report, contactId, applyId(fromPage));
+    renderApplySection(report, contactId);
 
     pushHistory({
       at: new Date().toISOString().slice(0, 16).replace('T', ' '),
@@ -324,15 +284,13 @@ export async function salesRepRun(fromPage) {
       gewerk: form.gewerk,
       report: report,
     });
-    if (fromPage) renderHistoryList();
-
     toast('Recherche abgeschlossen.');
   } catch (e) {
-    appendChatMsg(fromPage, 'assistant',
+    appendChatMsg('assistant',
       '<p class="salesrep-msg-error">Fehler: ' + esc(e.message) + '</p>');
     toast('Sales Rep Assistant: ' + e.message);
   } finally {
-    setLoading(false, prefix);
+    setLoading(false);
   }
 }
 

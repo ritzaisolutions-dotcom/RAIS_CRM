@@ -177,7 +177,6 @@ export async function calCreate() {
     persist();
     pushDirty();
     if (typeof window.render === 'function') window.render();
-    if (typeof window.refreshTermineAgenda === 'function') window.refreshTermineAgenda();
     toast('Kalendereintrag angelegt: ' + (c.firma || meta.title) + '.');
     if (data.htmlLink) {
       setTimeout(function() {

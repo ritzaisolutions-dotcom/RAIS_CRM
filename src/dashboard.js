@@ -85,8 +85,6 @@ export function dashGoProspecting(filter) {
   else setF(filter || 'all');
 }
 
-export function dashGoClients() { navigateTo('clients'); }
-
 export function toggleDashSecondary() {
   const body = document.getElementById('dash-secondary-body');
   const btn = document.getElementById('dash-secondary-toggle');

@@ -3,10 +3,7 @@ import { SB_URL, SB_KEY } from '../src/supabase.js';
 const N8N = {
   'wf7-compose': 'https://n8n.ritz-ai.solutions/webhook/wf7-compose',
   'wf8-calendar': 'https://n8n.ritz-ai.solutions/webhook/wf8-calendar',
-  'wf9-salesrep': 'https://n8n.ritz-ai.solutions/webhook/wf9-salesrep',
   'wf10-calendar-week': 'https://n8n.ritz-ai.solutions/webhook/wf10-calendar-week',
-  'wf11-notion-read': 'https://n8n.ritz-ai.solutions/webhook/wf11-notion-read',
-  'wf12-notion-update': 'https://n8n.ritz-ai.solutions/webhook/wf12-notion-update',
 };
 
 export default async function handler(req, res) {
@@ -39,9 +36,14 @@ export default async function handler(req, res) {
   const payload = Object.assign({}, body);
   delete payload.workflow;
 
-  const proxyHeaders = { 'Content-Type': 'application/json' };
   const proxySecret = process.env.N8N_PROXY_SECRET;
-  if (proxySecret) proxyHeaders['X-CRM-Proxy-Secret'] = proxySecret;
+  if (!proxySecret) {
+    return res.status(500).json({ error: 'N8N_PROXY_SECRET fehlt' });
+  }
+  const proxyHeaders = {
+    'Content-Type': 'application/json',
+    'X-CRM-Proxy-Secret': proxySecret,
+  };
 
   const n8nRes = await fetch(target, {
     method: 'POST',

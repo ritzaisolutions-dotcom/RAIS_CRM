@@ -9,7 +9,7 @@ const PAGES = [
   { id: 'sessions',    icon: '🏁', label: 'Sessions'    },
 ];
 
-let _currentPage = 'prospecting';
+let _currentPage = 'dashboard';
 
 export function navigateTo(pageId) {
   document.querySelectorAll('.rais-page').forEach(function(el) {

@@ -1,5 +1,5 @@
 /**
- * Live smoke tests for WF7, WF8, WF9 webhooks.
+ * Live smoke tests for WF7 and WF8 webhooks.
  * Usage: node scripts/test-wf789.js
  *
  * WARNUNG: Ruft n8n-Webhooks DIREKT auf (nicht /api/n8n-proxy).
@@ -67,7 +67,7 @@ function verdict(r, checks) {
 }
 
 async function main() {
-  console.log('Testing WF7 / WF8 / WF9 @ ' + WH_BASE + '\n');
+  console.log('Testing WF7 / WF8 @ ' + WH_BASE + '\n');
 
   const wf7preview = await call('WF7 preview', WH_BASE + 'wf7-compose', {
     contact_id: 'test-contact',
@@ -121,29 +121,6 @@ async function main() {
     { ok: !wf8demo.empty, msg: 'Leerer Response-Body (Google Calendar Credentials?)' },
     { ok: wf8demo.data && wf8demo.data.ok === true, msg: 'ok !== true' },
     { ok: wf8demo.data && wf8demo.data.event_id, msg: 'Kein event_id' },
-  ]));
-
-  const wf9invalid = await call('WF9 missing firma', WH_BASE + 'wf9-salesrep', {
-    mode: 'free', firma: '',
-  }, { timeoutMs: 15000 });
-  results.push(verdict(wf9invalid, [
-    { ok: wf9invalid.status === 400, msg: 'HTTP ' + wf9invalid.status + ' (erwartet 400)' },
-    { ok: wf9invalid.data && wf9invalid.data.error, msg: 'Keine error-Meldung' },
-  ]));
-
-  const wf9research = await call('WF9 research', WH_BASE + 'wf9-salesrep', {
-    mode: 'free',
-    firma: 'Elektro Lenz und Mildenberger GmbH',
-    website: '',
-    stadt: '',
-    gewerk: 'Elektro',
-    notiz: '',
-  }, { timeoutMs: 120000 });
-  results.push(verdict(wf9research, [
-    { ok: wf9research.status === 200, msg: 'HTTP ' + wf9research.status },
-    { ok: !wf9research.empty, msg: 'Leerer Response-Body (Gemini-Node bricht ab — WF9 in n8n prüfen)' },
-    { ok: wf9research.data && wf9research.data.ok === true, msg: 'ok !== true' },
-    { ok: wf9research.data && wf9research.data.report && wf9research.data.report.summary, msg: 'Kein report.summary' },
   ]));
 
   let passed = 0;

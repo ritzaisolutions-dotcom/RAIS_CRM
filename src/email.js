@@ -2,7 +2,6 @@ import { S } from './state.js';
 import { markDirty, persist, pushDirty, syncCloud } from './sync.js';
 import { esc, toast } from './ui.js';
 import { td } from './utils.js';
-import { openP } from './prospecting.js';
 import { whFetch } from './wh.js';
 import { recordCallTouchEvent } from './call-events.js';
 
@@ -120,14 +119,6 @@ export function emailPanelHtml(c) {
   }
   html += '</div>';
   return html;
-}
-
-export function openEsPanel(id) {
-  openP(id);
-  setTimeout(function() {
-    const el = document.getElementById('pEmailSec');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, 100);
 }
 
 function _mailComposeContact() {

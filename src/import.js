@@ -149,7 +149,9 @@ export function doImport() {
     S.contacts.push(c);
     added++;
   });
-  persist(); closeI(); render();
+  persist();
+  closeI();
+  if (typeof window.render === 'function') window.render();
   toast(added + ' importiert' + (skipped ? ', ' + skipped + ' Duplikate übersprungen.' : '.'));
   S.ibuf = [];
 }

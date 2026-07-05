@@ -11,10 +11,11 @@ Kanonischer Export-Ordner für alle n8n-Workflows.
 | `WF3_Enrich.json` | wf3-enrich | Kontakt/Email/Social Media anreichern |
 | `WF7_Compose.json` | wf7-compose | CRM Einzelmail (kevin@ritz-ai.solutions) |
 | `WF8_Calendar.json` | wf8-calendar | CRM Demo/Rückruf → Google Kalender |
-| `WF9_SalesRep.json` | wf9-salesrep | CRM Sales Rep Assistant (Gemini) |
+| `WF9_SalesRep.json` | wf9-salesrep | Sales Rep Assistant (nicht mehr im Frontend angebunden) |
 | `WF10_CalendarWeek.json` | wf10-calendar-week | Kalender-Wochenansicht |
+| `WF13_LinkedInAccept.json` | wf13-linkedin-accept | Gmail-Postfach lesen, LinkedIn-Connection-Akzeptanz → `connected` |
 
-WF11/WF12 (Notion) sind im Proxy definiert, noch ohne JSON-Export im Repo.
+WF11/WF12 (Notion) sind derzeit nicht im aktiven CRM-Flow eingebunden.
 
 ## Deprecated Exports
 
@@ -24,7 +25,7 @@ Legacy-Workflow-Exporte liegen aus historischen Gründen in `n8n-workflows/depre
 - `deprecated/WF5_Email2.json`
 - `deprecated/WF6_Email3.json`
 
-Diese Flows sind im CRM-UI nicht mehr aktiv und dienen nur als Referenz.
+Diese Flows sind im CRM-UI nicht mehr aktiv und dienen nur als Referenz. In n8n sollen sie deaktiviert oder gelöscht bleiben.
 
 ## Webhook-Endpunkte
 
@@ -34,20 +35,23 @@ Basis-URL: `https://n8n.ritz-ai.solutions/webhook/`
 |---------|------|
 | WF1–WF3 | `wf1-discover` … `wf3-enrich` |
 | WF4–WF6 (deprecated) | `wf4-email1` … `wf6-email3` |
-| WF7–WF12 | `wf7-compose` … `wf12-notion-update` |
+| WF7–WF10 | `wf7-compose` … `wf10-calendar-week` |
+| WF13 (Scheduler) | kein Webhook (zeitgesteuert) |
 
 ## Auth
 
-- **WF7–WF12:** CRM → `api/n8n-proxy.js` (Supabase JWT) → n8n mit Header `X-CRM-Proxy-Secret`
-- **WF1–WF6:** serverseitig in n8n; Supabase via `$env.SUPABASE_SERVICE_ROLE_KEY`
+- **WF7–WF10:** CRM → `api/n8n-proxy.js` (Supabase JWT) → n8n mit Header `X-CRM-Proxy-Secret`
+- **WF1–WF3:** serverseitig in n8n; Webhook-Pfad zusätzlich via `N8N_PROXY_SECRET` abgesichert; Supabase via `$env.SUPABASE_SERVICE_ROLE_KEY`
+- **WF4–WF6 (deprecated):** in n8n deaktivieren/löschen
+- **WF13:** serverseitig zeitgesteuert; liest Gmail und schreibt via Service Role nach `linkedin_outreach`
 
 ## Secrets (n8n Environment, nicht in JSON)
 
 | Variable | Verwendung |
 |----------|------------|
-| `SUPABASE_SERVICE_ROLE_KEY` | WF1–WF6 Supabase-Zugriff |
+| `SUPABASE_SERVICE_ROLE_KEY` | WF1–WF6 + WF13 Supabase-Zugriff |
 | `GOOGLE_MAPS_API_KEY` | WF1, WF2 Places API |
-| `N8N_PROXY_SECRET` | WF7–WF12 Proxy-Header-Prüfung |
+| `N8N_PROXY_SECRET` | WF1–WF3 (Webhook) + WF7–WF10 Proxy-Header-Prüfung |
 
 ## Deploy
 

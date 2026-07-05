@@ -24,6 +24,16 @@
     },
     {
       "parameters": {
+        "jsCode": "const _hdrs = ($input.first().json.headers || {});\nconst _expected = $env.N8N_PROXY_SECRET;\nconst _got = _hdrs['x-crm-proxy-secret'] || _hdrs['X-CRM-Proxy-Secret'] || '';\nif (!_expected || _got !== _expected) throw new Error('Unauthorized');\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-1136, 1040],
+      "id": "auth-wf1",
+      "name": "Proxy Secret Check"
+    },
+    {
+      "parameters": {
         "assignments": {
           "assignments": [
             {
@@ -279,7 +289,8 @@
   ],
   "pinData": {},
   "connections": {
-    "Webhook": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
+    "Webhook": { "main": [[{ "node": "Proxy Secret Check", "type": "main", "index": 0 }]] },
+    "Proxy Secret Check": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
     "Manual Trigger": { "main": [[{ "node": "Config", "type": "main", "index": 0 }]] },
     "Config": { "main": [[{ "node": "GET Coordinates", "type": "main", "index": 0 }]] },
     "GET Coordinates": { "main": [[{ "node": "Extract Location", "type": "main", "index": 0 }]] },

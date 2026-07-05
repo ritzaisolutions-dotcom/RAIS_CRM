@@ -1,5 +1,5 @@
 import { S, PG, STATUS, TSTAT, TSCLS, LEAD_ORIGIN, LEBENSBEREICHE, PURGE_STATUSES, KEIN_ANSCHLUSS_STAGES } from './state.js';
-import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite, normalizeGewerk, getCustomGewerke, addCustomGewerk, isColdLead, getSocials, syncLeadTemp, deriveLeadTemp, normalizeContactStatus, isKeinAnschlussStatus, nextKeinAnschlussStatus, keinAnschlussStage, countKeinAnschlussContacts } from './utils.js';
+import { gid, td, relAge, gewerkKuerzel, gewerkSlug, normalizeWebsite, normalizeGewerk, getCustomGewerke, addCustomGewerk, isColdLead, getSocials, syncLeadTemp, normalizeContactStatus, isKeinAnschlussStatus, nextKeinAnschlussStatus, keinAnschlussStage, countKeinAnschlussContacts } from './utils.js';
 import { sbadge, roib, fdc, esc, ir, toast, originBadge, tempBadge, socialIconsHtml, syncStatusSelectColor } from './ui.js';
 import { markDirty, schedulePersist, schedulePushDirty, isAktionNoetig, pushGewerkCloud, bumpContactsRev } from './sync.js';
 import { sbDelete, sbUpsert } from './supabase.js';
@@ -291,6 +291,21 @@ function recordKeinAnschlussAttempt(c, prevStatus) {
 function applyLoeschenStatus(c, prevStatus) {
   c.status = 'loeschen';
   c.status_changed_at = td();
+  touchContactNow(c);
+  touchLastContacted(c);
+  bumpCall();
+  if (!c.touches) c.touches = [];
+  const touchLabel = touchLabelForStatus(c.status);
+  c.touches.push({ status: touchLabel, datum: td(), notiz: '' });
+  recordCallTouchEvent({
+    contactId: c.id,
+    contactName: c.firma || c.company_name || '',
+    statusFrom: prevStatus,
+    statusTo: c.status,
+    touchLabel: touchLabel,
+    source: 'inline_status',
+    occurredAt: td(),
+  });
   markDirty(c);
   schedulePersist();
   closeP();
@@ -704,9 +719,9 @@ export function openP(id) {
     tHtml +
     (c.besonderheit ? '<div class="sh">Website-Analyse</div><div style="font-family:sans-serif;font-size:13px;background:#F5F2EC;border:1px solid #D9D1C7;border-radius:5px;padding:10px 13px;line-height:1.6;margin-bottom:8px">' + esc(c.besonderheit) + '</div>' : '') +
     '<div class="sh">Website-Info</div>' +
-    ir('Alter',    c.webseite_alter || '—') +
-    ir('Leistung', c.hauptleistung  || '—') +
-    ir('Reviews',  c.reviews        || '—') +
+    ir('Alter',    esc(c.webseite_alter || '—')) +
+    ir('Leistung', esc(c.hauptleistung  || '—')) +
+    ir('Reviews',  esc(c.reviews        || '—')) +
     '<div class="ir"><span class="il">Website</span><div class="iv"><div class="pills">' +
       '<span class="pill ' + (wsOk ? 'py' : 'pn2') + '">' + (wsOk ? '&#10003; vorhanden' : '&#10007; keine Website') + '</span>' +
       '<span class="pill ' + (kalk ? 'py' : 'pn2') + '">' + (kalk ? '&#10003; Kalkulator' : '&#10007; kein Kalkulator') + '</span>' +
@@ -923,6 +938,18 @@ export function inlineST(sel) {
   }
   c.status = next;
   if (prev === c.status) return;
+  if (!c.touches) c.touches = [];
+  const touchLabel = touchLabelForStatus(c.status);
+  c.touches.push({ status: touchLabel, datum: td(), notiz: '' });
+  recordCallTouchEvent({
+    contactId: c.id,
+    contactName: c.firma || c.company_name || '',
+    statusFrom: prev,
+    statusTo: c.status,
+    touchLabel: touchLabel,
+    source: 'inline_status',
+    occurredAt: td(),
+  });
   touchLastContacted(c);
   clearTablePin();
   bumpCall();

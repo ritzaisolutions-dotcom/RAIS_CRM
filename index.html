@@ -862,33 +862,6 @@
   </div>
 </div>
 
-<!-- Sales Rep Assistant (Rechtsklick / Tab) — eingebetteter Chat -->
-<div class="ovl" id="salesrepPop">
-  <div class="modal salesrep-pop-modal salesrep-chat-modal">
-    <div class="mh">
-      <h2>Sales Rep Assistant</h2>
-      <button type="button" class="btn bg" onclick="closeSalesRepPop()">&#10005;</button>
-    </div>
-    <div class="mb salesrep-chat-body">
-      <p class="salesrep-pop-meta" id="srMeta">—</p>
-      <div id="srChat" class="salesrep-chat-messages" role="log" aria-live="polite"></div>
-      <div id="srApply" class="salesrep-apply" hidden></div>
-    </div>
-    <div class="salesrep-chat-composer">
-      <div class="salesrep-composer-grid">
-        <input type="text" id="srFirma" class="fs2" placeholder="Firma *" aria-label="Firma">
-        <input type="text" id="srWebsite" class="fs2" placeholder="Website" aria-label="Website">
-        <input type="text" id="srStadt" class="fs2" placeholder="Stadt" aria-label="Stadt">
-        <input type="text" id="srGewerk" class="fs2" placeholder="Gewerk" aria-label="Gewerk">
-      </div>
-      <div class="salesrep-composer-actions">
-        <button type="button" class="btn bs bsm" onclick="closeSalesRepPop()">Schließen</button>
-        <button type="button" class="btn bp bsm" id="srRunBtn" onclick="salesRepRun(false)">Recherche starten</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ── Call Mode Overlay (mobile) ─────────────────────────────────────────── -->
 <div id="call-mode">
   <div id="cm-header">
@@ -971,15 +944,14 @@ import { syncStatusSelectColor } from './src/ui.js';
 import { renderCalls, resetCallCount } from './src/calls.js';
 import { addTouch, toggleAcc, saveTF } from './src/touch.js';
 import { openImport, closeI, dzOv, dzLv, dzDr, rdCSV, doImport, exportCSV } from './src/import.js';
-import { openEsPanel, openMailCompose, closeMailCompose, mailComposeSetMode, mailComposeGenerate, mailComposeSend, markReply, markUnsub } from './src/email.js';
+import { openMailCompose, closeMailCompose, mailComposeSetMode, mailComposeGenerate, mailComposeSend, markReply, markUnsub } from './src/email.js';
 import { openCalPop, closeCalPop, calCreate, maybeOfferCalendar } from './src/calendar.js';
 import { initContextMenu, ctxAction, showCtxMenuAtEvent } from './src/contextmenu.js';
 import { loadClients, renderClients, openClientAdd, openClientEdit, closeClientModal, saveClient, delClient, openClPanel, closeClPanel } from './src/clients.js';
 import './src/dashboard.js';
-import { dashGoProspecting, dashGoClients, toggleDashSecondary } from './src/dashboard.js';
+import { dashGoProspecting, toggleDashSecondary } from './src/dashboard.js';
 import { renderNetwork, openNwAdd, openNwEdit, closeNwModal, saveNw, delNw, openNwPanel, closeNwPanel, openNwBulkPaste, closeNwBulkPaste, saveNwBulkPaste } from './src/network.js';
 import { showDemoTodoPopup, saveDemoTodos, closeDemoTodoPop, openQuickTodo, saveQuickTodo, closeQuickTodo } from './src/todopop.js';
-import { openSalesRepPop, closeSalesRepPop, salesRepRun, salesRepApplyToContact } from './src/salesrep.js';
 import { initSidebar } from './src/sidebar.js';
 import { initHeaderWidget, initSessionsPage } from './src/sessions.js';
 import { initMobile } from './src/mobile.js';
@@ -987,7 +959,7 @@ import { loadDmLeads, renderDm, setDmF, goDmPg, scheduleDmRender, inlineDmStatus
 
 // ── Keys ──────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeSalesRepPop(); closeClPanel(); closeDmPanel(); closeDmModal(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); closeQuickAdd(); closeNwModal(); closeNwPanel(); closeNwBulkPaste(); }
+  if (e.key === 'Escape') { closeP(); closeE(); closeI(); closeQN(); closeAktionPop(); closeMailCompose(); closeCalPop(); closeClPanel(); closeDmPanel(); closeDmModal(); closeDemoTodoPop(); closeQuickTodo(); closePurgeVersicherung(); closePurgeDq(); closeSessionCelebration(); closeQuickAdd(); closeNwModal(); closeNwPanel(); closeNwBulkPaste(); }
   const tag = document.activeElement.tagName;
   const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
   if (inInput) return;
@@ -999,6 +971,8 @@ document.addEventListener('keydown', function(e) {
 });
 
 
+await window._authReady;
+
 initSidebar();
 initHeaderWidget(document.getElementById('sph-widget'));
 initContextMenu();
@@ -1006,8 +980,6 @@ initContextMenu();
 window.addEventListener('rais:page-change', function(e) {
   if (e.detail.page === 'sessions') initSessionsPage(document.getElementById('sessions-history-container'));
 });
-
-await window._authReady;
 
 window.loadCrmData = async function() {
   load();
@@ -1043,19 +1015,19 @@ document.addEventListener('click', function(e) {
 });
 
 Object.assign(window, {
-  addTouch, calCreate, closeCalPop, closeClientModal, closeClPanel, closeDemoTodoPop, closeE, closeMailCompose, closeSalesRepPop,
+  addTouch, calCreate, closeCalPop, closeClientModal, closeClPanel, closeDemoTodoPop, closeE, closeMailCompose,
   closeI, closeP, closePurgeDq, closeQN, closeQuickTodo, closeQuickAdd, ctxAction, del, delClient, doImport, doSort,
   closeNwModal, closeNwPanel, delNw, openNwAdd, openNwEdit, openNwPanel, openNwBulkPaste, closeNwBulkPaste, saveNwBulkPaste, renderNetwork, saveNw, saveQuickAdd,
   dzDr, dzLv, dzOv, exportCSV, filterDue, goPg,
   inlineFU, inlineFUFocus, inlineFUBlur, inlineST, inlineHVNum,
   mailComposeGenerate, mailComposeSend, mailComposeSetMode,
   markReply, markUnsub, notizKey, openAdd, openClientAdd, openClientEdit,
-  openCalPop, openClPanel, openE, openEsPanel, openImport, openMailCompose, openP, openPurgeDq, openPurgeVersicherung, openSalesRepPop, salesRepRun, salesRepApplyToContact, showCtxMenuAtEvent,
+  openCalPop, openClPanel, openE, openImport, openMailCompose, openP, openPurgeDq, openPurgeVersicherung, showCtxMenuAtEvent,
   openQN, openQuickTodo, openQuickAdd, applyColPreset, purgeDq, purgeVersicherungsmakler, qs, rdCSV, render, renderClients, resetCallCount, scheduleRender,
   save, saveClient, saveDemoTodos, saveNotiz, saveQN, saveQuickTodo, saveTF,
   setF, shiftFU, toggleDealField, syncStatusSelectColor,
   syncCloud, doLogout, toggleAcc, toggleCol, toggleColMenu, toggleMobileMenu, closePurgeVersicherung, closeSessionCelebration,
-  dashGoProspecting, dashGoClients, toggleDashSecondary,
+  dashGoProspecting, toggleDashSecondary,
   openAktionPop, closeAktionPop, saveAktionPop, clearAktionPop, fillAktionSuggestion, checkAktionItem, scrollToAktionQueue,
   loadDmLeads, renderDm, setDmF, goDmPg, scheduleDmRender, inlineDmStatus, inlineDmDate, saveDmNotiz, openDmAdd, openDmEdit, closeDmModal, saveDm, delDm, openDmPanel, closeDmPanel,
 });

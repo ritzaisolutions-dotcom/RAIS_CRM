@@ -1,5 +1,5 @@
 import { sbGet, sbUpsert, sbDelete } from './supabase.js';
-import { toast, esc } from './ui.js';
+import { toast, esc, escJs } from './ui.js';
 import { navigateTo } from './sidebar.js';
 import { S, STATUS, STATUS_GROUPS, SESSION_SKIP_STATUSES } from './state.js';
 import { weekStart, isKeinAnschlussStatus } from './utils.js';
@@ -66,9 +66,9 @@ function normalizeActiveSession() {
 }
 
 function applyCallingColPreset() {
-  S.colVis = { stadt: false, region: false, gewerk: false, origin: true, temp: false, lebensbereich: false };
+  S.colVis = { stadt: false, region: false, gewerk: false, origin: true, temp: false, lebensbereich: false, ma: true, objekte: true };
   localStorage.setItem('rais_crm_colvis', JSON.stringify(S.colVis));
-  ['stadt', 'region', 'gewerk', 'origin', 'temp', 'lebensbereich'].forEach(function(k) {
+  ['stadt', 'region', 'gewerk', 'origin', 'temp', 'lebensbereich', 'ma', 'objekte'].forEach(function(k) {
     const cb = document.getElementById('cv-' + k);
     if (cb) cb.checked = !!S.colVis[k];
   });
@@ -223,6 +223,11 @@ export async function startSession(config) {
   const timerMode = config.timerMode || 'free';
   const targetSeconds = config.targetSeconds || null;
   try {
+    await sbUpsert('/rest/v1/crm_sessions?is_active=eq.true', [{
+      is_active: false,
+      is_paused: false,
+      ended_at: new Date().toISOString(),
+    }]);
     await sbUpsert('/rest/v1/crm_sessions', [{
       timer_mode: timerMode,
       timer_target_seconds: targetSeconds,
@@ -246,7 +251,6 @@ export async function startSession(config) {
     _saveSession();
     timerInterval = setInterval(renderWidget, 1000);
     renderWidget();
-    toast('▶ Session gestartet.');
     
     // Automatischer Fokus-Preset: Zu kompaktem 'Telefonier'-Preset wechseln (kognitiver Ballast reduzieren)
     try {
@@ -426,16 +430,13 @@ function renderAktionQueueHtml(hostEl, items, opts) {
     return;
   }
   hostEl.hidden = false;
-  const esc = function(s) {
-    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-  };
   let inner = '';
   if (open.length) {
     inner += open.map(function(item) {
       return '<label class="sc-aktion-row">' +
-        '<input type="checkbox" onchange="checkAktionItem(\'' + esc(item.contact_id) + '\')">' +
+        '<input type="checkbox" onchange="checkAktionItem(\'' + escJs(item.contact_id) + '\')">' +
         '<span class="sc-aktion-body">' +
-          '<span class="sc-aktion-firma" onclick="event.preventDefault();openP(\'' + esc(item.contact_id) + '\')">' + esc(item.contact_name) + '</span>' +
+          '<span class="sc-aktion-firma" onclick="event.preventDefault();openP(\'' + escJs(item.contact_id) + '\')">' + esc(item.contact_name) + '</span>' +
           (item.aktion_notiz ? '<span class="sc-aktion-notiz">' + esc(item.aktion_notiz) + '</span>' : '') +
         '</span></label>';
     }).join('');
@@ -695,7 +696,7 @@ function renderSessionCard(s) {
     '<div class="sp-card-head">' +
       '<div>' +
         '<div class="sp-card-date">📅 ' + dateStr + (timeStr ? ' · ' + timeStr + (endStr ? '–' + endStr : '') : '') + (dur !== '—' ? ' · ' + dur : '') + '</div>' +
-        '<div class="sp-card-name" id="sp-name-' + s.id + '" data-name="' + (s.name || '') + '">' + (s.name ? '"' + s.name + '"' : '<span style="color:var(--st);font-style:italic">Unbenannt</span>') + '</div>' +
+        '<div class="sp-card-name" id="sp-name-' + s.id + '" data-name="' + esc(s.name || '') + '">' + (s.name ? '"' + esc(s.name) + '"' : '<span style="color:var(--st);font-style:italic">Unbenannt</span>') + '</div>' +
       '</div>' +
       '<button class="btn bg bsm sp-rename-btn" data-id="' + s.id + '" title="Umbenennen">✏</button>' +
     '</div>' +
@@ -729,7 +730,7 @@ async function toggleSessionEvents(sessionId, btn) {
       const col = statusColor(ev.status_to);
       return '<div class="sp-event-row">' +
         '<span class="sp-event-time">' + t + '</span>' +
-        '<span class="sp-event-name">' + (ev.contact_name || '—') + '</span>' +
+        '<span class="sp-event-name">' + esc(ev.contact_name || '—') + '</span>' +
         '<span class="sp-event-arrow">→</span>' +
         '<span class="sp-event-status" style="color:' + col + '">' + statusLabel(ev.status_to) + '</span>' +
       '</div>';
@@ -769,10 +770,16 @@ function startRename(sessionId, containerEl) {
 export async function getSessionStats(period) {
   try {
     const start = weekStart(new Date());
+    let end = null;
     if (period === 'prev_week') {
+      end = new Date(start);
+      end.setMilliseconds(-1);
       start.setDate(start.getDate() - 7);
     }
-    const rows = await sbGet('/rest/v1/crm_sessions?is_active=eq.false&started_at=gte.' + start.toISOString() + '&select=leads_played,duration_seconds');
+    let path = '/rest/v1/crm_sessions?is_active=eq.false&started_at=gte.' + start.toISOString();
+    if (end) path += '&started_at=lte.' + end.toISOString();
+    path += '&select=leads_played,duration_seconds';
+    const rows = await sbGet(path);
     let totalLeads = 0;
     let totalMinutes = 0;
     (rows || []).forEach(function(r) {

@@ -74,7 +74,7 @@ function _renderCallCard() {
   const touchCount = validTouches.length;
   const lastTouch = validTouches[validTouches.length - 1];
   const gwBadge = c.gewerk
-    ? `<span class="gw-badge gw-${gewerkSlug(c.gewerk)}">${gewerkKuerzel(c.gewerk)}</span>`
+    ? `<span class="gw-badge gw-${esc(gewerkSlug(c.gewerk))}">${esc(gewerkKuerzel(c.gewerk))}</span>`
     : '';
   const stadtStr = c.stadt ? `<span style="font-size:13px;color:var(--st)">${esc(c.stadt)}</span>` : '';
 
@@ -299,7 +299,6 @@ function _showActionSheet(id) {
   if (c.email) {
     listEl.appendChild(_actionBtn('&#128231;', 'Email…', function() { if (window.openMailCompose) window.openMailCompose(id); }));
   }
-  listEl.appendChild(_actionBtn('&#127891;', 'Sales Rep…', function() { if (window.openSalesRepPop) window.openSalesRepPop(id); }));
   listEl.appendChild(_actionBtn('&#128197;', 'Rückruf planen', function() { if (window.openCalPop) window.openCalPop(id, 'rueckruf'); }));
   listEl.appendChild(_actionBtn('&#128197;', 'Demo / Sales Call', function() { if (window.openCalPop) window.openCalPop(id, 'demo'); }));
   listEl.appendChild(_actionBtn('&#128197;', 'Kundentermin', function() { if (window.openCalPop) window.openCalPop(id, 'kundentermin'); }));

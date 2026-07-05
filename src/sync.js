@@ -55,15 +55,22 @@ export function schedulePushDirty() {
   }, 1500);
 }
 
-export function flushPersistAndPush() {
-  if (_persistTimer) { clearTimeout(_persistTimer); _persistTimer = null; }
-  if (_pushTimer) { clearTimeout(_pushTimer); _pushTimer = null; }
-  persist();
-  return pushDirty();
-}
-
 function safeRender() {
   if (typeof window.render === 'function') window.render();
+}
+
+async function fetchAllContacts() {
+  const limit = 1000;
+  let offset = 0;
+  const rows = [];
+  while (true) {
+    const page = await sbGet('/rest/v1/crm_contacts?select=*&order=created.asc&limit=' + limit + '&offset=' + offset);
+    if (!Array.isArray(page) || !page.length) break;
+    rows.push.apply(rows, page);
+    if (page.length < limit) break;
+    offset += limit;
+  }
+  return rows;
 }
 
 export async function syncDmOverlapFlags(renderAfter) {
@@ -116,6 +123,7 @@ function contactToRow(c, now) {
     strasse: c.strasse || null,
     last_contacted_at: c.last_contacted_at || null,
     deal_value_eur: c.deal_value_eur != null ? c.deal_value_eur : null,
+    consent_basis: c.consent_basis || null,
     mitarbeiter_anzahl: c.mitarbeiter_anzahl != null ? c.mitarbeiter_anzahl : null,
     objekte_bestand: c.objekte_bestand != null ? c.objekte_bestand : null,
     synced_at: now,
@@ -124,11 +132,6 @@ function contactToRow(c, now) {
   if (extra) row.extra = extra;
   if (c.reviews)           row.reviews = c.reviews;
   if (c.besonderheit)      row.besonderheit = c.besonderheit;
-  if (c.email_1_sent)      row.email_1_sent = c.email_1_sent;
-  if (c.email_1_subject)   row.email_1_subject = c.email_1_subject;
-  if (c.email_2_sent)      row.email_2_sent = c.email_2_sent;
-  if (c.followup_sent)     row.followup_sent = c.followup_sent;
-  if (c.email_status)      row.email_status = c.email_status;
   if (c.unsubscribed)      row.unsubscribed = true;
   if (c.reply_received)    row.reply_received = true;
   return row;
@@ -174,11 +177,15 @@ export async function syncCloud(silent) {
   S.syncInProgress = true;
   if (S.autoSyncTimer) { clearTimeout(S.autoSyncTimer); S.autoSyncTimer = null; }
   const btn = document.getElementById('syncBtn');
-  btn.disabled = true;
-  btn.style.opacity = '1';
-  btn.textContent = '⟳ Sync…';
+  if (btn) {
+    btn.disabled = true;
+    btn.style.opacity = '1';
+    btn.textContent = '⟳ Sync…';
+  }
+  let uploadRows = null;
+  let uploadContacts = null;
   try {
-    const remote = await sbGet('/rest/v1/crm_contacts?select=*&order=created.asc&limit=10000');
+    const remote = await fetchAllContacts();
 
     const remoteById = {};
     remote.forEach(function(r) { remoteById[r.id] = r; });
@@ -188,8 +195,16 @@ export async function syncCloud(silent) {
       'source','lead_origin','lead_temp','is_external','lebensbereich','socials','plz','strasse',
       'last_contacted_at','deal_value_eur','consent_basis','mitarbeiter_anzahl','objekte_bestand'];
 
+    const dirtyIds = new Set();
+    S.contacts.filter(isDirtyContact).forEach(function(c) { dirtyIds.add(c.id); });
+    // Catch edits that happened while remote data was loading.
+    S.contacts.forEach(function(c) {
+      if (isDirtyContact(c)) dirtyIds.add(c.id);
+    });
     const dirtyLocalById = {};
-    S.contacts.filter(isDirtyContact).forEach(function(c) { dirtyLocalById[c.id] = c; });
+    S.contacts.forEach(function(c) {
+      if (dirtyIds.has(c.id)) dirtyLocalById[c.id] = c;
+    });
 
     const unsyncedLocal = Object.values(dirtyLocalById).filter(function(c) {
       return !remoteById[c.id];
@@ -210,7 +225,9 @@ export async function syncCloud(silent) {
       }
       if (!c.socials) c.socials = getSocials(c);
       if (local) {
-        LOCAL_WINS.forEach(function(f) { if (local[f] != null) c[f] = local[f]; });
+        LOCAL_WINS.forEach(function(f) {
+          if (Object.prototype.hasOwnProperty.call(local, f) && local[f] !== undefined) c[f] = local[f];
+        });
         if (local.extra && typeof local.extra === 'object') {
           c.extra = Object.assign({}, r.extra || {}, local.extra);
         } else if (r.extra) {
@@ -228,29 +245,36 @@ export async function syncCloud(silent) {
     );
 
     const now = new Date().toISOString();
-    const rows = S.contacts.filter(function(c) { return uploadIds.has(c.id); }).map(function(c) {
-      c.synced_at = now;
+    uploadContacts = S.contacts.filter(function(c) { return uploadIds.has(c.id); });
+    uploadRows = uploadContacts.map(function(c) {
       return contactToRow(c, now);
     });
-    for (let i = 0; i < rows.length; i += 50) {
-      await sbUpsert('/rest/v1/crm_contacts', rows.slice(i, i + 50));
+    for (let i = 0; i < uploadRows.length; i += 50) {
+      await sbUpsert('/rest/v1/crm_contacts', uploadRows.slice(i, i + 50));
     }
-    markRecentlyPushed(rows.map(function(r) { return r.id; }));
+    uploadContacts.forEach(function(c) { c.synced_at = now; });
+    markRecentlyPushed(uploadRows.map(function(r) { return r.id; }));
 
     persist();
     await syncGewerkeCloud();
     await syncLebensbereicheCloud();
     await syncDmOverlapFlags(false);
     safeRender();
-    toast('☁ Sync erfolgreich — ' + S.contacts.length + ' Kontakte.');
+    if (!silent) toast('☁ Sync erfolgreich — ' + S.contacts.length + ' Kontakte.');
   } catch(e) {
+    if (uploadContacts && uploadContacts.length) {
+      uploadContacts.forEach(function(c) { c.synced_at = null; });
+      persist();
+    }
     safeRender();
     if (!silent) toast('Sync fehlgeschlagen: ' + e.message);
   } finally {
     S.syncInProgress = false;
-    btn.disabled = false;
-    btn.style.opacity = '1';
-    btn.textContent = '☁ Sync';
+    if (btn) {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.textContent = '☁ Sync';
+    }
   }
 }
 
@@ -275,6 +299,7 @@ export async function pushDirty() {
     persist();
   } catch(e) {
     dirty.forEach(function(c) { c.synced_at = null; });
+    toast('Sync fehlgeschlagen: ' + e.message);
   } finally {
     S.syncInProgress = false;
     if (btn) { btn.textContent = '☁ Sync'; btn.style.opacity = '1'; btn.disabled = false; }

@@ -1,0 +1,311 @@
+{
+  "name": "WF13 — LinkedIn Accepts from Gmail",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [-960, 240],
+      "id": "sched-wf13",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-sb-url",
+              "name": "sb_url",
+              "value": "https://qdywaenmojdxhfxqbvun.supabase.co/rest/v1",
+              "type": "string"
+            },
+            {
+              "id": "cfg-sb-key",
+              "name": "sb_key",
+              "value": "={{ $env.SUPABASE_SERVICE_ROLE_KEY }}",
+              "type": "string"
+            },
+            {
+              "id": "cfg-label",
+              "name": "processed_label",
+              "value": "CRM-verarbeitet",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-752, 240],
+      "id": "cfg-wf13",
+      "name": "Config"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": true,
+        "simple": true,
+        "filters": {
+          "q": "from:(invitations@linkedin.com OR notifications-noreply@linkedin.com) (\"accepted your invitation\" OR \"hat Ihre Einladung angenommen\") -label:CRM-verarbeitet"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [-544, 240],
+      "id": "gmail-read-wf13",
+      "name": "Read LinkedIn Mails",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_ME",
+          "name": "Gmail OAuth2 — ritzaisolutions@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = $json;\nconst subject = String(msg.subject || '').trim();\nconst text = String(msg.textPlain || msg.snippet || msg.preview || '').trim();\nconst full = (subject + '\\n' + text).replace(/\\s+/g, ' ');\n\nconst patterns = [\n  /^(.*?)\\s+accepted your invitation/i,\n  /^(.*?)\\s+hat\\s+Ihre\\s+Einladung\\s+angenommen/i,\n  /accepted\\s+your\\s+invitation\\s*[:\\-]\\s*(.*)$/i,\n  /hat\\s+Ihre\\s+Einladung\\s+angenommen\\s*[:\\-]\\s*(.*)$/i\n];\n\nlet extracted = '';\nfor (const re of patterns) {\n  const m = full.match(re);\n  if (m && m[1]) {\n    extracted = m[1].replace(/^\"|\"$/g, '').trim();\n    break;\n  }\n}\n\nif (extracted.includes(' auf LinkedIn')) extracted = extracted.split(' auf LinkedIn')[0].trim();\nif (extracted.includes(' on LinkedIn')) extracted = extracted.split(' on LinkedIn')[0].trim();\n\nreturn [{\n  json: {\n    message_id: msg.id,\n    thread_id: msg.threadId || null,\n    subject,\n    sender: msg.from || null,\n    extracted_name: extracted || null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-336, 240],
+      "id": "parse-wf13",
+      "name": "Extract Accepted Name"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.extracted_name }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [-128, 240],
+      "id": "if-name-wf13",
+      "name": "Name Found?"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $('Config').item.json.sb_url }}/linkedin_outreach",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config').item.json.sb_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config').item.json.sb_key }}"
+            }
+          ]
+        },
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,name,linkedin_name,status"
+            },
+            {
+              "name": "status",
+              "value": "eq.connection_sent"
+            },
+            {
+              "name": "or",
+              "value": "name.ilike.*{{ encodeURIComponent($json.extracted_name) }}*,linkedin_name.ilike.*{{ encodeURIComponent($json.extracted_name) }}*"
+            },
+            {
+              "name": "limit",
+              "value": "5"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [80, 240],
+      "id": "lookup-wf13",
+      "name": "Lookup linkedin_outreach"
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(x => x.json).flat();\nconst src = $('Extract Accepted Name').item.json;\nif (!rows.length) {\n  return [{ json: { ...src, mode: 'no_match' } }];\n}\nif (rows.length > 1) {\n  return [{ json: { ...src, mode: 'ambiguous', candidates: rows.map(r => r.id) } }];\n}\nreturn [{ json: { ...src, mode: 'match', lead_id: rows[0].id } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [288, 240],
+      "id": "decide-wf13",
+      "name": "Decide Match"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "match",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [496, 240],
+      "id": "if-match-wf13",
+      "name": "Has Single Match?"
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $('Config').item.json.sb_url }}/linkedin_outreach?id=eq.{{ $json.lead_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config').item.json.sb_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config').item.json.sb_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ status: 'connected', updated_at: new Date().toISOString() }) }}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [704, 176],
+      "id": "patch-wf13",
+      "name": "Update Status connected"
+    },
+    {
+      "parameters": {
+        "operation": "addLabel",
+        "messageId": "={{ $('Extract Accepted Name').item.json.message_id }}",
+        "labelIds": "={{ $('Config').item.json.processed_label }}"
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [912, 176],
+      "id": "gmail-label-wf13",
+      "name": "Label Processed",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_ME",
+          "name": "Gmail OAuth2 — ritzaisolutions@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Config').item.json.sb_url }}/wf_runs",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $('Config').item.json.sb_key }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $('Config').item.json.sb_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "string",
+        "body": "={{ JSON.stringify({ wf: 'wf13', status: $json.mode || 'updated', lead_id: $json.lead_id || null, extracted_name: $json.extracted_name || null, finished_at: new Date().toISOString() }) }}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [1120, 240],
+      "id": "notify-wf13",
+      "name": "Notify wf_runs"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [[{ "node": "Config", "type": "main", "index": 0 }]]
+    },
+    "Config": {
+      "main": [[{ "node": "Read LinkedIn Mails", "type": "main", "index": 0 }]]
+    },
+    "Read LinkedIn Mails": {
+      "main": [[{ "node": "Extract Accepted Name", "type": "main", "index": 0 }]]
+    },
+    "Extract Accepted Name": {
+      "main": [[{ "node": "Name Found?", "type": "main", "index": 0 }]]
+    },
+    "Name Found?": {
+      "main": [
+        [{ "node": "Lookup linkedin_outreach", "type": "main", "index": 0 }],
+        [{ "node": "Notify wf_runs", "type": "main", "index": 0 }]
+      ]
+    },
+    "Lookup linkedin_outreach": {
+      "main": [[{ "node": "Decide Match", "type": "main", "index": 0 }]]
+    },
+    "Decide Match": {
+      "main": [[{ "node": "Has Single Match?", "type": "main", "index": 0 }]]
+    },
+    "Has Single Match?": {
+      "main": [
+        [{ "node": "Update Status connected", "type": "main", "index": 0 }],
+        [{ "node": "Notify wf_runs", "type": "main", "index": 0 }]
+      ]
+    },
+    "Update Status connected": {
+      "main": [[{ "node": "Label Processed", "type": "main", "index": 0 }]]
+    },
+    "Label Processed": {
+      "main": [[{ "node": "Notify wf_runs", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "meta": {
+    "description": "Zeitgesteuerter Workflow: liest LinkedIn-Connection-accept-Mails aus Gmail, matched offene linkedin_outreach-Leads (connection_sent) und setzt Status auf connected. Markiert verarbeitete Mails mit Label CRM-verarbeitet."
+  }
+}
