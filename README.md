@@ -1,35 +1,33 @@
 # RAIS CRM
 
-Statisches Sales-CRM (PWA) für Kaltakquise, Netzwerk, Clients und Sessions.
+Auth-first cold-call CRM on Supabase schema **`sales`**.
 
-## Stack
+## Routes
 
-- **Frontend:** Vanilla ES2020-Module, `index.html` + `src/`
-- **Hosting:** Vercel (kein Build-Step)
-- **Datenbank:** Supabase (Auth, REST, Realtime)
-- **Automation:** n8n (`n8n-workflows/`)
+| Path | Purpose |
+|------|---------|
+| `/login` | Email/password (Supabase Auth) |
+| `/liste` | Prospects (`v_call_liste`) |
+| `/kunden` | Customers (`v_kunden_liste`) |
+| `/firma/[companyId]` | Company detail |
 
-## Lokal starten
+## Setup
+
+1. Expose schema `sales` in Supabase Dashboard → Settings → API → Exposed schemas.
+2. Copy `.env.example` → `.env.local` and set URL + anon key.
+3. Log in with an existing Auth user (e.g. Kevin).
 
 ```bash
-npx serve .
-npm run validate   # vor Push
+npm install
+npm run dev
 ```
 
-## Deployment
+## Rules
 
-1. Push zu Git → Vercel deployed statische Dateien + `api/n8n-proxy.js`
-2. Env in Vercel: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `N8N_PROXY_SECRET`
-3. Supabase-Migrationen manuell anwenden (`supabase/migrations/`)
-4. n8n-Workflows aus `n8n-workflows/` importieren und Credentials setzen
+- Touchpoints append-only
+- Never hard-delete companies — exclude or `gdpr_anonymize`
+- Status / last / next touch from views only
+- Never write `bundesland` / `region`
+- No service-role key in the browser
 
-## Seiten
-
-Dashboard · Netzwerk · Prospects · Clients · Sessions
-
-## Weitere Docs
-
-- [CLAUDE.md](CLAUDE.md) — Entwickler-Handbuch
-- [SECURITY.md](SECURITY.md) — Sicherheit & Secrets
-- [PRIVACY.md](PRIVACY.md) — Datenschutz
-- [TECHNICAL_AUDIT_GUIDE.md](TECHNICAL_AUDIT_GUIDE.md) — Pre-Deploy-Checkliste
+See `SECURITY.md` and `PRIVACY.md` (Löschkonzept / Art.17).

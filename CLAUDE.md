@@ -1,94 +1,41 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for working in this repository.
 
 ## Commands
 
 ```bash
-# Validate HTML structure and inline script syntax before pushing
-npm run validate
+npm run dev
+npm run lint
+npm run build
 ```
-
-There is no build step, dev server, or bundler. The app runs as static files served directly. To test locally, open `index.html` via a static file server (e.g. `npx serve .` or VS Code Live Server).
 
 ## Architecture
 
-This is a **static, no-build CRM** — a single `index.html` entry point that loads ES modules from `src/`. There is no framework, no bundler, no transpilation. All JS is plain ES2020+ loaded via `<script type="module">`. It is also a PWA (`manifest.json`, service worker) installable on desktop and mobile.
+Next.js App Router + TypeScript + Tailwind. Data lives in Supabase schema **`sales`**. Browser client uses anon key + user JWT (`db.schema: 'sales'`). RLS requires `auth.uid() IS NOT NULL`.
 
-### Module layout (`src/`)
+### Surface
 
-| File | Responsibility |
-|---|---|
-| `state.js` | Single shared mutable object `S`, all constants (`STATUS`, `TSTAT`, `PG`, keys) |
-| `supabase.js` | Raw fetch wrappers for Supabase REST API (`sbGet`, `sbUpsert`, `sbDelete`); holds `SB_URL`, `SB_KEY`, and the mutable auth token |
-| `auth.js` | Login wall; uses Supabase JS client loaded from CDN; calls `setAuthToken` and triggers `syncCloud` on success |
-| `sync.js` | `localStorage` persistence (`persist`, `load`), full cloud sync (`syncCloud`), and incremental dirty-push (`pushDirty`); local-wins merge strategy for dirty contacts |
-| `realtime.js` | Supabase Realtime subscription; applies remote INSERT/UPDATE/DELETE to `S.contacts` only when not dirty |
-| `sidebar.js` | Navigation: `initSidebar()`, `navigateTo(pageId)`, collapse/expand, mobile bottom nav; fires `rais:page-change` custom event on navigation |
-| `sessions.js` | Cold call session tracker — start/pause/resume/end/discard; header widget timer; sessions history page with breakdown bars and event log; persists active session in `localStorage` under `SESSION_KEY` |
-| `prospecting.js` | Main contact list (filtering, sorting, pagination, detail panel, edit/add/delete, touch history, call counter) |
-| `email.js` | Compose modal + send via n8n WF7 (`wf7-compose`); legacy WF4–WF6 removed from UI |
-| `calendar.js` | Google Calendar via WF8 (`wf8-calendar`, ritzaisolutions@gmail.com): Demo/Sales, Rückruf, Kundentermin (je 15 Min); Rechtsklick + Popup; syncs `followup` + `extra.google_cal` |
-| `contextmenu.js` | Right-click menu on contact rows/cards (mark, email, sales rep, delete) |
-| `salesrep.js` | Sales Rep Assistant — modal + tab, WF9 (`wf9-salesrep`), history in `rais_salesrep_history` |
-| `dashboard.js` | Dashboard KPIs und Charts |
-| `network.js` | Persönliches Netzwerk (`crm_network`) |
-| `analytics.js` | Funnel-, Touch- und Revenue-Berechnungen für Dashboard |
-| `mobile.js` | Mobile-native Kaltakquise: Call Mode Overlay, Quick-Log Bottom-Sheet, Long-Press Action Sheet; init via `initMobile()` nach Auth |
-| `clients.js` | Clients tab — CRUD for signed clients stored in `crm_clients`; listens on `rais:page-change` for lazy init |
-| `calls.js` | Daily/weekly call counter stored in a separate `localStorage` key |
-| `import.js` | CSV import — flexible column-name matching, deduplication by phone/website |
-| `touch.js` | Touch (call attempt) history rendering and mutation helpers |
-| `ui.js` | Shared rendering primitives: `sbadge`, `roib`, `fdc`, `esc`, `ir`, `toast` |
-| `utils.js` | Pure helpers: `gid` (UUID v4), `td` (today ISO string), `relAge`, `gewerkKuerzel`, `gewerkSlug` |
+- `/liste` — Prospects (`v_call_liste`)
+- `/kunden` — Kunden (`v_kunden_liste`)
+- `/firma/[id]` — Detail (qualification edits, people CRUD, append-only touches, opportunities)
+- `/login` — Supabase Auth
 
-### Data flow
+### Non-goals
 
-- `S.contacts` is the in-memory source of truth for the Prospecting tab.
-- Writes mark a contact dirty (`synced_at = null`). `pushDirty()` auto-syncs after edits; `syncCloud()` does a full bidirectional merge.
-- Merge rule: `LOCAL_WINS` fields (`status`, `followup`, `roi`, `notiz`, `kontakt`, `title`, `telefon`, `email`, `touches`, `status_changed_at`, `firma`, `website`, `gewerk`, `stadt`, `region`) always use the local value when a contact is dirty.
-- Clients live in a separate `crm_clients` table; no local cache, always fetched fresh.
+Kanban, charts reinventing `v_akquise_*`, bulk-edit, import UI, Notion freeform columns, Sessions, Network, n8n compose UI, service-role in client.
 
-### Supabase tables
+### Client write rules
 
-| Table | Used by |
-|---|---|
-| `crm_contacts` | `sync.js`, `realtime.js`, `prospecting.js` |
-| `crm_clients` | `clients.js` |
-| `crm_sessions` | `sessions.js` — one row per session, `is_active` flag, duration/breakdown on close |
-| `crm_session_events` | `sessions.js` — one row per status change while a session is running |
-| `crm_network` | `network.js` |
-| `crm_gewerke`, `crm_lebensbereiche` | Taxonomie für Netzwerk/Prospects |
+1. Touchpoints: INSERT / `log_touch` only — never UPDATE/DELETE
+2. Companies: never DELETE — `Ausgeschlossen` or `sales.gdpr_anonymize`
+3. Company editable fields only: `mitarbeiterzahl`, `crm_system`, `anfragen_pro_woche`, `relationship`
+4. Never send `bundesland` or `region`
 
-### Page initialization pattern
+## UI
 
-Pages are lazy-initialized on first navigation via the `rais:page-change` custom event fired by `sidebar.js`. The exception is `sessions`, which is initialized directly in `index.html`:
+All labels German. Brand colors from `brand.md`. Density inspired by Lytic; no purple SaaS defaults.
 
-```js
-window.addEventListener('rais:page-change', function(e) {
-  if (e.detail.page === 'sessions') initSessionsPage(containerEl);
-});
-```
+## Migrations
 
-`clients.js` and `network.js` register their own `rais:page-change` listeners internally. `salesrep.js` is modal-only (context menu / popup).
-
-### Security
-
-See `SECURITY.md`. n8n WF7–WF12 require `N8N_PROXY_SECRET` header. No secrets in workflow JSON exports.
-
-### Globals exposed on `window`
-
-`index.html` uses inline `onclick=` handlers. Functions called from HTML must be attached to `window` (e.g. `window.syncCloud`, `window.doLogin`, `window.render`). New event handlers for HTML elements follow this same pattern.
-
-### n8n integration
-
-WF7–WF12 (Email, Kalender, Sales Rep, Notion) call n8n via `src/wh.js` → Vercel `api/n8n-proxy.js` (Supabase JWT + `X-CRM-Proxy-Secret`). Workflow definitions live in `n8n-workflows/` only.
-
-## Key conventions
-
-- **All UI text is German.** Labels, toasts, button text, error messages — always German.
-- **Status keys are English slugs** (`neu`, `interessiert`, `demo_termin`, etc.) defined in `state.js:STATUS`. Display labels are German.
-- **No type checking, no linting config.** Use `npm run validate` to catch HTML/script breakage before committing.
-- **`render()` is a global** defined in `index.html`'s inline script that re-renders the contact table. Call it after mutating `S.contacts`.
-- The `touches` array on each contact records call attempts: `[{ status, datum, notiz }]`. The first element maps to legacy `t1_*` fields on import.
-- `sessions.js:onStatusChanged()` must be called whenever a contact's status changes during an active session so the breakdown and event log stay accurate.
+SQL under `supabase/migrations/` including 2026-07-27 sales Auth/RLS, GDPR anonymize, constraints + `v_kunden_liste`.

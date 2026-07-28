@@ -80,14 +80,14 @@ The brand should not feel:
 ## Color Palette
 Use this exact palette:
 
-- Primary accent / Mandarin Orange: `#EC6A37`
-- Accent hover / Soft Mandarin: `#F37A48`
-- Base background / Cloud: `#F5F2EC`
-- Surface / Warm Linen: `#FBF8F3`
+- Primärakzent / Mandarin Orange: `#EC6A37`
+- Akzent-Hover / Soft Mandarin: `#F37A48`
+- Basis-Hintergrund / Cloud: `#F5F2EC`
+- Fläche / Warm Linen: `#FBF8F3`
 - Sage: `#789464`
-- Dark Pistachio: `#3C5A2A`
-- Charcoal text: `#2F2A24`
-- Muted text / Stone: `#7B746B`
+- British Racing Green: `#004225`
+- Charcoal-Text: `#2F2A24`
+- Gedämpfter Text / Stone: `#7B746B`
 - Border: `#D9D1C7`
 
 ## Color Usage
