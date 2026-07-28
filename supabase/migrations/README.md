@@ -1,49 +1,52 @@
-# Supabase Migrations
+# Supabase Migrations — Sales CRM Cutover
 
-## Verzeichnis (Stand 2026-07-03)
+Stand: 28.07.2026 · Produktion: `qdywaenmojdxhfxqbvun`
 
-| Datei | Beschreibung |
-|-------|--------------|
-| `2026-05-20_initial_schema.sql` | Schema-Snapshot (Referenz, nicht re-runnable) |
-| `2026-05-20_enable_rls.sql` | RLS: authenticated-only für contacts/clients/wf_runs |
-| `2026-05-20_rollback_anon_policies.EMERGENCY_ONLY.sql` | Notfall-Rollback — nicht in Normalbetrieb |
-| `2026-05-22_create_sessions_tables.sql` | crm_sessions + crm_session_events |
-| `2026-05-22_rollback_sessions.sql` | Sessions-Rollback |
-| `2026-05-29_remove_versicherungsmakler.sql` | Versicherungsmakler bereinigen |
-| `2026-05-31_crm_sessions_action_items.sql` | action_items auf Sessions |
-| `2026-06-05_create_crm_content.sql` | crm_content (historisch; gedroppt in 2026-06-30) |
-| `2026-06-07_dedupe_hausverwaltung.sql` | HV-Deduplizierung |
-| `2026-06-15_create_crm_gewerke.sql` | crm_gewerke |
-| `2026-06-16_crm_lead_taxonomy.sql` | Lead-Taxonomie |
-| `2026-06-16_create_crm_network.sql` | crm_network |
-| `2026-06-16_crm_lebensbereiche.sql` | Lebensbereiche + Gewerke |
-| `2026-06-24_crm_restructure.sql` | crm_projects + crm_todos (historisch; gedroppt) |
-| `2026-06-24_crm_todo_categories.sql` | Todo-Kategorien |
-| `2026-06-25_crm_status_simplify.sql` | Status-Vereinfachung |
-| `2026-06-26_remove_nameless_leads.sql` | Namenlose Leads entfernen |
-| `2026-06-28_drop_hv_lead_scraper.sql` | HV Lead Scraper droppen |
-| `2026-06-29_crm_activity_daily.sql` | crm_activity_daily |
-| `2026-06-29_crm_contacts_hv_sizing.sql` | HV-Sizing-Felder |
-| `2026-06-29_lead_origin_meta_ads.sql` | Meta Ads Origin |
-| `2026-06-30_fix_anon_policies.sql` | anon_all schließen (network, gewerke, lebensbereiche) |
-| `2026-06-30_drop_content_and_projects.sql` | crm_content, crm_projects, crm_todos droppen |
-| `2026-07-03_create_linkedin_outreach_table.sql` | Tabelle `linkedin_outreach` inkl. RLS |
-| `2026-07-03_crm_contacts_dm_overlap_view.sql` | View `v_crm_contacts_dm_overlap` (CRM/DM Duplikat-Flag) |
-| `2026-07-03_linkedin_outreach_status_taxonomy_and_tracking.sql` | DM-Status-Taxonomie, Event-Tracking, Daily KPI View |
+## Sales-Cutover-Kette (ab 2026-07-27)
 
-## Neue Migration
+Diese Migrationen bilden das **`sales`**-Schema reproduzierbar nach. Ältere
+`public.crm_*`-Migrationen bleiben für den Shared-Project-Kontext, sind aber
+**nicht** Teil des CRM-Neustarts.
 
-1. Backup (Supabase Dashboard)
-2. `YYYY-MM-DD_kurze-beschreibung.sql` anlegen
-3. In Supabase SQL Editor oder via MCP anwenden
-4. Committen
+| Version | Datei | Remote-Name | Beschreibung |
+|---------|-------|-------------|--------------|
+| `20260727204619` | `20260727204619_sales_baseline.sql` | `create_sales_schema` … `sales_analytics_dashboard` | Vollständige Baseline inkl. Views, Trigger, `touchpoints_append_only` |
+| `20260727233135` | `20260727233135_harden_sales_security_integrity.sql` | `harden_sales_security_integrity` | Allowlist-RLS, atomare RPCs, GDPR-Härtung |
+| `20260728084234` | `20260728084234_tighten_sales_column_privileges.sql` | `tighten_sales_column_privileges` | Spaltenrechte + Audit-Trigger |
+
+### Produktion (bereits angewendet)
+
+Remote-Historie bis `20260728084338` ist live. **Nicht** nachträglich umschreiben.
+Lokale Dateinamen sind an Remote-Versionen angeglichen.
+
+### Frische Staging-Datenbank
+
+```bash
+# 1. Separates Supabase-Projekt anlegen (nie Produktionsdaten kopieren)
+# 2. Auth-User anlegen + seed.sql UUIDs matchen
+# 3. Migrationen anwenden:
+npx supabase db push --db-url "$SUPABASE_TEST_DB_URL"
+# 4. Seed:
+psql "$SUPABASE_TEST_DB_URL" -f supabase/seed.sql
+# 5. Sicherheitstests:
+psql "$SUPABASE_TEST_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/security_rls.sql
+```
+
+### Baseline regenerieren
+
+```bash
+SUPABASE_DB_URL="postgresql://..." node scripts/export-sales-baseline.mjs
+# oder nach supabase link:
+node scripts/build-sales-baseline.mjs
+```
+
+## Archiv
+
+Superseded lokale Entwürfe: `supabase/migrations/archive/sales-pre-baseline/`
 
 ## Regeln
 
-- `crm_contacts` nie droppen
-- Spaltenänderungen: zuerst `n8n-workflows/SCHEMA_MAP.md` prüfen
-- Immer idempotent (`IF NOT EXISTS` / `IF EXISTS`)
-
-## Schema-Stand
-
-2026-07-03 — Lean CRM mit DM-Outreach-Tracking (`linkedin_outreach`, Status-Events, Dashboard-KPIs) und authenticated RLS.
+- `touchpoints` append-only — Trigger `touchpoints_append_only` muss existieren
+- Keine `companies` DELETE aus der App
+- Pipeline-Status nur über `sales.set_pipeline_status`
+- `public.crm_contacts`-Backfill nur für Produktions-Migration, nicht Staging

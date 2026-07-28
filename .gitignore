@@ -1,18 +1,47 @@
-data.json
-__pycache__/
-*.pyc
-.claude/
+# Created by https://www.toptal.com/developers/gitignore/api/node,nextjs
+# Edit at https://www.toptal.com/developers/gitignore?templates=node,nextjs
+
+### Node ###
 node_modules/
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-.vercel
-backups/
+### Next.js ###
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+### Env ###
 .env
 .env.local
 .env.*.local
+
+### Vercel ###
+.vercel
+supabase/.temp/
+
+### Misc ###
+.DS_Store
+*.pem
+.claude/
+__pycache__/
+*.pyc
+data.json
+backups/
 
 # Import-Artefakte mit PII — nie committen
 scripts/hausverwaltungen-import*.json
 scripts/hausverwaltungen-import*.sql
 hausverwaltungen_rlp_prospektliste.csv
 scripts/one-off/
+
+# Lokale Tool-/Export-Artefakte
+scripts/ruixen-err.txt
+scripts/ruixen-raw.json
+scripts/extract-ruixen.js
+
+# Schema-Export-Artefakte (Baseline wird versioniert, nicht der Dump)
+supabase/.schema-dump/

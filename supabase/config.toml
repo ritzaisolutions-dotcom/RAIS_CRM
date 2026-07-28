@@ -1,0 +1,41 @@
+# RAIS CRM — Supabase local/staging configuration
+# Production project: qdywaenmojdxhfxqbvun (shared with non-sales schemas)
+# Staging: separate Supabase project — configure via .env.local (not committed)
+
+project_id = "qdywaenmojdxhfxqbvun"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public", "sales"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.migrations]
+enabled = true
+schema_paths = []
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+additional_redirect_urls = ["http://127.0.0.1:3000/login", "http://localhost:3000/login"]
+jwt_expiry = 3600
+enable_signup = false
+enable_anonymous_sign_ins = false
+
+[auth.email]
+enable_signup = false
+enable_confirmations = true
+
+[studio]
+enabled = true
+port = 54323

@@ -11,8 +11,45 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm run validate
-      - name: Secret scan (tracked files)
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test
+      - run: npm run security:audit
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_ci_placeholder
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan tracked files with Gitleaks
+        run: >-
+          docker run --rm
+          -v "$PWD:/repo"
+          zricethezav/gitleaks:v8.24.3
+          detect --source /repo --no-git --redact --exit-code 1
+
+  rls-integrity:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_TEST_DB_URL: ${{ secrets.SUPABASE_TEST_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require dedicated staging database URL
         run: |
-          ! grep -rE 'AIza[0-9A-Za-z_-]{20,}|service_role' n8n-workflows/ src/ scripts/ || \
-            (echo 'Hardcoded secrets found' && exit 1)
+          if [ -z "$SUPABASE_TEST_DB_URL" ]; then
+            echo "::error::SUPABASE_TEST_DB_URL is required. Configure a dedicated staging database in GitHub Secrets — never production."
+            exit 1
+          fi
+          if echo "$SUPABASE_TEST_DB_URL" | grep -Eq 'qdywaenmojdxhfxqbvun'; then
+            echo "::error::SUPABASE_TEST_DB_URL must not point at production (qdywaenmojdxhfxqbvun)."
+            exit 1
+          fi
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Run RLS and transaction tests
+        run: psql "$SUPABASE_TEST_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/security_rls.sql

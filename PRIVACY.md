@@ -1,32 +1,42 @@
-# Datenschutz — RAIS CRM
+# Datenschutz — RAIS CRM (sales)
 
 ## Zweck
-Das CRM dient der Verwaltung von Geschäftskontakten, Kaltakquise und Kundenbetreuung für Ritz AI Solutions.
+Internes CRM für Kaltakquise und Kundenbetreuung von Ritz AI Solutions. Oberfläche: Prospect-Liste, Kunden-Liste, Firmendetail.
 
 ## Verarbeitete Daten
-- Kontaktdaten (Firma, Name, Telefon, E-Mail, Website, Notizen)
-- Anruf- und Touch-Historie
-- Kalender-Termine (über Google Calendar via n8n)
-- Persönliches Netzwerk (`crm_network`)
+- Firmendaten (`sales.companies`): Name, Stadt, Telefon, Website, Qualifikation (Mitarbeiterklasse, CRM-System, Anfragen/Woche, Relationship)
+- Personen (`sales.people`): Name, Rolle, E-Mail, Telefon, LinkedIn, Entscheider-Flag
+- Touchpoints (`sales.touchpoints`): Kanal, Ergebnis, optional Abbruchgrund, Notiz, nächster Touch — **append-only**
+- Opportunities (`sales.opportunities`): Variante, Stage, Preise, Close-Datum
 
 ## Rechtsgrundlage
-- Einwilligung, berechtigtes Interesse oder eigenes Netzwerk (`consent_basis` am Kontakt)
-- Auftragsverarbeiter: Supabase (Hosting), Google (Kalender), n8n (Automation)
+Berechtigtes Interesse an B2B-Akquise und Vertragsanbahnung / -durchführung. Auftragsverarbeiter: Supabase (Hosting, Auth, DB).
 
-## Lokale Speicherung
-- Kontakte werden in `localStorage` gecacht (`rais_crm_v3`) für Offline-Nutzung
-- Bei Logout und Session-Ablauf werden lokale CRM-Daten gelöscht (`clearLocalCrmData`)
+## Speicherdauer / Aufbewahrungsfrist (Löschkonzept)
 
-## Speicherdauer
-- Kontakte bleiben gespeichert, bis sie im CRM gelöscht werden
-- Sessions und Events: für Auswertung, löschbar über Sessions-Seite
+| Daten | Frist / Umgang |
+|--------|----------------|
+| Prospects & Kundenstammdaten | Solange Geschäftsbeziehung bzw. berechtigtes Interesse; Ausschluss über `relationship = 'Ausgeschlossen'` |
+| Touchpoints (Anruf-/Kontaktzähler) | Aufbewahrt für Funnel-/Akquise-Auswertung; bei Art.17 anonymisiert (Zähler bleiben, PII in Notizen entfernt) |
+| Opportunities | Bis Abschluss + gesetzliche Aufbewahrung kaufmännischer Unterlagen falls relevant |
+| Auth-Sessions | Laut Supabase Auth Session-Laufzeit |
 
-## Betroffenenrechte
-- Kontakt löschen: über Prospects/Netzwerk/Clients
-- Auskunft: Export per CSV (Header-Button „Exportieren“)
+**Normalbetrieb:** Das CRM zeigt vollständige Namen, Telefonnummern, E-Mails und Notizen. Es findet **keine** laufende Anonymisierung statt.
+
+## Betroffenenrechte / Art. 17 (Ausnahmeweg)
+
+Hard-Delete von Firmen ist technisch nicht vorgesehen (`touchpoints.company_id` → `ON DELETE RESTRICT`, append-only Historie).
+
+Bei einem Löschbegehren (Art. 17 DSGVO):
+
+1. Authentifizierter Admin bestätigt die Aktion in der UI (Firmendetail → DSGVO anonymisieren).
+2. RPC `sales.gdpr_anonymize(company_id)` überschreibt PII (Firma, Personen, freie Texte, Dokument-Inhalte), setzt `relationship = 'Ausgeschlossen'`, behält anonyme Touchpoint-Zähler.
+3. Der Datensatz verschwindet aus der Prospect-Liste; Funnel-Mathematik bleibt gültig.
+
+Das ist **kein** Teil des täglichen Call-Workflows.
 
 ## Technische Maßnahmen
-- Zugriff nur nach Login (Supabase Auth)
-- Row Level Security: CRM-Tabellen nur für `authenticated`
-- n8n-Workflows loggen keine Telefonnummern oder E-Mails in Code-Nodes
+- Zugriff nur nach Supabase Auth Login
+- RLS: `sales`-Tabellen nur für `authenticated` mit `auth.uid() IS NOT NULL`
+- Kein Service-Role-Key im Browser
 - Keine Kontaktlisten in Git committen (siehe `.gitignore`)
