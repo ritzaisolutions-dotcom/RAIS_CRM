@@ -3,6 +3,8 @@ import { EfferdShell } from "@/components/EfferdShell";
 import { fetchAnalyticsDashboard } from "@/lib/sales/queries";
 import type { AnalyticsRange } from "@/lib/sales/types";
 
+export const dynamic = "force-dynamic";
+
 function parseRange(value: string | string[] | undefined): AnalyticsRange {
   const v = Array.isArray(value) ? value[0] : value;
   if (v === "day" || v === "week" || v === "month" || v === "year") return v;

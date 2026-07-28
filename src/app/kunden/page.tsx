@@ -2,6 +2,8 @@ import { CallListeTable } from "@/components/CallListeTable";
 import { EfferdShell } from "@/components/EfferdShell";
 import { fetchKundenListe, fetchWorkspaceStats } from "@/lib/sales/queries";
 
+export const dynamic = "force-dynamic";
+
 export default async function KundenPage() {
   const [rows, stats] = await Promise.all([
     fetchKundenListe(),

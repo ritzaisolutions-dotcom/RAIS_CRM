@@ -5,6 +5,8 @@ import { fetchCallListe, fetchWorkspaceStats } from "@/lib/sales/queries";
 import type { PipelineStatus } from "@/lib/sales/types";
 import { PIPELINE_STATUS_OPTIONS } from "@/lib/sales/types";
 
+export const dynamic = "force-dynamic";
+
 function parseStatus(value: string | undefined): PipelineStatus | "" {
   return PIPELINE_STATUS_OPTIONS.includes(value as PipelineStatus)
     ? (value as PipelineStatus)

@@ -10,6 +10,8 @@ import {
   fetchWorkspaceStats,
 } from "@/lib/sales/queries";
 
+export const dynamic = "force-dynamic";
+
 export default async function FirmaPage({
   params,
 }: {
