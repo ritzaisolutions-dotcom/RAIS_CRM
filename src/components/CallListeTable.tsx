@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { Columns3, GripVertical, Pencil, Plus } from "lucide-react";
 import {
@@ -88,6 +89,7 @@ export function CallListeTable({
   showCreate = false,
   initialStatus = "",
   initialDue = "",
+  serverFiltered = false,
 }: {
   rows: CallListeRow[];
   title: string;
@@ -95,6 +97,8 @@ export function CallListeTable({
   showCreate?: boolean;
   initialStatus?: PipelineStatus | "";
   initialDue?: ListeDueFilter;
+  /** When true, status/due come from the server query; client only text-searches. */
+  serverFiltered?: boolean;
 }) {
   const [prefs, setPrefs] = useState<ColumnPrefs>(defaultPrefs);
   const [editMode, setEditMode] = useState(false);
@@ -107,14 +111,34 @@ export function CallListeTable({
   const [dragId, setDragId] = useState<ListeColumnId | null>(null);
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     setPrefs(loadPrefs());
   }, []);
 
+  useEffect(() => {
+    setStatusFilter(initialStatus);
+    setDueFilter(initialDue);
+  }, [initialStatus, initialDue]);
+
   function persist(next: ColumnPrefs) {
     setPrefs(next);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  }
+
+  function syncListFilters(
+    nextStatus: PipelineStatus | "",
+    nextDue: ListeDueFilter,
+  ) {
+    setStatusFilter(nextStatus);
+    setDueFilter(nextDue);
+    if (!serverFiltered) return;
+    const params = new URLSearchParams();
+    if (nextStatus) params.set("status", nextStatus);
+    if (nextDue) params.set("due", nextDue);
+    const qs = params.toString();
+    router.replace(qs ? `?${qs}` : "?");
   }
 
   const displayCols = useMemo(
@@ -146,6 +170,7 @@ export function CallListeTable({
         .join(" ")
         .toLowerCase();
       const matchQ = !query || hay.includes(query);
+      if (serverFiltered) return matchQ;
       const matchStatus = !statusFilter || row.status === statusFilter;
       const matchDue =
         !dueFilter ||
@@ -155,7 +180,7 @@ export function CallListeTable({
           row.naechster_touch < today);
       return matchQ && matchStatus && matchDue;
     });
-  }, [rows, q, statusFilter, dueFilter]);
+  }, [rows, q, statusFilter, dueFilter, serverFiltered]);
 
   function toggleVisible(col: ListeColumnId) {
     const visible = prefs.visible.includes(col)
@@ -202,7 +227,10 @@ export function CallListeTable({
             aria-label="Status filtern"
             value={statusFilter}
             onChange={(e) =>
-              setStatusFilter(e.target.value as PipelineStatus | "")
+              syncListFilters(
+                e.target.value as PipelineStatus | "",
+                dueFilter,
+              )
             }
             className="h-9 w-44 rounded-md border border-rais-border bg-white px-2 text-sm"
           >
@@ -217,7 +245,7 @@ export function CallListeTable({
             aria-label="Fälligkeit filtern"
             value={dueFilter}
             onChange={(e) =>
-              setDueFilter(e.target.value as ListeDueFilter)
+              syncListFilters(statusFilter, e.target.value as ListeDueFilter)
             }
             className="h-9 w-40 rounded-md border border-rais-border bg-white px-2 text-sm"
           >
@@ -231,10 +259,7 @@ export function CallListeTable({
               variant="outline"
               size="sm"
               className="border-rais-border"
-              onClick={() => {
-                setStatusFilter("");
-                setDueFilter("");
-              }}
+              onClick={() => syncListFilters("", "")}
             >
               Filter löschen
             </Button>
@@ -340,6 +365,7 @@ export function CallListeTable({
                       setMsg(
                         `Status gesetzt · nächster Touch ${res.naechster_touch}${note}`,
                       );
+                      router.refresh();
                     })
                   }
                   onCrm={(crm) =>
@@ -347,7 +373,12 @@ export function CallListeTable({
                       const res = await updateListFields(row.company_id, {
                         crm_system: crm,
                       });
-                      setMsg(res.error ?? "CRM gespeichert");
+                      if (res.error) {
+                        setMsg(res.error);
+                        return;
+                      }
+                      setMsg("CRM gespeichert");
+                      router.refresh();
                     })
                   }
                   onAnfragen={(n) =>
@@ -355,7 +386,12 @@ export function CallListeTable({
                       const res = await updateListFields(row.company_id, {
                         anfragen_pro_woche: n,
                       });
-                      setMsg(res.error ?? "Anfragen/W gespeichert");
+                      if (res.error) {
+                        setMsg(res.error);
+                        return;
+                      }
+                      setMsg("Anfragen/W gespeichert");
+                      router.refresh();
                     })
                   }
                 />

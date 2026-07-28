@@ -14,14 +14,43 @@ import type {
   TouchKanal,
   Touchpoint,
 } from "@/lib/sales/types";
-import { rangeBounds } from "@/lib/sales/types";
+import { ERGEBNIS_LABELS, rangeBounds } from "@/lib/sales/types";
 
-export async function fetchCallListe(): Promise<CallListeRow[]> {
+const CALL_LISTE_COLUMNS =
+  "company_id,firma,entscheider,bundesland,crm,\"anfragen/woche\",naechster_touch,status,tage_seit_touch,tel,email,linkedin_url,inserate_aktiv,website,instagram_url,facebook_url";
+
+export type ListeDueFilter = "" | "today" | "overdue";
+
+export type CallListeFilters = {
+  status?: PipelineStatus | "";
+  due?: ListeDueFilter;
+};
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export async function fetchCallListe(
+  filters: CallListeFilters = {},
+): Promise<CallListeRow[]> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("v_call_liste")
-    .select("*")
+    .select(CALL_LISTE_COLUMNS)
     .order("firma");
+
+  if (filters.status) {
+    query = query.eq("status", filters.status);
+  }
+
+  const today = todayIso();
+  if (filters.due === "today") {
+    query = query.eq("naechster_touch", today);
+  } else if (filters.due === "overdue") {
+    query = query.lt("naechster_touch", today).not("naechster_touch", "is", null);
+  }
+
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as CallListeRow[];
 }
@@ -30,7 +59,7 @@ export async function fetchKundenListe(): Promise<CallListeRow[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("v_kunden_liste")
-    .select("*")
+    .select(CALL_LISTE_COLUMNS)
     .order("firma");
   if (error) throw error;
   return (data ?? []) as CallListeRow[];
@@ -89,24 +118,31 @@ export async function fetchOpportunities(
 
 export async function fetchWorkspaceStats() {
   const supabase = await createClient();
+  const today = todayIso();
   const [
     { count: prospects },
     { count: kunden },
     { count: ausgeschlossen },
+    { count: dueCount },
     { data: recentTouches },
   ] = await Promise.all([
     supabase
       .from("companies")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("relationship", "Prospect"),
     supabase
       .from("companies")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("relationship", "Kunde"),
     supabase
       .from("companies")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("relationship", "Ausgeschlossen"),
+    supabase
+      .from("v_call_liste")
+      .select("company_id", { count: "exact", head: true })
+      .not("naechster_touch", "is", null)
+      .lte("naechster_touch", today),
     supabase
       .from("touchpoints")
       .select("id, ergebnis, occurred_at, company_id")
@@ -114,20 +150,13 @@ export async function fetchWorkspaceStats() {
       .limit(6),
   ]);
 
-  const dueSoon = await supabase
-    .from("v_call_liste")
-    .select("company_id, naechster_touch")
-    .not("naechster_touch", "is", null);
-
-  const today = new Date().toISOString().slice(0, 10);
-  const dueCount = (dueSoon.data ?? []).filter(
-    (r) => r.naechster_touch && r.naechster_touch <= today,
-  ).length;
-
-  const activity = (recentTouches ?? []).map((t) => ({
-    title: String(t.ergebnis),
-    when: new Date(t.occurred_at).toLocaleString("de-DE"),
-  }));
+  const activity = (recentTouches ?? []).map((t) => {
+    const ergebnis = t.ergebnis as TouchErgebnis;
+    return {
+      title: ERGEBNIS_LABELS[ergebnis] ?? String(t.ergebnis),
+      when: new Date(t.occurred_at).toLocaleString("de-DE"),
+    };
+  });
 
   return {
     kpis: [
@@ -143,7 +172,7 @@ export async function fetchWorkspaceStats() {
       },
       {
         label: "Fällig heute",
-        value: String(dueCount),
+        value: String(dueCount ?? 0),
         hint: "naechster_touch ≤ heute",
       },
       {

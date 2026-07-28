@@ -21,20 +21,30 @@ export default async function ListePage({
   searchParams: Promise<{ status?: string; due?: string }>;
 }) {
   const params = await searchParams;
+  const status = parseStatus(params.status);
+  const due = parseDue(params.due);
   const [rows, stats] = await Promise.all([
-    fetchCallListe(),
+    fetchCallListe({ status, due }),
     fetchWorkspaceStats(),
   ]);
+
+  const filterNote = [
+    status ? `Status ${status}` : null,
+    due === "today" ? "fällig heute" : due === "overdue" ? "überfällig" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <EfferdShell kpis={stats.kpis} activity={stats.activity}>
       <CallListeTable
         rows={rows}
         title="Prospects"
-        subtitle={`${rows.length} Prospects · sortiert nach Firma`}
+        subtitle={`${rows.length} Prospects${filterNote ? ` · ${filterNote}` : ""} · sortiert nach Firma`}
         showCreate
-        initialStatus={parseStatus(params.status)}
-        initialDue={parseDue(params.due)}
+        initialStatus={status}
+        initialDue={due}
+        serverFiltered
       />
     </EfferdShell>
   );

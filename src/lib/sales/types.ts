@@ -360,6 +360,24 @@ export const ERGEBNIS_OPTIONS: TouchErgebnis[] = [
   "kein_ergebnis",
 ];
 
+export const ERGEBNIS_LABELS: Record<TouchErgebnis, string> = {
+  nicht_erreicht: "Nicht erreicht",
+  erreicht_ohne_gespraech: "Erreicht ohne Gespräch",
+  disqualifiziert: "Disqualifiziert",
+  gespraech_ohne_termin: "Gespräch ohne Termin",
+  termin_gebucht: "Termin gebucht",
+  kein_ergebnis: "Kein Ergebnis",
+};
+
+export const KANAL_LABELS: Record<TouchKanal, string> = {
+  call: "Call",
+  dm: "DM (LinkedIn)",
+  email: "E-Mail",
+  meeting: "Meeting",
+  engagement: "Engagement",
+  status_change: "Statusänderung",
+};
+
 export const PIPELINE_STATUS_OPTIONS: PipelineStatus[] = [
   "neu",
   "kein_anschluss_1",

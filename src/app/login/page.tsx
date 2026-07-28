@@ -15,7 +15,7 @@ export default function LoginPage() {
             className="mb-3 h-10 w-auto"
             priority
           />
-          <p className="muted">CRM · Mit Supabase Auth anmelden</p>
+          <p className="muted">CRM · Anmelden</p>
         </div>
         <Suspense fallback={<p className="muted">Laden…</p>}>
           <LoginForm />

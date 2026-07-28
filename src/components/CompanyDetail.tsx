@@ -1,6 +1,7 @@
 ﻿"use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   gdprAnonymize,
   insertTouchpoint,
@@ -8,7 +9,6 @@ import {
   setListPipelineStatus,
   updateCompanyBasics,
   updateCompanyQualification,
-  updateListFields,
   upsertOpportunity,
   upsertPerson,
   deletePerson,
@@ -17,7 +17,9 @@ import {
   ABBRUCH_OPTIONS,
   abbruchAllowed,
   CRM_OPTIONS,
+  ERGEBNIS_LABELS,
   ERGEBNIS_OPTIONS,
+  KANAL_LABELS,
   KANAL_OPTIONS,
   MITARBEITER_OPTIONS,
   OPP_STAGE_OPTIONS,
@@ -58,7 +60,7 @@ export function CompanyDetail({
   opportunities: Opportunity[];
 }) {
   return (
-    <div className="stack">
+    <div className="stack company-detail">
       <header>
         <h1 className="m-0 font-[family-name:var(--font-source-serif)] text-2xl font-semibold">
           {company.name}
@@ -79,23 +81,37 @@ export function CompanyDetail({
         </p>
       </header>
 
-      <BasicsForm company={company} />
-      <PipelineStatusForm company={company} />
-      <QualificationForm company={company} />
-      <SocialLinksForm company={company} />
-      <PeopleSection companyId={company.id} people={people} />
-      <TouchSection
-        companyId={company.id}
-        people={people}
-        touchpoints={touchpoints}
-      />
-      <OppSection companyId={company.id} opportunities={opportunities} />
-      <AdminDanger companyId={company.id} />
+      <div className="company-detail-grid">
+        <div className="company-detail-col stack">
+          <BasicsForm company={company} />
+          <PipelineStatusForm company={company} />
+          <QualificationForm company={company} />
+        </div>
+        <div className="company-detail-col stack">
+          <PeopleSection companyId={company.id} people={people} />
+          <TouchSection
+            companyId={company.id}
+            people={people}
+            touchpoints={touchpoints}
+          />
+        </div>
+      </div>
+
+      <details className="dense-panel company-detail-more">
+        <summary className="section-h cursor-pointer">
+          Opportunities & Admin
+        </summary>
+        <div className="stack" style={{ marginTop: "0.85rem" }}>
+          <OppSection companyId={company.id} opportunities={opportunities} />
+          <AdminDanger companyId={company.id} />
+        </div>
+      </details>
     </div>
   );
 }
 
 function BasicsForm({ company }: { company: Company }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [name, setName] = useState(company.name);
@@ -105,8 +121,17 @@ function BasicsForm({ company }: { company: Company }) {
   const [instagram, setInstagram] = useState(company.instagram_url ?? "");
   const [facebook, setFacebook] = useState(company.facebook_url ?? "");
 
+  useEffect(() => {
+    setName(company.name);
+    setStadt(company.stadt ?? "");
+    setTelefon(company.telefon ?? "");
+    setWebsite(company.website ?? "");
+    setInstagram(company.instagram_url ?? "");
+    setFacebook(company.facebook_url ?? "");
+  }, [company]);
+
   return (
-    <section className="dense-panel" style={{ padding: "0.85rem" }}>
+    <section className="dense-panel">
       <h2 className="section-h">Stammdaten</h2>
       <p className="muted">Firma, Ort, Telefon und Web/Social.</p>
       <form
@@ -123,7 +148,12 @@ function BasicsForm({ company }: { company: Company }) {
               instagram_url: instagram || null,
               facebook_url: facebook || null,
             });
-            setMsg(res.error ?? "Gespeichert");
+            if (res.error) {
+              setMsg(res.error);
+              return;
+            }
+            setMsg("Gespeichert");
+            router.refresh();
           });
         }}
       >
@@ -170,7 +200,7 @@ function BasicsForm({ company }: { company: Company }) {
             />
           </div>
         </div>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <div className="form-actions">
           <button className="btn btn-primary" type="submit" disabled={pending}>
             Speichern
           </button>
@@ -182,6 +212,7 @@ function BasicsForm({ company }: { company: Company }) {
 }
 
 function PipelineStatusForm({ company }: { company: Company }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [status, setStatus] = useState<PipelineStatus>(
@@ -190,8 +221,12 @@ function PipelineStatusForm({ company }: { company: Company }) {
   const [kanal, setKanal] = useState<"call" | "dm">("call");
   const [next, setNext] = useState("");
 
+  useEffect(() => {
+    setStatus(company.pipeline_status);
+  }, [company.pipeline_status]);
+
   return (
-    <section className="dense-panel" style={{ padding: "0.85rem" }}>
+    <section className="dense-panel">
       <h2 className="section-h">Pipeline-Status</h2>
       <p className="muted">
         Ändert den Firmen-Status und loggt einen Touch. Kanal DM zählt in
@@ -213,9 +248,8 @@ function PipelineStatusForm({ company }: { company: Company }) {
               setMsg(res.error);
               return;
             }
-            setMsg(
-              `Status gesetzt · nächster Touch ${res.naechster_touch}`,
-            );
+            setMsg(`Status gesetzt · nächster Touch ${res.naechster_touch}`);
+            router.refresh();
           });
         }}
       >
@@ -257,7 +291,7 @@ function PipelineStatusForm({ company }: { company: Company }) {
             />
           </div>
         </div>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <div className="form-actions">
           <button className="btn btn-primary" type="submit" disabled={pending}>
             Status speichern
           </button>
@@ -269,6 +303,7 @@ function PipelineStatusForm({ company }: { company: Company }) {
 }
 
 function QualificationForm({ company }: { company: Company }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
   const [mitarbeiterzahl, setMitarbeiterzahl] = useState<
@@ -282,8 +317,15 @@ function QualificationForm({ company }: { company: Company }) {
     company.relationship,
   );
 
+  useEffect(() => {
+    setMitarbeiterzahl(company.mitarbeiterzahl ?? "");
+    setCrm(company.crm_system ?? "");
+    setAnfragen(company.anfragen_pro_woche?.toString() ?? "");
+    setRelationship(company.relationship);
+  }, [company]);
+
   return (
-    <section className="dense-panel" style={{ padding: "0.85rem" }}>
+    <section className="dense-panel">
       <h2 className="section-h">Qualifikation</h2>
       <p className="muted">
         Mitarbeiter, CRM, Anfragen und Relationship (Prospect / Kunde /
@@ -296,12 +338,18 @@ function QualificationForm({ company }: { company: Company }) {
           e.preventDefault();
           start(async () => {
             const res = await updateCompanyQualification(company.id, {
-              mitarbeiterzahl: (mitarbeiterzahl || null) as MitarbeiterKlasse | null,
+              mitarbeiterzahl: (mitarbeiterzahl ||
+                null) as MitarbeiterKlasse | null,
               crm_system: (crm || null) as CrmSystem | null,
               anfragen_pro_woche: anfragen === "" ? null : Number(anfragen),
               relationship,
             });
-            setMsg(res.error ?? "Gespeichert");
+            if (res.error) {
+              setMsg(res.error);
+              return;
+            }
+            setMsg("Gespeichert");
+            router.refresh();
           });
         }}
       >
@@ -349,9 +397,7 @@ function QualificationForm({ company }: { company: Company }) {
             <label>Relationship</label>
             <select
               value={relationship}
-              onChange={(e) =>
-                setRelationship(e.target.value as Relationship)
-              }
+              onChange={(e) => setRelationship(e.target.value as Relationship)}
             >
               {RELATIONSHIP_OPTIONS.map((o) => (
                 <option key={o} value={o}>
@@ -361,72 +407,7 @@ function QualificationForm({ company }: { company: Company }) {
             </select>
           </div>
         </div>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          <button className="btn btn-primary" type="submit" disabled={pending}>
-            Speichern
-          </button>
-          {msg ? <span className="muted">{msg}</span> : null}
-        </div>
-      </form>
-    </section>
-  );
-}
-
-function SocialLinksForm({ company }: { company: Company }) {
-  const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
-  const [website, setWebsite] = useState(company.website ?? "");
-  const [instagram, setInstagram] = useState(company.instagram_url ?? "");
-  const [facebook, setFacebook] = useState(company.facebook_url ?? "");
-
-  return (
-    <section className="dense-panel" style={{ padding: "0.85rem" }}>
-      <h2 className="section-h">Web & Social (Kurz)</h2>
-      <p className="muted">
-        Schnelländerung — vollständige Stammdaten oben.
-      </p>
-      <form
-        className="stack"
-        style={{ marginTop: "0.85rem" }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          start(async () => {
-            const res = await updateListFields(company.id, {
-              website: website.trim() || null,
-              instagram_url: instagram.trim() || null,
-              facebook_url: facebook.trim() || null,
-            });
-            setMsg(res.error ?? "Gespeichert");
-          });
-        }}
-      >
-        <div className="grid-2">
-          <div className="field">
-            <label>Website</label>
-            <input
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              placeholder="https://…"
-            />
-          </div>
-          <div className="field">
-            <label>Instagram</label>
-            <input
-              value={instagram}
-              onChange={(e) => setInstagram(e.target.value)}
-              placeholder="https://instagram.com/…"
-            />
-          </div>
-          <div className="field">
-            <label>Facebook</label>
-            <input
-              value={facebook}
-              onChange={(e) => setFacebook(e.target.value)}
-              placeholder="https://facebook.com/…"
-            />
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+        <div className="form-actions">
           <button className="btn btn-primary" type="submit" disabled={pending}>
             Speichern
           </button>
@@ -444,6 +425,7 @@ function PeopleSection({
   companyId: string;
   people: Person[];
 }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const blank = {
@@ -457,29 +439,16 @@ function PeopleSection({
   const [form, setForm] = useState(blank);
 
   return (
-    <section className="dense-panel" style={{ padding: "0.85rem" }}>
+    <section className="dense-panel">
       <h2 className="section-h">Personen</h2>
       <p className="muted">Max. ein Entscheider pro Firma (DB + UI).</p>
       <div className="stack" style={{ marginTop: "0.85rem" }}>
         {people.map((p) => (
-          <div
-            key={p.id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: "1rem",
-              borderBottom: "1px solid var(--rais-border)",
-              paddingBottom: "0.65rem",
-            }}
-          >
+          <div key={p.id} className="person-row">
             <div>
               <strong>{p.name}</strong>
               {p.ist_entscheider ? (
-                <span
-                  className="badge"
-                  data-tone="gruen"
-                  style={{ marginLeft: 8 }}
-                >
+                <span className="badge" data-tone="gruen">
                   Entscheider
                 </span>
               ) : null}
@@ -495,7 +464,12 @@ function PeopleSection({
               onClick={() =>
                 start(async () => {
                   const res = await deletePerson(p.id, companyId);
-                  setError(res.error ?? null);
+                  if (res.error) {
+                    setError(res.error);
+                    return;
+                  }
+                  setError(null);
+                  router.refresh();
                 })
               }
             >
@@ -518,11 +492,13 @@ function PeopleSection({
                 linkedin_url: form.linkedin_url || null,
                 ist_entscheider: form.ist_entscheider,
               });
-              if (res.error) setError(res.error);
-              else {
-                setError(null);
-                setForm({ ...blank, ist_entscheider: false });
+              if (res.error) {
+                setError(res.error);
+                return;
               }
+              setError(null);
+              setForm({ ...blank, ist_entscheider: false });
+              router.refresh();
             });
           }}
         >
@@ -566,10 +542,7 @@ function PeopleSection({
                 }
               />
             </div>
-            <label
-              className="field"
-              style={{ alignContent: "end", display: "flex", gap: 8 }}
-            >
+            <label className="field field-checkbox">
               <input
                 type="checkbox"
                 checked={form.ist_entscheider}
@@ -599,6 +572,7 @@ function TouchSection({
   people: Person[];
   touchpoints: Touchpoint[];
 }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const entscheider = people.find((p) => p.ist_entscheider) ?? people[0];
@@ -609,8 +583,12 @@ function TouchSection({
   const [next, setNext] = useState("");
   const [personId, setPersonId] = useState(entscheider?.id ?? "");
 
+  useEffect(() => {
+    if (entscheider?.id) setPersonId(entscheider.id);
+  }, [entscheider?.id]);
+
   return (
-    <section className="dense-panel" style={{ padding: "0.85rem" }}>
+    <section className="dense-panel">
       <h2 className="section-h">Touchpoints</h2>
       <p className="muted">
         Append-only — kein Bearbeiten oder Löschen. Kanal DM erhöht den
@@ -634,12 +612,14 @@ function TouchSection({
                 ? (abbruch as Abbruchgrund) || null
                 : null,
             });
-            if (res.error) setError(res.error);
-            else {
-              setError(null);
-              setNotiz("");
-              setAbbruch("");
+            if (res.error) {
+              setError(res.error);
+              return;
             }
+            setError(null);
+            setNotiz("");
+            setAbbruch("");
+            router.refresh();
           });
         }}
       >
@@ -667,7 +647,7 @@ function TouchSection({
             >
               {KANAL_OPTIONS.map((o) => (
                 <option key={o} value={o}>
-                  {o === "dm" ? "DM (LinkedIn)" : o}
+                  {KANAL_LABELS[o]}
                 </option>
               ))}
             </select>
@@ -680,7 +660,7 @@ function TouchSection({
             >
               {ERGEBNIS_OPTIONS.map((o) => (
                 <option key={o} value={o}>
-                  {o}
+                  {ERGEBNIS_LABELS[o]}
                 </option>
               ))}
             </select>
@@ -690,9 +670,7 @@ function TouchSection({
             <select
               value={abbruch}
               disabled={!abbruchAllowed(ergebnis)}
-              onChange={(e) =>
-                setAbbruch(e.target.value as Abbruchgrund | "")
-              }
+              onChange={(e) => setAbbruch(e.target.value as Abbruchgrund | "")}
             >
               <option value="">—</option>
               {ABBRUCH_OPTIONS.map((o) => (
@@ -712,10 +690,7 @@ function TouchSection({
           </div>
           <div className="field">
             <label>Notiz</label>
-            <input
-              value={notiz}
-              onChange={(e) => setNotiz(e.target.value)}
-            />
+            <input value={notiz} onChange={(e) => setNotiz(e.target.value)} />
           </div>
         </div>
         {error ? <p className="error">{error}</p> : null}
@@ -746,13 +721,13 @@ function TouchSection({
               touchpoints.map((t) => (
                 <tr key={t.id}>
                   <td>{new Date(t.occurred_at).toLocaleString("de-DE")}</td>
-                  <td>{t.kanal}</td>
+                  <td>{KANAL_LABELS[t.kanal]}</td>
                   <td>
                     <span
                       className="badge"
                       data-tone={ergebnisTone(t.ergebnis)}
                     >
-                      {t.ergebnis}
+                      {ERGEBNIS_LABELS[t.ergebnis]}
                     </span>
                   </td>
                   <td>{t.notiz ?? "—"}</td>
@@ -774,6 +749,7 @@ function OppSection({
   companyId: string;
   opportunities: Opportunity[];
 }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [variante, setVariante] = useState<OppVariante>("system_3k");
@@ -783,18 +759,22 @@ function OppSection({
   const [grund, setGrund] = useState("");
 
   return (
-    <section className="dense-panel" style={{ padding: "0.85rem" }}>
-      <h2 className="section-h">Opportunities</h2>
-      <ul className="muted">
-        {opportunities.map((o) => (
-          <li key={o.id}>
-            {o.variante} · {o.stage}
-            {o.closed_at
-              ? ` · closed ${new Date(o.closed_at).toLocaleDateString("de-DE")}`
-              : ""}
-          </li>
-        ))}
-      </ul>
+    <section>
+      <h3 className="section-h">Opportunities</h3>
+      {opportunities.length === 0 ? (
+        <p className="muted">Noch keine Opportunities.</p>
+      ) : (
+        <ul className="muted">
+          {opportunities.map((o) => (
+            <li key={o.id}>
+              {o.variante} · {o.stage}
+              {o.closed_at
+                ? ` · closed ${new Date(o.closed_at).toLocaleDateString("de-DE")}`
+                : ""}
+            </li>
+          ))}
+        </ul>
+      )}
       <form
         className="stack"
         style={{ marginTop: "0.85rem" }}
@@ -809,7 +789,12 @@ function OppSection({
               retainer_monatlich: retainer === "" ? null : Number(retainer),
               close_grund: grund || null,
             });
-            setError(res.error ?? null);
+            if (res.error) {
+              setError(res.error);
+              return;
+            }
+            setError(null);
+            router.refresh();
           });
         }}
       >
@@ -871,18 +856,19 @@ function OppSection({
 }
 
 function AdminDanger({ companyId }: { companyId: string }) {
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
 
   return (
-    <section className="dense-panel" style={{ padding: "0.85rem" }}>
-      <h2 className="section-h">Admin</h2>
+    <section>
+      <h3 className="section-h">Admin</h3>
       <p className="muted">
         Ausschließen entfernt die Firma aus der Prospect-Liste.
         DSGVO-Anonymisierung ist nur bei Art.-17-Anfragen — nicht für den
         Call-Alltag.
       </p>
-      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+      <div className="form-actions wrap">
         <button
           type="button"
           className="btn"
@@ -890,13 +876,16 @@ function AdminDanger({ companyId }: { companyId: string }) {
           onClick={() =>
             start(async () => {
               if (
-                !confirm(
-                  "Firma ausschließen (relationship = Ausgeschlossen)?",
-                )
+                !confirm("Firma ausschließen (relationship = Ausgeschlossen)?")
               )
                 return;
               const res = await setExcluded(companyId);
-              setMsg(res.error ?? "Ausgeschlossen");
+              if (res.error) {
+                setMsg(res.error);
+                return;
+              }
+              setMsg("Ausgeschlossen");
+              router.refresh();
             })
           }
         >
@@ -918,7 +907,12 @@ function AdminDanger({ companyId }: { companyId: string }) {
                 return;
               }
               const res = await gdprAnonymize(companyId);
-              setMsg(res.error ?? "Anonymisiert");
+              if (res.error) {
+                setMsg(res.error);
+                return;
+              }
+              setMsg("Anonymisiert");
+              router.refresh();
             })
           }
         >
