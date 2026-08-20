@@ -3,12 +3,38 @@ import { z } from "zod";
 
 const nullableText = (max: number) =>
   z.string().trim().max(max).nullable().optional();
+/**
+ * URL-Feld, das auch nackte Domains akzeptiert.
+ *
+ * Die Anzeige normalisiert `firma.de` längst zu `https://firma.de`
+ * (`hrefWebsite` in der Liste) — die Validierung hat dieselbe Eingabe aber mit
+ * "Ungültige URL" abgelehnt. Jetzt wird `https://` ergänzt, bevor geprüft wird;
+ * gespeichert wird die normalisierte Form. Andere Schemata (`javascript:`,
+ * `data:`, `ftp:`) bleiben abgelehnt.
+ */
 const nullableUrl = z
   .string()
   .trim()
   .max(2048)
-  .url("Ungültige URL")
-  .refine((value) => /^https?:\/\//i.test(value), "Nur HTTP(S)-URLs sind erlaubt")
+  .transform((value) => {
+    if (!value) return value;
+    // Ein vorhandenes Schema bleibt unangetastet, damit `javascript:` weiterhin
+    // in die Ablehnung unten läuft statt zu `https://javascript:…` zu werden.
+    return /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : `https://${value}`;
+  })
+  .refine(
+    (value) => !value || /^https?:\/\//i.test(value),
+    "Nur HTTP(S)-URLs sind erlaubt",
+  )
+  .refine((value) => {
+    if (!value) return true;
+    try {
+      const parsed = new URL(value);
+      return Boolean(parsed.hostname) && parsed.hostname.includes(".");
+    } catch {
+      return false;
+    }
+  }, "Ungültige URL")
   .nullable()
   .optional();
 const nullableEmail = z
@@ -99,14 +125,27 @@ export const dateSchema = z
   });
 export const nullableDateSchema = dateSchema.nullable().optional();
 
+/**
+ * `relationship` fehlt hier bewusst.
+ *
+ * Es wird ausschliesslich von `sales.set_pipeline_status` abgeleitet und ist
+ * clientseitig nicht mehr beschreibbar. Vorher liessen sich beide Felder
+ * unabhängig setzen — eine Firma konnte als `Kunde` geführt werden und
+ * gleichzeitig auf `kein_anschluss_3` stehen.
+ */
 export const companyQualificationSchema = z.object({
   companyId: uuidSchema,
   patch: z.object({
     mitarbeiterzahl: employeeClassSchema.nullable(),
     crm_system: crmSystemSchema.nullable(),
     anfragen_pro_woche: z.number().int().min(0).max(100000).nullable(),
-    relationship: relationshipSchema,
   }),
+});
+
+export const voidTouchSchema = z.object({
+  touchId: z.number().int().positive(),
+  companyId: uuidSchema,
+  grund: nullableText(500),
 });
 
 export const companyBasicsSchema = z.object({
@@ -118,6 +157,7 @@ export const companyBasicsSchema = z.object({
     website: nullableUrl,
     instagram_url: nullableUrl,
     facebook_url: nullableUrl,
+    recherche: nullableText(10000),
   }),
 });
 

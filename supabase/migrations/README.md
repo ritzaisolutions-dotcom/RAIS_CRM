@@ -42,7 +42,25 @@ node scripts/build-sales-baseline.mjs
 
 ## Archiv
 
-Superseded lokale Entwürfe: `supabase/migrations/archive/sales-pre-baseline/`
+- Superseded lokale Entwürfe: `supabase/migrations/archive/sales-pre-baseline/`
+- Legacy `public.crm_*`-Kette (Mai–Juli 2026): `supabase/migrations/archive/legacy-public/`
+
+Die 29 Legacy-Dateien lagen bis 20.08.2026 direkt in `migrations/`. Sie benutzen das
+Namensschema `2026-MM-DD_name.sql` statt des vom CLI geforderten 14-stelligen
+Zeitstempels — `supabase db push` / `db reset` haben sie deshalb **nie angewendet**.
+Sie sind Dokumentation, keine reproduzierbaren Migrationen. Zwei davon sind
+destruktive Rollback-Skripte (u. a. `2026-05-20_rollback_anon_policies.EMERGENCY_ONLY.sql`,
+das anon-Vollzugriff wieder öffnet) und dürfen nicht in einem Verzeichnis liegen,
+das der Runner scannt.
+
+**`migrations/` enthält jetzt ausschließlich die drei Dateien, die das CLI wirklich anwendet.**
+
+## Daten-Importe
+
+Einmalige Daten-Importe gehören **nie** nach `migrations/` — sie werden dort
+mitversioniert und enthalten in der Regel PII, die `sales.gdpr_anonymize` nicht mehr
+erreichen kann, sobald sie in der Git-Historie steht. Ablage: `scripts/one-off/`
+(gitignored). `.gitignore` blockt zusätzlich `supabase/migrations/*_import_*.sql`.
 
 ## Regeln
 

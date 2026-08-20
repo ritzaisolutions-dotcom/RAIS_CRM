@@ -2,6 +2,11 @@
 -- Applied by `supabase db reset` after migrations.
 
 -- Auth fixtures (local/staging only)
+--
+-- Die Token-Spalten müssen leere Strings sein, nicht NULL. GoTrue liest sie mit
+-- einem non-nullable String-Scan; bleiben sie NULL, scheitert jeder Login mit
+-- "Database error querying schema" (500) — die Fixtures waren damit für eine
+-- echte Anmeldung unbrauchbar.
 INSERT INTO auth.users (
   id,
   instance_id,
@@ -13,7 +18,15 @@ INSERT INTO auth.users (
   raw_app_meta_data,
   raw_user_meta_data,
   created_at,
-  updated_at
+  updated_at,
+  confirmation_token,
+  recovery_token,
+  email_change,
+  email_change_token_new,
+  email_change_token_current,
+  phone_change,
+  phone_change_token,
+  reauthentication_token
 )
 VALUES
   (
@@ -27,7 +40,8 @@ VALUES
     '{"provider":"email","providers":["email"]}'::jsonb,
     '{}'::jsonb,
     now(),
-    now()
+    now(),
+    '', '', '', '', '', '', '', ''
   ),
   (
     '55555555-5555-4555-8555-555555555555',
@@ -40,7 +54,8 @@ VALUES
     '{"provider":"email","providers":["email"]}'::jsonb,
     '{}'::jsonb,
     now(),
-    now()
+    now(),
+    '', '', '', '', '', '', '', ''
   )
 ON CONFLICT (id) DO NOTHING;
 

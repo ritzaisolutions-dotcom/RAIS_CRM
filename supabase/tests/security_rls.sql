@@ -39,7 +39,7 @@ VALUES
     '00000000-0000-0000-0000-000000000000',
     'authenticated',
     'authenticated',
-    'crm-allowlisted@staging.invalid',
+    'rls-suite-allowlisted@staging.invalid',
     crypt('staging-test-password', gen_salt('bf')),
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
@@ -52,7 +52,7 @@ VALUES
     '00000000-0000-0000-0000-000000000000',
     'authenticated',
     'authenticated',
-    'crm-non-app@staging.invalid',
+    'rls-suite-non-app@staging.invalid',
     crypt('staging-test-password', gen_salt('bf')),
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
@@ -65,7 +65,7 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO sales.app_users (user_id, email, notiz)
 VALUES (
   current_setting('test.allowlisted_user')::uuid,
-  'crm-allowlisted@staging.invalid',
+  'rls-suite-allowlisted@staging.invalid',
   'security_rls fixture'
 )
 ON CONFLICT (user_id) DO UPDATE

@@ -26,11 +26,14 @@ export function EfferdShell({
   kpis = [],
   activity = [],
   focus = false,
+  degraded = false,
 }: {
   children: React.ReactNode;
   kpis?: Kpi[];
   activity?: { title: string; when: string }[];
   focus?: boolean;
+  /** Mindestens eine KPI-Query ist fehlgeschlagen — Zahlen sind unvollständig. */
+  degraded?: boolean;
 }) {
   const pathname = usePathname();
   const nav = [
@@ -113,6 +116,15 @@ export function EfferdShell({
             )}
           >
             <div className="min-w-0 space-y-3">
+              {degraded ? (
+                <div
+                  role="alert"
+                  className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800"
+                >
+                  Einige Kennzahlen konnten nicht geladen werden und sind als
+                  „—“ markiert. Die Liste unten ist davon nicht betroffen.
+                </div>
+              ) : null}
               {!focus ? (
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   {kpis.map((kpi) => (

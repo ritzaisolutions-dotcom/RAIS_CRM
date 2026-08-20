@@ -563,13 +563,28 @@ CREATE TRIGGER touchpoints_append_only
   BEFORE DELETE OR UPDATE ON sales.touchpoints
   FOR EACH ROW EXECUTE FUNCTION sales.deny_mutation();
 
--- Pre-hardening grants and RLS (replaced by harden_sales_security_integrity)
-GRANT USAGE ON SCHEMA sales TO anon, authenticated, service_role;
-GRANT SELECT ON ALL TABLES IN SCHEMA sales TO anon;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA sales TO authenticated;
+-- Grants und RLS.
+--
+-- ACHTUNG — hier stand bis 20.08.2026 eine Konstruktion, die diese Baseline
+-- *allein angewendet* zu einem offenen Scheunentor machte:
+--
+--   GRANT SELECT ON ALL TABLES IN SCHEMA sales TO anon;
+--   ... CREATE POLICY authenticated_all ... USING (auth.uid() IS NOT NULL) ...
+--
+-- Gedacht war das als "wird von der nächsten Migration ersetzt". Nur greift
+-- dieses Argument nicht, sobald die Kette *nicht* vollständig durchläuft:
+-- Branch-Datenbank, abgebrochenes `db reset`, Cherry-Pick, Teil-Restore. Dann
+-- war das komplette CRM inklusive aller Kundendaten mit dem öffentlichen
+-- anon-Key lesbar.
+--
+-- Jetzt schliesst die Baseline von sich aus zu. RLS ist aktiv, aber ohne
+-- Policy — das heisst: niemand ausser service_role sieht etwas, bis
+-- `harden_sales_security_integrity` die Allowlist-Policies anlegt. Der
+-- Endzustand nach der vollständigen Kette ist unverändert; nur der
+-- Zwischenzustand ist nicht mehr gefährlich.
+GRANT USAGE ON SCHEMA sales TO authenticated, service_role;
 GRANT ALL ON ALL TABLES IN SCHEMA sales TO service_role;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA sales TO authenticated, service_role;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA sales TO authenticated, service_role;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA sales TO service_role;
 
 DO $$
 DECLARE r record;
@@ -581,11 +596,9 @@ BEGIN
     WHERE n.nspname = 'sales' AND c.relkind = 'r'
   LOOP
     EXECUTE format('ALTER TABLE sales.%I ENABLE ROW LEVEL SECURITY', r.tablename);
+    -- Falls eine ältere Anwendung dieser Datei die permissive Policy
+    -- hinterlassen hat: hier entfernen, nicht neu anlegen.
     EXECUTE format('DROP POLICY IF EXISTS authenticated_all ON sales.%I', r.tablename);
-    EXECUTE format(
-      'CREATE POLICY authenticated_all ON sales.%I FOR ALL TO authenticated USING (auth.uid() IS NOT NULL) WITH CHECK (auth.uid() IS NOT NULL)',
-      r.tablename
-    );
   END LOOP;
 END $$;
 

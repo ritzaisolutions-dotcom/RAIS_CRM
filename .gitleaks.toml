@@ -1,0 +1,30 @@
+# Gitleaks-Konfiguration für den `secret-scan`-Gate in CI.
+#
+# Basis sind die eingebauten Regeln; hier stehen nur eng gefasste Ausnahmen.
+# Bewusst KEINE pauschale Unterdrückung ganzer Regeln — ein Gate, das alles
+# durchwinkt, ist schlimmer als keins.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = """
+1. `personLinkedin` — Falsch-Positiv der Regel `linkedin-client-id`. Sie sucht
+   eine 14-stellige alphanumerische Zeichenkette nahe dem Wort "linkedin" und
+   trifft damit den Variablennamen im Anlegen-Dialog. Dort steht die
+   LinkedIn-Profil-URL eines Kontakts, kein Zugangsdatum.
+
+2. Build- und Abhängigkeits-Artefakte sowie die lokale `.env.local`. In CI
+   existieren sie nicht (frischer Checkout); lokal machen sie den Vorab-Lauf
+   sonst unbrauchbar. Echte Secrets gehören ausschliesslich in `.env.local`
+   und nie in versionierte Dateien.
+"""
+regexes = [
+  '''personLinkedin''',
+]
+paths = [
+  '''(^|/)\.next/''',
+  '''(^|/)node_modules/''',
+  '''(^|/)\.env\.local$''',
+  '''(^|/)\.gitleaks-report\.json$''',
+]

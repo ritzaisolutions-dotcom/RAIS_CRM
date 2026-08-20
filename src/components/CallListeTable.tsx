@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState, useTransition } from "react";
-import { Columns3, GripVertical, Pencil, Plus } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { Columns3, Download, GripVertical, Pencil, Plus } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -23,6 +23,8 @@ import type {
   CallListeRow,
   CrmSystem,
   ListeColumnId,
+  ListeDueFilter,
+  ListeSort,
   PipelineStatus,
 } from "@/lib/sales/types";
 import {
@@ -34,15 +36,24 @@ import {
   PIPELINE_STATUS_OPTIONS,
   pipelineTone,
 } from "@/lib/sales/types";
+import { businessToday } from "@/lib/sales/dates";
 import { CreateCompanyModal } from "@/components/CreateCompanyModal";
 
 const STORAGE_KEY = "rais_liste_columns_v1";
-export type ListeDueFilter = "" | "today" | "overdue";
+
+const SORT_OPTIONS: { id: ListeSort; label: string }[] = [
+  { id: "", label: "Anruf-Priorität" },
+  { id: "faellig", label: "Fälligkeit" },
+  { id: "tage", label: "Tage seit Touch" },
+  { id: "firma", label: "Firma A–Z" },
+];
 
 type ColumnPrefs = {
   order: ListeColumnId[];
   visible: ListeColumnId[];
 };
+
+type Feedback = { text: string; tone: "ok" | "error" } | null;
 
 function defaultPrefs(): ColumnPrefs {
   return {
@@ -56,21 +67,23 @@ function loadPrefs(): ColumnPrefs {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return defaultPrefs();
-    const parsed = JSON.parse(raw) as ColumnPrefs;
-    const order = parsed.order.filter((c) =>
-      LISTE_COLUMN_CATALOG.includes(c),
-    );
-    for (const c of LISTE_COLUMN_CATALOG) {
-      if (!order.includes(c)) order.push(c);
+    const parsed = JSON.parse(raw) as Partial<ColumnPrefs>;
+    if (!Array.isArray(parsed.order) || !Array.isArray(parsed.visible)) {
+      return defaultPrefs();
     }
+
+    const order = parsed.order.filter((c) => LISTE_COLUMN_CATALOG.includes(c));
     const visible = parsed.visible.filter((c) =>
       LISTE_COLUMN_CATALOG.includes(c),
     );
+    // Neue Spalten aus dem Katalog ergänzen und standardmäßig einblenden.
     for (const c of LISTE_COLUMN_CATALOG) {
-      if (!order.includes(c)) order.push(c);
-      if (!parsed.order.includes(c) && !visible.includes(c)) visible.push(c);
+      if (!order.includes(c)) {
+        order.push(c);
+        if (!visible.includes(c)) visible.push(c);
+      }
     }
-    return { order, visible: visible.length ? visible : [...LISTE_COLUMN_CATALOG] };
+    return { order, visible: visible.length ? visible : [...order] };
   } catch {
     return defaultPrefs();
   }
@@ -89,7 +102,12 @@ export function CallListeTable({
   showCreate = false,
   initialStatus = "",
   initialDue = "",
-  serverFiltered = false,
+  initialSort = "",
+  initialQuery = "",
+  page,
+  pageSize,
+  total,
+  hideStatusFilters = false,
 }: {
   rows: CallListeRow[];
   title: string;
@@ -97,90 +115,75 @@ export function CallListeTable({
   showCreate?: boolean;
   initialStatus?: PipelineStatus | "";
   initialDue?: ListeDueFilter;
-  /** When true, status/due come from the server query; client only text-searches. */
-  serverFiltered?: boolean;
+  initialSort?: ListeSort;
+  initialQuery?: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  hideStatusFilters?: boolean;
 }) {
   const [prefs, setPrefs] = useState<ColumnPrefs>(defaultPrefs);
   const [editMode, setEditMode] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState<PipelineStatus | "">(
-    initialStatus,
-  );
-  const [dueFilter, setDueFilter] = useState<ListeDueFilter>(initialDue);
+  const [q, setQ] = useState(initialQuery);
   const [dragId, setDragId] = useState<ListeColumnId | null>(null);
-  const [pending, start] = useTransition();
-  const [msg, setMsg] = useState<string | null>(null);
+  const [navPending, startNav] = useTransition();
+  const [feedback, setFeedback] = useState<Feedback>(null);
+
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     setPrefs(loadPrefs());
   }, []);
 
   useEffect(() => {
-    setStatusFilter(initialStatus);
-    setDueFilter(initialDue);
-  }, [initialStatus, initialDue]);
+    setQ(initialQuery);
+  }, [initialQuery]);
 
-  function persist(next: ColumnPrefs) {
-    setPrefs(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  }
+  /** Schreibt Filter/Sortierung/Seite in die URL — der Server filtert. */
+  const pushParams = useCallback(
+    (patch: Record<string, string>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(patch)) {
+        if (value) params.set(key, value);
+        else params.delete(key);
+      }
+      // Jede Filteränderung springt zurück auf Seite 1.
+      if (!("page" in patch)) params.delete("page");
+      const qs = params.toString();
+      startNav(() => router.replace(qs ? `${pathname}?${qs}` : pathname));
+    },
+    [pathname, router, searchParams],
+  );
 
-  function syncListFilters(
-    nextStatus: PipelineStatus | "",
-    nextDue: ListeDueFilter,
-  ) {
-    setStatusFilter(nextStatus);
-    setDueFilter(nextDue);
-    if (!serverFiltered) return;
-    const params = new URLSearchParams();
-    if (nextStatus) params.set("status", nextStatus);
-    if (nextDue) params.set("due", nextDue);
-    const qs = params.toString();
-    router.replace(qs ? `?${qs}` : "?");
-  }
+  // Freitextsuche entprellt an den Server geben.
+  useEffect(() => {
+    if (q === initialQuery) return;
+    const timer = setTimeout(() => pushParams({ q }), 350);
+    return () => clearTimeout(timer);
+  }, [q, initialQuery, pushParams]);
 
   const displayCols = useMemo(
     () => prefs.order.filter((c) => prefs.visible.includes(c)),
     [prefs],
   );
 
-  const filtered = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    const today = new Date().toISOString().slice(0, 10);
-    return rows.filter((row) => {
-      const statusLabel = row.status
-        ? PIPELINE_STATUS_LABELS[row.status]
-        : "";
-      const hay = [
-        row.firma,
-        row.entscheider,
-        row.tel,
-        row.email,
-        row.crm,
-        row.status,
-        statusLabel,
-        row.website,
-        row.linkedin_url,
-        row.instagram_url,
-        row.facebook_url,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      const matchQ = !query || hay.includes(query);
-      if (serverFiltered) return matchQ;
-      const matchStatus = !statusFilter || row.status === statusFilter;
-      const matchDue =
-        !dueFilter ||
-        (dueFilter === "today" && row.naechster_touch === today) ||
-        (dueFilter === "overdue" &&
-          row.naechster_touch != null &&
-          row.naechster_touch < today);
-      return matchQ && matchStatus && matchDue;
-    });
-  }, [rows, q, statusFilter, dueFilter, serverFiltered]);
+  const status = initialStatus;
+  const due = initialDue;
+  const sort = initialSort;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const hasFilters = Boolean(status || due || q);
+
+  function persist(next: ColumnPrefs) {
+    setPrefs(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // Speicher voll oder gesperrt — Spaltenwahl gilt dann nur für diese Sitzung.
+    }
+  }
 
   function toggleVisible(col: ListeColumnId) {
     const visible = prefs.visible.includes(col)
@@ -203,7 +206,7 @@ export function CallListeTable({
 
   function plus48h() {
     const d = new Date(Date.now() + 48 * 60 * 60 * 1000);
-    return d.toISOString().slice(0, 10);
+    return businessToday(d);
   }
 
   return (
@@ -214,7 +217,19 @@ export function CallListeTable({
             {title}
           </h1>
           <p className="text-sm text-rais-stone">{subtitle}</p>
-          {msg ? <p className="mt-1 text-xs text-rais-sage">{msg}</p> : null}
+          {feedback ? (
+            <p
+              role="status"
+              className={cn(
+                "mt-1 text-xs",
+                feedback.tone === "error"
+                  ? "font-medium text-red-700"
+                  : "text-rais-sage",
+              )}
+            >
+              {feedback.text}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Input
@@ -223,47 +238,73 @@ export function CallListeTable({
             onChange={(e) => setQ(e.target.value)}
             className="w-52"
           />
+          {!hideStatusFilters ? (
+            <>
+              <select
+                aria-label="Status filtern"
+                value={status}
+                onChange={(e) => pushParams({ status: e.target.value })}
+                className="h-9 w-44 rounded-md border border-rais-border bg-white px-2 text-sm"
+              >
+                <option value="">Alle Status</option>
+                {PIPELINE_STATUS_OPTIONS.map((s) => (
+                  <option key={s} value={s}>
+                    {PIPELINE_STATUS_LABELS[s]}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Fälligkeit filtern"
+                value={due}
+                onChange={(e) => pushParams({ due: e.target.value })}
+                className="h-9 w-40 rounded-md border border-rais-border bg-white px-2 text-sm"
+              >
+                <option value="">Alle Fälligkeiten</option>
+                <option value="today">Heute fällig</option>
+                <option value="overdue">Überfällig</option>
+              </select>
+            </>
+          ) : null}
           <select
-            aria-label="Status filtern"
-            value={statusFilter}
-            onChange={(e) =>
-              syncListFilters(
-                e.target.value as PipelineStatus | "",
-                dueFilter,
-              )
-            }
-            className="h-9 w-44 rounded-md border border-rais-border bg-white px-2 text-sm"
+            aria-label="Sortierung"
+            value={sort}
+            onChange={(e) => pushParams({ sort: e.target.value })}
+            className="h-9 w-48 rounded-md border border-rais-border bg-white px-2 text-sm"
+            title="Standard ist die Anruf-Priorität der Liste: überfällig zuerst, dann nächster Touch, dann Anfragen/Woche."
           >
-            <option value="">Alle Status</option>
-            {PIPELINE_STATUS_OPTIONS.map((status) => (
-              <option key={status} value={status}>
-                {PIPELINE_STATUS_LABELS[status]}
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.id || "prio"} value={o.id}>
+                {o.label}
               </option>
             ))}
           </select>
-          <select
-            aria-label="Fälligkeit filtern"
-            value={dueFilter}
-            onChange={(e) =>
-              syncListFilters(statusFilter, e.target.value as ListeDueFilter)
-            }
-            className="h-9 w-40 rounded-md border border-rais-border bg-white px-2 text-sm"
-          >
-            <option value="">Alle Fälligkeiten</option>
-            <option value="today">Heute fällig</option>
-            <option value="overdue">Überfällig</option>
-          </select>
-          {statusFilter || dueFilter ? (
+          {hasFilters ? (
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="border-rais-border"
-              onClick={() => syncListFilters("", "")}
+              onClick={() => {
+                setQ("");
+                pushParams({ status: "", due: "", q: "" });
+              }}
             >
               Filter löschen
             </Button>
           ) : null}
+          <a
+            href={`/api/export?${new URLSearchParams({
+              ...(hideStatusFilters ? { view: "kunden" } : {}),
+              ...(status ? { status } : {}),
+              ...(due ? { due } : {}),
+              ...(q ? { q } : {}),
+            }).toString()}`}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-rais-border bg-white px-3 text-sm font-medium hover:bg-rais-linen"
+            title="Exportiert alle Treffer der aktuellen Filter, nicht nur diese Seite."
+          >
+            <Download className="h-3.5 w-3.5" />
+            CSV
+          </a>
           {showCreate ? (
             <Button
               size="sm"
@@ -317,7 +358,10 @@ export function CallListeTable({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto">
+      <div
+        className={cn("overflow-x-auto", navPending && "opacity-60")}
+        aria-busy={navPending}
+      >
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
@@ -327,7 +371,7 @@ export function CallListeTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length === 0 ? (
+            {rows.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={displayCols.length || 1}
@@ -337,63 +381,13 @@ export function CallListeTable({
                 </TableCell>
               </TableRow>
             ) : (
-              filtered.map((row) => (
+              rows.map((row) => (
                 <ListeRow
                   key={row.company_id}
                   row={row}
                   displayCols={displayCols}
-                  pending={pending}
                   defaultNext={plus48h()}
-                  onStatus={(status, kanal, next) =>
-                    start(async () => {
-                      const res = await setListPipelineStatus({
-                        companyId: row.company_id,
-                        pipelineStatus: status,
-                        kanal,
-                        naechsterTouch: next,
-                      });
-                      if (res.error) {
-                        setMsg(res.error);
-                        return;
-                      }
-                      const note =
-                        res.relationship === "Kunde"
-                          ? " · jetzt unter Kunden"
-                          : res.relationship === "Ausgeschlossen"
-                            ? " · aus Prospects entfernt"
-                            : "";
-                      setMsg(
-                        `Status gesetzt · nächster Touch ${res.naechster_touch}${note}`,
-                      );
-                      router.refresh();
-                    })
-                  }
-                  onCrm={(crm) =>
-                    start(async () => {
-                      const res = await updateListFields(row.company_id, {
-                        crm_system: crm,
-                      });
-                      if (res.error) {
-                        setMsg(res.error);
-                        return;
-                      }
-                      setMsg("CRM gespeichert");
-                      router.refresh();
-                    })
-                  }
-                  onAnfragen={(n) =>
-                    start(async () => {
-                      const res = await updateListFields(row.company_id, {
-                        anfragen_pro_woche: n,
-                      });
-                      if (res.error) {
-                        setMsg(res.error);
-                        return;
-                      }
-                      setMsg("Anfragen/W gespeichert");
-                      router.refresh();
-                    })
-                  }
+                  onFeedback={setFeedback}
                 />
               ))
             )}
@@ -401,14 +395,42 @@ export function CallListeTable({
         </Table>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+        <span className="text-xs text-rais-stone">
+          Seite {page} von {totalPages} · {total}{" "}
+          {total === 1 ? "Eintrag" : "Einträge"}
+        </span>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-rais-border"
+            disabled={page <= 1 || navPending}
+            onClick={() => pushParams({ page: String(page - 1) })}
+          >
+            Zurück
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-rais-border"
+            disabled={page >= totalPages || navPending}
+            onClick={() => pushParams({ page: String(page + 1) })}
+          >
+            Weiter
+          </Button>
+        </div>
+      </div>
+
       {showCreate ? (
         <CreateCompanyModal
           open={createOpen}
           onClose={() => setCreateOpen(false)}
-          onCreated={(id) => {
-            setMsg(`Firma angelegt`);
+          onCreated={() => {
+            setFeedback({ text: "Firma angelegt", tone: "ok" });
             setCreateOpen(false);
-            void id;
           }}
         />
       ) : null}
@@ -419,26 +441,78 @@ export function CallListeTable({
 function ListeRow({
   row,
   displayCols,
-  pending,
   defaultNext,
-  onStatus,
-  onCrm,
-  onAnfragen,
+  onFeedback,
 }: {
   row: CallListeRow;
   displayCols: ListeColumnId[];
-  pending: boolean;
   defaultNext: string;
-  onStatus: (
-    status: PipelineStatus,
-    kanal: "call" | "dm",
-    next: string | null,
-  ) => void;
-  onCrm: (c: CrmSystem | null) => void;
-  onAnfragen: (n: number | null) => void;
+  onFeedback: (f: Feedback) => void;
 }) {
+  // Eigene Transition pro Zeile: vorher hat ein einziges `useTransition` im
+  // Tabellen-Root beim Speichern *alle* Zeilen gleichzeitig deaktiviert.
+  const [pending, start] = useTransition();
+  const router = useRouter();
   const [nextDate, setNextDate] = useState(row.naechster_touch ?? defaultNext);
   const [kanal, setKanal] = useState<"call" | "dm">("call");
+
+  useEffect(() => {
+    setNextDate(row.naechster_touch ?? defaultNext);
+  }, [row.naechster_touch, defaultNext]);
+
+  const dateDirty = (row.naechster_touch ?? defaultNext) !== nextDate;
+
+  function onStatus(status: PipelineStatus) {
+    start(async () => {
+      const res = await setListPipelineStatus({
+        companyId: row.company_id,
+        pipelineStatus: status,
+        kanal,
+        naechsterTouch: nextDate || defaultNext,
+      });
+      if (res.error) {
+        onFeedback({ text: res.error, tone: "error" });
+        return;
+      }
+      const note =
+        res.relationship === "Kunde"
+          ? " · jetzt unter Kunden"
+          : res.relationship === "Ausgeschlossen"
+            ? " · aus Prospects entfernt"
+            : "";
+      onFeedback({
+        text: `${row.firma}: Status gesetzt · nächster Touch ${res.naechster_touch}${note}`,
+        tone: "ok",
+      });
+      router.refresh();
+    });
+  }
+
+  function onCrm(crm: CrmSystem | null) {
+    start(async () => {
+      const res = await updateListFields(row.company_id, { crm_system: crm });
+      if (res.error) {
+        onFeedback({ text: res.error, tone: "error" });
+        return;
+      }
+      onFeedback({ text: `${row.firma}: CRM gespeichert`, tone: "ok" });
+      router.refresh();
+    });
+  }
+
+  function onAnfragen(n: number | null) {
+    start(async () => {
+      const res = await updateListFields(row.company_id, {
+        anfragen_pro_woche: n,
+      });
+      if (res.error) {
+        onFeedback({ text: res.error, tone: "error" });
+        return;
+      }
+      onFeedback({ text: `${row.firma}: Anfragen/W gespeichert`, tone: "ok" });
+      router.refresh();
+    });
+  }
 
   return (
     <TableRow className="hover:bg-white/70">
@@ -450,7 +524,7 @@ function ListeRow({
             pending={pending}
             nextDate={nextDate}
             setNextDate={setNextDate}
-            defaultNext={defaultNext}
+            dateDirty={dateDirty}
             kanal={kanal}
             setKanal={setKanal}
             onStatus={onStatus}
@@ -469,7 +543,7 @@ function Cell({
   pending,
   nextDate,
   setNextDate,
-  defaultNext,
+  dateDirty,
   kanal,
   setKanal,
   onStatus,
@@ -481,14 +555,10 @@ function Cell({
   pending: boolean;
   nextDate: string;
   setNextDate: (v: string) => void;
-  defaultNext: string;
+  dateDirty: boolean;
   kanal: "call" | "dm";
   setKanal: (v: "call" | "dm") => void;
-  onStatus: (
-    status: PipelineStatus,
-    kanal: "call" | "dm",
-    next: string | null,
-  ) => void;
+  onStatus: (status: PipelineStatus) => void;
   onCrm: (c: CrmSystem | null) => void;
   onAnfragen: (n: number | null) => void;
 }) {
@@ -515,8 +585,8 @@ function Cell({
             value={row.status ?? "neu"}
             onChange={(e) => {
               const val = e.target.value as PipelineStatus;
-              if (!val) return;
-              onStatus(val, kanal, nextDate || defaultNext);
+              if (!val || val === row.status) return;
+              onStatus(val);
             }}
           >
             {PIPELINE_STATUS_OPTIONS.map((o) => (
@@ -542,15 +612,35 @@ function Cell({
       );
     }
     case "Nächster Touch":
+      // Das Datum ist Parameter der Status-Änderung, kein eigenständiges Feld:
+      // `naechster_touch` hängt am jüngsten Touchpoint, ein Speichern ohne
+      // Status-Änderung würde einen Touch schreiben und die KPIs verfälschen.
+      // Deshalb hier ein sichtbarer "noch nicht gespeichert"-Zustand statt
+      // stiller Verwerfung.
       return (
-        <input
-          type="date"
-          className="h-8 rounded-md border border-rais-border bg-white px-2 text-xs"
-          disabled={pending}
-          value={nextDate ?? ""}
-          onChange={(e) => setNextDate(e.target.value || defaultNext)}
-          title="Datum für Status-Änderung; sonst +48h ab jetzt"
-        />
+        <div className="flex items-center gap-1.5">
+          <input
+            type="date"
+            className={cn(
+              "h-8 rounded-md border bg-white px-2 text-xs",
+              dateDirty
+                ? "border-rais-orange ring-1 ring-rais-orange/40"
+                : "border-rais-border",
+            )}
+            disabled={pending}
+            value={nextDate}
+            onChange={(e) => setNextDate(e.target.value)}
+            title="Gilt für die nächste Status-Änderung dieser Zeile."
+          />
+          {dateDirty ? (
+            <span
+              className="text-[10px] font-medium text-rais-orange"
+              title="Wird mit der nächsten Status-Änderung gespeichert."
+            >
+              ungespeichert
+            </span>
+          ) : null}
+        </div>
       );
     case "Tage":
       return <span className="tabular-nums">{row.tage_seit_touch ?? "—"}</span>;
@@ -564,7 +654,10 @@ function Cell({
       );
     case "Email":
       return row.email ? (
-        <a href={`mailto:${row.email}`} className="text-rais-orange hover:underline">
+        <a
+          href={`mailto:${row.email}`}
+          className="text-rais-orange hover:underline"
+        >
           {row.email}
         </a>
       ) : (
@@ -577,7 +670,7 @@ function Cell({
           href={href}
           target="_blank"
           rel="noopener noreferrer"
-          className={cn("text-rais-orange hover:underline")}
+          className="text-rais-orange hover:underline"
         >
           {row.website}
         </a>
@@ -634,9 +727,7 @@ function Cell({
           className="h-8 min-w-[8rem] rounded-md border border-rais-border bg-white px-2 text-xs"
           disabled={pending}
           value={row.crm ?? ""}
-          onChange={(e) =>
-            onCrm((e.target.value || null) as CrmSystem | null)
-          }
+          onChange={(e) => onCrm((e.target.value || null) as CrmSystem | null)}
         >
           <option value="">—</option>
           {CRM_OPTIONS.map((o) => (

@@ -1,68 +1,147 @@
 import { createClient } from "@/lib/supabase/server";
 import type {
-  Abbruchgrund,
-  AkquiseKpis,
   AnalyticsDashboardData,
   AnalyticsRange,
   CallListeRow,
   Company,
+  ListeDueFilter,
+  ListeSort,
   Opportunity,
   Person,
   PipelineStatus,
-  PipelineStatusCount,
   TouchErgebnis,
-  TouchKanal,
   Touchpoint,
 } from "@/lib/sales/types";
-import { ERGEBNIS_LABELS, rangeBounds } from "@/lib/sales/types";
+import { ERGEBNIS_LABELS } from "@/lib/sales/types";
+import { BUSINESS_TZ, businessToday, rangeBounds } from "@/lib/sales/dates";
 
 const CALL_LISTE_COLUMNS =
   "company_id,firma,entscheider,bundesland,crm,\"anfragen/woche\",naechster_touch,status,tage_seit_touch,tel,email,linkedin_url,inserate_aktiv,website,instagram_url,facebook_url";
 
-export type ListeDueFilter = "" | "today" | "overdue";
+/** Zeilen pro Seite. PostgREST liefert ohnehin max. 1000 (`config.toml`). */
+export const LISTE_PAGE_SIZE = 100;
 
 export type CallListeFilters = {
   status?: PipelineStatus | "";
   due?: ListeDueFilter;
+  q?: string;
+  sort?: ListeSort;
+  page?: number;
 };
 
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
+export type ListeResult = {
+  rows: CallListeRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
 
-export async function fetchCallListe(
-  filters: CallListeFilters = {},
-): Promise<CallListeRow[]> {
+async function fetchListe(
+  view: "v_call_liste" | "v_kunden_liste",
+  filters: CallListeFilters,
+): Promise<ListeResult> {
   const supabase = await createClient();
-  let query = supabase
-    .from("v_call_liste")
-    .select(CALL_LISTE_COLUMNS)
-    .order("firma");
+  const page =
+    Number.isFinite(filters.page) && (filters.page ?? 0) > 0
+      ? Math.floor(filters.page as number)
+      : 1;
+  const offset = (page - 1) * LISTE_PAGE_SIZE;
+
+  let query = supabase.from(view).select(CALL_LISTE_COLUMNS, {
+    count: "exact",
+  });
 
   if (filters.status) {
     query = query.eq("status", filters.status);
   }
 
-  const today = todayIso();
+  const today = businessToday();
   if (filters.due === "today") {
     query = query.eq("naechster_touch", today);
   } else if (filters.due === "overdue") {
-    query = query.lt("naechster_touch", today).not("naechster_touch", "is", null);
+    query = query
+      .lt("naechster_touch", today)
+      .not("naechster_touch", "is", null);
   }
 
-  const { data, error } = await query;
+  const term = filters.q?.trim();
+  if (term) {
+    const safe = term.replace(/[%,()]/g, " ");
+    query = query.or(
+      `firma.ilike.%${safe}%,entscheider.ilike.%${safe}%,tel.ilike.%${safe}%,email.ilike.%${safe}%`,
+    );
+  }
+
+  // Ohne explizite Auswahl bleibt die ORDER BY der View erhalten: überfällig
+  // zuerst, dann nächster Touch, dann Anfragen/Woche. Das ist die
+  // Anruf-Priorität — vorher hat die App sie mit `.order("firma")`
+  // überschrieben und damit alphabetisch statt nach Dringlichkeit sortiert.
+  if (filters.sort === "firma") {
+    query = query.order("firma");
+  } else if (filters.sort === "faellig") {
+    query = query.order("naechster_touch", { nullsFirst: false });
+  } else if (filters.sort === "tage") {
+    query = query.order("tage_seit_touch", {
+      ascending: false,
+      nullsFirst: false,
+    });
+  }
+
+  const { data, error, count } = await query.range(
+    offset,
+    offset + LISTE_PAGE_SIZE - 1,
+  );
   if (error) throw error;
-  return (data ?? []) as CallListeRow[];
+  return {
+    rows: (data ?? []) as CallListeRow[],
+    total: count ?? 0,
+    page,
+    pageSize: LISTE_PAGE_SIZE,
+  };
 }
 
-export async function fetchKundenListe(): Promise<CallListeRow[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("v_kunden_liste")
-    .select(CALL_LISTE_COLUMNS)
-    .order("firma");
-  if (error) throw error;
-  return (data ?? []) as CallListeRow[];
+export function fetchCallListe(
+  filters: CallListeFilters = {},
+): Promise<ListeResult> {
+  return fetchListe("v_call_liste", filters);
+}
+
+/** Obergrenze für den Export — schützt vor einem versehentlichen Vollabzug. */
+export const EXPORT_MAX_ROWS = 10_000;
+
+/**
+ * Alle Zeilen einer Liste für den CSV-Export.
+ *
+ * Seitenweise, weil PostgREST bei 1000 Zeilen abschneidet (`config.toml`).
+ * Genau diese stille Kappung war der Grund, warum die Liste oberhalb von 1000
+ * Prospects unvollständig war, ohne dass es jemand gemerkt hätte.
+ */
+export async function fetchListeForExport(
+  view: "v_call_liste" | "v_kunden_liste",
+  filters: CallListeFilters = {},
+): Promise<{ rows: CallListeRow[]; truncated: boolean }> {
+  const rows: CallListeRow[] = [];
+  let page = 1;
+
+  for (;;) {
+    const batch = await fetchListe(view, { ...filters, page });
+    rows.push(...batch.rows);
+    const done =
+      batch.rows.length < LISTE_PAGE_SIZE || rows.length >= batch.total;
+    if (done || rows.length >= EXPORT_MAX_ROWS) {
+      return {
+        rows: rows.slice(0, EXPORT_MAX_ROWS),
+        truncated: rows.length > EXPORT_MAX_ROWS || batch.total > EXPORT_MAX_ROWS,
+      };
+    }
+    page += 1;
+  }
+}
+
+export function fetchKundenListe(
+  filters: CallListeFilters = {},
+): Promise<ListeResult> {
+  return fetchListe("v_kunden_liste", filters);
 }
 
 export async function fetchCompany(id: string): Promise<Company | null> {
@@ -70,7 +149,7 @@ export async function fetchCompany(id: string): Promise<Company | null> {
   const { data, error } = await supabase
     .from("companies")
     .select(
-      "id,name,stadt,website,instagram_url,facebook_url,telefon,mitarbeiterzahl,crm_system,anfragen_pro_woche,inserate_aktiv,relationship,pipeline_status,created_at,updated_at",
+      "id,name,stadt,website,instagram_url,facebook_url,telefon,mitarbeiterzahl,crm_system,anfragen_pro_woche,inserate_aktiv,relationship,recherche,pipeline_status,created_at,updated_at",
     )
     .eq("id", id)
     .maybeSingle();
@@ -90,17 +169,25 @@ export async function fetchPeople(companyId: string): Promise<Person[]> {
   return (data ?? []) as Person[];
 }
 
+/** Wie viele Touchpoints die Detailseite lädt. */
+export const TOUCHPOINT_PAGE_SIZE = 50;
+
 export async function fetchTouchpoints(
   companyId: string,
-): Promise<Touchpoint[]> {
+  limit = TOUCHPOINT_PAGE_SIZE,
+): Promise<{ rows: Touchpoint[]; total: number }> {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  // Begrenzt: vorher wurde die vollständige Historie einer lange bearbeiteten
+  // Firma bei *jedem* Seitenaufruf und nach *jedem* Speichern komplett in die
+  // RSC-Antwort serialisiert.
+  const { data, error, count } = await supabase
     .from("touchpoints")
-    .select("*")
+    .select("*", { count: "exact" })
     .eq("company_id", companyId)
-    .order("occurred_at", { ascending: false });
+    .order("occurred_at", { ascending: false })
+    .limit(limit);
   if (error) throw error;
-  return (data ?? []) as Touchpoint[];
+  return { rows: (data ?? []) as Touchpoint[], total: count ?? 0 };
 }
 
 export async function fetchOpportunities(
@@ -118,13 +205,13 @@ export async function fetchOpportunities(
 
 export async function fetchWorkspaceStats() {
   const supabase = await createClient();
-  const today = todayIso();
+  const today = businessToday();
   const [
-    { count: prospects },
-    { count: kunden },
-    { count: ausgeschlossen },
-    { count: dueCount },
-    { data: recentTouches },
+    prospectsRes,
+    kundenRes,
+    ausgeschlossenRes,
+    dueRes,
+    recentRes,
   ] = await Promise.all([
     supabase
       .from("companies")
@@ -150,73 +237,61 @@ export async function fetchWorkspaceStats() {
       .limit(6),
   ]);
 
-  const activity = (recentTouches ?? []).map((t) => {
+  // Fehler dürfen hier nicht verschluckt werden. Vorher wurde nur `count`
+  // destrukturiert; schlug eine Query fehl, war `count` null, `?? 0` machte
+  // daraus eine 0 und der Header behauptete "Prospects 0 / Kunden 0", als wäre
+  // das ein echter Messwert. Lieber ein ehrliches "—" als eine erfundene Zahl.
+  const firstError =
+    prospectsRes.error ??
+    kundenRes.error ??
+    ausgeschlossenRes.error ??
+    dueRes.error ??
+    recentRes.error;
+  if (firstError) {
+    console.error("[sales:workspace-stats]", {
+      code: firstError.code,
+      message: firstError.message,
+    });
+  }
+
+  const kpiValue = (count: number | null, error: unknown) =>
+    error ? "—" : String(count ?? 0);
+
+  const activity = (recentRes.data ?? []).map((t) => {
     const ergebnis = t.ergebnis as TouchErgebnis;
     return {
       title: ERGEBNIS_LABELS[ergebnis] ?? String(t.ergebnis),
-      when: new Date(t.occurred_at).toLocaleString("de-DE"),
+      when: new Date(t.occurred_at).toLocaleString("de-DE", {
+        timeZone: BUSINESS_TZ,
+      }),
     };
   });
 
   return {
+    degraded: Boolean(firstError),
     kpis: [
       {
         label: "Prospects",
-        value: String(prospects ?? 0),
+        value: kpiValue(prospectsRes.count, prospectsRes.error),
         hint: "in Call-Liste",
       },
       {
         label: "Kunden",
-        value: String(kunden ?? 0),
+        value: kpiValue(kundenRes.count, kundenRes.error),
         hint: "aktive Accounts",
       },
       {
         label: "Fällig heute",
-        value: String(dueCount ?? 0),
+        value: kpiValue(dueRes.count, dueRes.error),
         hint: "naechster_touch ≤ heute",
       },
       {
         label: "Ausgeschlossen",
-        value: String(ausgeschlossen ?? 0),
+        value: kpiValue(ausgeschlossenRes.count, ausgeschlossenRes.error),
         hint: "nicht in Liste",
       },
     ],
     activity,
-  };
-}
-
-export async function fetchAkquiseKpis(
-  range: AnalyticsRange,
-): Promise<AkquiseKpis> {
-  const { from, to } = rangeBounds(range);
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("akquise_kpis", {
-    p_from: from,
-    p_to: to,
-  });
-  if (error) throw error;
-  const raw = (data ?? {}) as Partial<AkquiseKpis>;
-  return {
-    from: raw.from ?? from,
-    to: raw.to ?? to,
-    totals: {
-      dials: Number(raw.totals?.dials ?? 0),
-      dms: Number(raw.totals?.dms ?? 0),
-      connects: Number(raw.totals?.connects ?? 0),
-      conversations: Number(raw.totals?.conversations ?? 0),
-      appointments: Number(raw.totals?.appointments ?? 0),
-      total_touches: Number(raw.totals?.total_touches ?? 0),
-      connect_rate_pct:
-        raw.totals?.connect_rate_pct == null
-          ? null
-          : Number(raw.totals.connect_rate_pct),
-      appointment_rate_pct:
-        raw.totals?.appointment_rate_pct == null
-          ? null
-          : Number(raw.totals.appointment_rate_pct),
-    },
-    series: Array.isArray(raw.series) ? raw.series : [],
-    status_mix: Array.isArray(raw.status_mix) ? raw.status_mix : [],
   };
 }
 
@@ -330,29 +405,3 @@ export async function fetchAnalyticsDashboard(
     },
   };
 }
-
-export async function fetchPipelineStatusCounts(): Promise<
-  PipelineStatusCount[]
-> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("pipeline_status_counts");
-  if (error) throw error;
-  const raw = (data ?? []) as { status?: string; n?: number }[];
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter((r) => r.status && typeof r.n === "number")
-    .map((r) => ({
-      status: r.status as PipelineStatus,
-      n: Number(r.n),
-    }));
-}
-
-export type LogTouchInput = {
-  companyId: string;
-  personId?: string | null;
-  kanal: TouchKanal;
-  ergebnis: TouchErgebnis;
-  notiz?: string | null;
-  naechster_touch?: string | null;
-  abbruchgrund?: Abbruchgrund | null;
-};

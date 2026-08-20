@@ -1,7 +1,8 @@
 import { readFileSync } from 'fs';
 
 const SB_URL = 'https://qdywaenmojdxhfxqbvun.supabase.co';
-const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkeXdhZW5tb2pkeGhmeHFidnVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDYwMTYsImV4cCI6MjA5MDk4MjAxNn0.rfIzS2eY3yZCvap0pKdB7V-AfKmnvQLx_QLaFEi1gts';
+const SB_KEY = process.env.SB_KEY || ''; // REDAKTIERT 2026-08-20: produktiver anon-Key war hier hartkodiert.
+if (!SB_KEY) { console.error('SB_KEY fehlt. Dieses Archiv-Skript schreibt in die PRODUKTION — Key bewusst per Umgebung setzen.'); process.exit(1); }
 
 const rows = JSON.parse(readFileSync('scripts/hausverwaltungen-import.json', 'utf8'));
 const existing = await fetch(

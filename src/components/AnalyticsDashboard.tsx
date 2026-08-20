@@ -34,6 +34,7 @@ import {
   pipelineTone,
 } from "@/lib/sales/types";
 import { cn } from "@/lib/utils";
+import { BUSINESS_TZ } from "@/lib/sales/dates";
 
 const RANGES: { id: AnalyticsRange; label: string }[] = [
   { id: "day", label: "Tag" },
@@ -60,14 +61,28 @@ function formatPercent(value: number | null) {
   return value == null ? "—" : `${numberFormatter.format(value)} %`;
 }
 
+/**
+ * Alle Datums-Formatierer sind fest auf die Geschäftszeitzone gestellt.
+ *
+ * Ohne `timeZone` rendert der Server in UTC und der Browser in der Zone des
+ * Betrachters — bei identischem Markup ergibt das unterschiedliche Beschriftungen
+ * und damit einen Hydration-Mismatch. Zudem wurden die Perioden-Grenzen bereits
+ * in Berliner Zeit berechnet (`rangeBounds`), also muss die Anzeige dazu passen.
+ */
 function periodLabel(from: string, to: string) {
   const start = new Date(from);
   const exclusiveEnd = new Date(to);
   const end = new Date(exclusiveEnd.getTime() - 1);
+  const yearOf = (d: Date) =>
+    new Intl.DateTimeFormat("de-DE", {
+      timeZone: BUSINESS_TZ,
+      year: "numeric",
+    }).format(d);
   const format = new Intl.DateTimeFormat("de-DE", {
+    timeZone: BUSINESS_TZ,
     day: "2-digit",
     month: "short",
-    year: start.getFullYear() === end.getFullYear() ? undefined : "numeric",
+    year: yearOf(start) === yearOf(end) ? undefined : "numeric",
   });
   return `${format.format(start)} – ${format.format(end)}`;
 }
@@ -76,14 +91,19 @@ function trendLabel(bucket: string, grain: AnalyticsDashboardData["grain"]) {
   const date = new Date(bucket);
   if (grain === "hour") {
     return new Intl.DateTimeFormat("de-DE", {
+      timeZone: BUSINESS_TZ,
       hour: "2-digit",
       minute: "2-digit",
     }).format(date);
   }
   if (grain === "month") {
-    return new Intl.DateTimeFormat("de-DE", { month: "short" }).format(date);
+    return new Intl.DateTimeFormat("de-DE", {
+      timeZone: BUSINESS_TZ,
+      month: "short",
+    }).format(date);
   }
   return new Intl.DateTimeFormat("de-DE", {
+    timeZone: BUSINESS_TZ,
     day: "2-digit",
     month: "2-digit",
   }).format(date);

@@ -11,7 +11,7 @@
  *   npx supabase db dump --schema sales -f supabase/migrations/20260727204619_sales_baseline.sql --linked
  */
 import { execSync } from 'node:child_process';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -28,10 +28,6 @@ const header = `-- Sales schema baseline (cutover 2026-07-27)
 
 if (dbUrl) {
   mkdirSync(dirname(out), { recursive: true });
-  execSync(
-    `pg_dump "${dbUrl}" --schema=sales --schema-only --no-owner --no-privileges`,
-  { encoding: 'utf8', stdio: ['pipe', 'pipe', 'inherit'] },
-  );
   const dump = execSync(
     `pg_dump "${dbUrl}" --schema=sales --schema-only --no-owner --no-privileges`,
     { encoding: 'utf8' },

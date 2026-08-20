@@ -37,6 +37,6 @@ Das ist **kein** Teil des täglichen Call-Workflows.
 
 ## Technische Maßnahmen
 - Zugriff nur nach Supabase Auth Login
-- RLS: `sales`-Tabellen nur für `authenticated` mit `auth.uid() IS NOT NULL`
+- RLS: `sales`-Tabellen nur für `authenticated` mit `sales.is_app_user()` — angemeldet **und** in `sales.app_users` freigeschaltet
 - Kein Service-Role-Key im Browser
 - Keine Kontaktlisten in Git committen (siehe `.gitignore`)

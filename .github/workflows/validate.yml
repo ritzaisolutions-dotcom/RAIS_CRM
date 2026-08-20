@@ -1,11 +1,33 @@
 name: Validate
+
 on:
   push:
+    branches: [master, 'release/**', 'feat/**', 'fix/**']
   pull_request:
+  workflow_dispatch:
+
+# Standard ist ein schreibfähiges GITHUB_TOKEN — hier wird nichts geschrieben.
+permissions:
+  contents: read
 
 jobs:
+  # Läuft zuerst und blockiert alles andere: ein geleaktes Secret soll nicht
+  # erst auffallen, nachdem Build und Tests fröhlich durchgelaufen sind.
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan tracked files with Gitleaks
+        run: >-
+          docker run --rm
+          -v "$PWD:/repo"
+          zricethezav/gitleaks:v8.24.3
+          detect --source /repo --no-git --redact
+          --config /repo/.gitleaks.toml --exit-code 1
+
   validate:
     runs-on: ubuntu-latest
+    needs: secret-scan
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,40 +38,34 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm run test
-      - run: npm run security:audit
+      # Ohne --omit=dev: Schwachstellen in der Build-Toolchain waren bisher
+      # überhaupt nicht gegated.
+      - run: npm audit --audit-level=high
       - run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_ci_placeholder
 
-  secret-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Scan tracked files with Gitleaks
-        run: >-
-          docker run --rm
-          -v "$PWD:/repo"
-          zricethezav/gitleaks:v8.24.3
-          detect --source /repo --no-git --redact --exit-code 1
-
+  # Die Sicherheits-Suite lief bisher nie: sie verlangte eine externe
+  # Staging-Datenbank, die es nicht gibt, und brach deshalb bei jedem Lauf ab.
+  # Jetzt startet CI den lokalen Supabase-Stack und prüft gegen den — jeder
+  # Push testet RLS, Spaltenrechte und Transaktions-Rollback wirklich.
   rls-integrity:
     runs-on: ubuntu-latest
-    env:
-      SUPABASE_TEST_DB_URL: ${{ secrets.SUPABASE_TEST_DB_URL }}
+    needs: secret-scan
     steps:
       - uses: actions/checkout@v4
-      - name: Require dedicated staging database URL
-        run: |
-          if [ -z "$SUPABASE_TEST_DB_URL" ]; then
-            echo "::error::SUPABASE_TEST_DB_URL is required. Configure a dedicated staging database in GitHub Secrets — never production."
-            exit 1
-          fi
-          if echo "$SUPABASE_TEST_DB_URL" | grep -Eq 'qdywaenmojdxhfxqbvun'; then
-            echo "::error::SUPABASE_TEST_DB_URL must not point at production (qdywaenmojdxhfxqbvun)."
-            exit 1
-          fi
-      - name: Install PostgreSQL client
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Start local Supabase stack
+        run: supabase start
       - name: Run RLS and transaction tests
-        run: psql "$SUPABASE_TEST_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/security_rls.sql
+        run: node scripts/run-rls-tests.mjs
+      - name: Stop stack
+        if: always()
+        run: supabase stop --no-backup || true

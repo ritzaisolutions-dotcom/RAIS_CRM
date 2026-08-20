@@ -1,8 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createCompany } from "@/lib/sales/actions";
+import {
+  createCompany,
+  findSimilarCompanies,
+  type SimilarCompany,
+} from "@/lib/sales/actions";
 import type { CrmSystem, PipelineStatus } from "@/lib/sales/types";
 import {
   CRM_OPTIONS,
@@ -39,6 +44,19 @@ export function CreateCompanyModal({
   const [personEmail, setPersonEmail] = useState("");
   const [personTel, setPersonTel] = useState("");
   const [personLinkedin, setPersonLinkedin] = useState("");
+  const [similar, setSimilar] = useState<SimilarCompany[]>([]);
+
+  // Entprellte Dublettenprüfung während der Eingabe.
+  useEffect(() => {
+    if (!open || name.trim().length < 3) {
+      setSimilar([]);
+      return;
+    }
+    const timer = setTimeout(() => {
+      findSimilarCompanies(name).then(setSimilar).catch(() => setSimilar([]));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [name, open]);
 
   if (!open) return null;
 
@@ -56,6 +74,7 @@ export function CreateCompanyModal({
     setPersonEmail("");
     setPersonTel("");
     setPersonLinkedin("");
+    setSimilar([]);
     setError(null);
   }
 
@@ -125,6 +144,32 @@ export function CreateCompanyModal({
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Firmenname"
               />
+              {similar.length > 0 ? (
+                <div className="mt-1 rounded-md border border-rais-orange bg-[#fff7f2] p-2 text-xs">
+                  <div className="font-semibold text-rais-charcoal">
+                    Möglicherweise schon vorhanden:
+                  </div>
+                  <ul className="mt-1 space-y-0.5">
+                    {similar.map((c) => (
+                      <li key={c.id}>
+                        <Link
+                          href={`/firma/${c.id}`}
+                          className="text-rais-orange hover:underline"
+                        >
+                          {c.name}
+                        </Link>
+                        <span className="text-rais-stone">
+                          {c.stadt ? ` · ${c.stadt}` : ""} · {c.relationship}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-1 text-rais-stone">
+                    Firmen lassen sich nicht löschen — lieber die bestehende
+                    öffnen als ein Duplikat anlegen.
+                  </div>
+                </div>
+              ) : null}
             </label>
             <label className="field">
               <span>Stadt</span>

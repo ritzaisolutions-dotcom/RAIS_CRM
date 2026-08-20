@@ -12,7 +12,9 @@ import {
   upsertOpportunity,
   upsertPerson,
   deletePerson,
+  voidTouchpoint,
 } from "@/lib/sales/actions";
+import { BUSINESS_TZ } from "@/lib/sales/dates";
 import {
   ABBRUCH_OPTIONS,
   abbruchAllowed,
@@ -28,7 +30,6 @@ import {
   OUTREACH_KANAL_OPTIONS,
   PIPELINE_STATUS_LABELS,
   PIPELINE_STATUS_OPTIONS,
-  RELATIONSHIP_OPTIONS,
   ergebnisTone,
   pipelineTone,
 } from "@/lib/sales/types";
@@ -42,7 +43,6 @@ import type {
   OppVariante,
   Person,
   PipelineStatus,
-  Relationship,
   TouchErgebnis,
   TouchKanal,
   Touchpoint,
@@ -52,11 +52,13 @@ export function CompanyDetail({
   company,
   people,
   touchpoints,
+  touchpointsTotal,
   opportunities,
 }: {
   company: Company;
   people: Person[];
   touchpoints: Touchpoint[];
+  touchpointsTotal: number;
   opportunities: Opportunity[];
 }) {
   return (
@@ -93,6 +95,7 @@ export function CompanyDetail({
             companyId={company.id}
             people={people}
             touchpoints={touchpoints}
+            total={touchpointsTotal}
           />
         </div>
       </div>
@@ -120,6 +123,7 @@ function BasicsForm({ company }: { company: Company }) {
   const [website, setWebsite] = useState(company.website ?? "");
   const [instagram, setInstagram] = useState(company.instagram_url ?? "");
   const [facebook, setFacebook] = useState(company.facebook_url ?? "");
+  const [recherche, setRecherche] = useState(company.recherche ?? "");
 
   useEffect(() => {
     setName(company.name);
@@ -128,6 +132,7 @@ function BasicsForm({ company }: { company: Company }) {
     setWebsite(company.website ?? "");
     setInstagram(company.instagram_url ?? "");
     setFacebook(company.facebook_url ?? "");
+    setRecherche(company.recherche ?? "");
   }, [company]);
 
   return (
@@ -147,6 +152,7 @@ function BasicsForm({ company }: { company: Company }) {
               website: website || null,
               instagram_url: instagram || null,
               facebook_url: facebook || null,
+              recherche: recherche || null,
             });
             if (res.error) {
               setMsg(res.error);
@@ -199,6 +205,15 @@ function BasicsForm({ company }: { company: Company }) {
               onChange={(e) => setFacebook(e.target.value)}
             />
           </div>
+        </div>
+        <div className="field">
+          <label>Recherche</label>
+          <textarea
+            rows={4}
+            value={recherche}
+            onChange={(e) => setRecherche(e.target.value)}
+            placeholder="Gewerk, Kontext, Gesprächsaufhänger…"
+          />
         </div>
         <div className="form-actions">
           <button className="btn btn-primary" type="submit" disabled={pending}>
@@ -313,23 +328,20 @@ function QualificationForm({ company }: { company: Company }) {
   const [anfragen, setAnfragen] = useState(
     company.anfragen_pro_woche?.toString() ?? "",
   );
-  const [relationship, setRelationship] = useState<Relationship>(
-    company.relationship,
-  );
 
   useEffect(() => {
     setMitarbeiterzahl(company.mitarbeiterzahl ?? "");
     setCrm(company.crm_system ?? "");
     setAnfragen(company.anfragen_pro_woche?.toString() ?? "");
-    setRelationship(company.relationship);
   }, [company]);
 
   return (
     <section className="dense-panel">
       <h2 className="section-h">Qualifikation</h2>
       <p className="muted">
-        Mitarbeiter, CRM, Anfragen und Relationship (Prospect / Kunde /
-        Ausgeschlossen).
+        Mitarbeiter, CRM und Anfragen. Relationship ist{" "}
+        <strong>{company.relationship}</strong> — abgeleitet aus dem
+        Pipeline-Status und nur dort änderbar.
       </p>
       <form
         className="stack"
@@ -342,7 +354,6 @@ function QualificationForm({ company }: { company: Company }) {
                 null) as MitarbeiterKlasse | null,
               crm_system: (crm || null) as CrmSystem | null,
               anfragen_pro_woche: anfragen === "" ? null : Number(anfragen),
-              relationship,
             });
             if (res.error) {
               setMsg(res.error);
@@ -393,19 +404,6 @@ function QualificationForm({ company }: { company: Company }) {
               onChange={(e) => setAnfragen(e.target.value)}
             />
           </div>
-          <div className="field">
-            <label>Relationship</label>
-            <select
-              value={relationship}
-              onChange={(e) => setRelationship(e.target.value as Relationship)}
-            >
-              {RELATIONSHIP_OPTIONS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
         <div className="form-actions">
           <button className="btn btn-primary" type="submit" disabled={pending}>
@@ -415,6 +413,188 @@ function QualificationForm({ company }: { company: Company }) {
         </div>
       </form>
     </section>
+  );
+}
+
+/**
+ * Person anzeigen, bearbeiten oder löschen.
+ *
+ * Vorher liessen sich Personen nur anlegen und löschen. Eine falsche
+ * Telefonnummer zu korrigieren bedeutete Löschen + Neuanlegen — und weil
+ * `touchpoints.person_id` bei DELETE auf NULL gesetzt wird, ging dabei die
+ * Zuordnung der gesamten Gesprächshistorie verloren.
+ */
+function PersonRow({
+  person,
+  companyId,
+}: {
+  person: Person;
+  companyId: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    name: person.name,
+    rolle: person.rolle ?? "",
+    email: person.email ?? "",
+    telefon: person.telefon ?? "",
+    linkedin_url: person.linkedin_url ?? "",
+    ist_entscheider: person.ist_entscheider,
+  });
+
+  useEffect(() => {
+    setForm({
+      name: person.name,
+      rolle: person.rolle ?? "",
+      email: person.email ?? "",
+      telefon: person.telefon ?? "",
+      linkedin_url: person.linkedin_url ?? "",
+      ist_entscheider: person.ist_entscheider,
+    });
+  }, [person]);
+
+  return (
+    <div className="person-entry">
+      <div className="person-row">
+        <div>
+          <strong>{person.name}</strong>
+          {person.ist_entscheider ? (
+            <span className="badge" data-tone="gruen">
+              Entscheider
+            </span>
+          ) : null}
+          <div className="muted">
+            {[person.rolle, person.telefon, person.email]
+              .filter(Boolean)
+              .join(" · ") || "—"}
+          </div>
+        </div>
+        <div className="form-actions wrap">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+          >
+            {open ? "Schließen" : "Bearbeiten"}
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={pending}
+            onClick={() =>
+              start(async () => {
+                if (
+                  !confirm(
+                    `${person.name} löschen? Bereits protokollierte Touchpoints verlieren dadurch die Personen-Zuordnung.`,
+                  )
+                ) {
+                  return;
+                }
+                const res = await deletePerson(person.id, companyId);
+                if (res.error) {
+                  setError(res.error);
+                  return;
+                }
+                setError(null);
+                router.refresh();
+              })
+            }
+          >
+            Löschen
+          </button>
+        </div>
+      </div>
+
+      {open ? (
+        <form
+          className="stack"
+          style={{ marginTop: "0.6rem" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            start(async () => {
+              const res = await upsertPerson({
+                id: person.id,
+                company_id: companyId,
+                name: form.name,
+                rolle: form.rolle || null,
+                email: form.email || null,
+                telefon: form.telefon || null,
+                linkedin_url: form.linkedin_url || null,
+                ist_entscheider: form.ist_entscheider,
+              });
+              if (res.error) {
+                setError(res.error);
+                return;
+              }
+              setError(null);
+              setOpen(false);
+              router.refresh();
+            });
+          }}
+        >
+          <div className="grid-2">
+            <div className="field">
+              <label>Name</label>
+              <input
+                required
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>Rolle</label>
+              <input
+                value={form.rolle}
+                onChange={(e) => setForm({ ...form, rolle: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>E-Mail</label>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>Telefon</label>
+              <input
+                value={form.telefon}
+                onChange={(e) => setForm({ ...form, telefon: e.target.value })}
+              />
+            </div>
+            <div className="field">
+              <label>LinkedIn</label>
+              <input
+                value={form.linkedin_url}
+                onChange={(e) =>
+                  setForm({ ...form, linkedin_url: e.target.value })
+                }
+              />
+            </div>
+            <label className="field field-checkbox">
+              <input
+                type="checkbox"
+                checked={form.ist_entscheider}
+                onChange={(e) =>
+                  setForm({ ...form, ist_entscheider: e.target.checked })
+                }
+              />
+              Entscheider
+            </label>
+          </div>
+          {error ? <p className="error">{error}</p> : null}
+          <button className="btn btn-primary" type="submit" disabled={pending}>
+            Person speichern
+          </button>
+        </form>
+      ) : null}
+
+      {!open && error ? <p className="error">{error}</p> : null}
+    </div>
   );
 }
 
@@ -444,38 +624,7 @@ function PeopleSection({
       <p className="muted">Max. ein Entscheider pro Firma (DB + UI).</p>
       <div className="stack" style={{ marginTop: "0.85rem" }}>
         {people.map((p) => (
-          <div key={p.id} className="person-row">
-            <div>
-              <strong>{p.name}</strong>
-              {p.ist_entscheider ? (
-                <span className="badge" data-tone="gruen">
-                  Entscheider
-                </span>
-              ) : null}
-              <div className="muted">
-                {[p.rolle, p.telefon, p.email].filter(Boolean).join(" · ") ||
-                  "—"}
-              </div>
-            </div>
-            <button
-              type="button"
-              className="btn"
-              disabled={pending}
-              onClick={() =>
-                start(async () => {
-                  const res = await deletePerson(p.id, companyId);
-                  if (res.error) {
-                    setError(res.error);
-                    return;
-                  }
-                  setError(null);
-                  router.refresh();
-                })
-              }
-            >
-              Löschen
-            </button>
-          </div>
+          <PersonRow key={p.id} person={p} companyId={companyId} />
         ))}
 
         <form
@@ -567,10 +716,12 @@ function TouchSection({
   companyId,
   people,
   touchpoints,
+  total,
 }: {
   companyId: string;
   people: Person[];
   touchpoints: Touchpoint[];
+  total: number;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -591,8 +742,12 @@ function TouchSection({
     <section className="dense-panel">
       <h2 className="section-h">Touchpoints</h2>
       <p className="muted">
-        Append-only — kein Bearbeiten oder Löschen. Kanal DM erhöht den
-        LinkedIn-DM-KPI in Analytics.
+        Append-only — kein Bearbeiten oder Löschen. Fehleingaben lassen sich
+        stornieren; sie bleiben sichtbar, zählen aber in keiner Kennzahl mehr.
+        Kanal DM erhöht den LinkedIn-DM-KPI in Analytics.
+        {total > touchpoints.length
+          ? ` Zeigt die letzten ${touchpoints.length} von ${total}.`
+          : ""}
       </p>
 
       <form
@@ -688,10 +843,17 @@ function TouchSection({
               onChange={(e) => setNext(e.target.value)}
             />
           </div>
-          <div className="field">
-            <label>Notiz</label>
-            <input value={notiz} onChange={(e) => setNotiz(e.target.value)} />
-          </div>
+        </div>
+        <div className="field">
+          <label>Notiz</label>
+          {/* Textarea statt einzeiligem Input: das Feld erlaubt 5000 Zeichen,
+              war aber als einzeilige Zeile kaum für Gesprächsnotizen nutzbar. */}
+          <textarea
+            rows={3}
+            value={notiz}
+            onChange={(e) => setNotiz(e.target.value)}
+            placeholder="Was wurde besprochen?"
+          />
         </div>
         {error ? <p className="error">{error}</p> : null}
         <button className="btn btn-primary" type="submit" disabled={pending}>
@@ -708,37 +870,252 @@ function TouchSection({
               <th>Ergebnis</th>
               <th>Notiz</th>
               <th>Nächster</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {touchpoints.length === 0 ? (
               <tr>
-                <td colSpan={5} className="empty">
+                <td colSpan={6} className="empty">
                   Noch keine Touchpoints
                 </td>
               </tr>
             ) : (
               touchpoints.map((t) => (
-                <tr key={t.id}>
-                  <td>{new Date(t.occurred_at).toLocaleString("de-DE")}</td>
-                  <td>{KANAL_LABELS[t.kanal]}</td>
-                  <td>
-                    <span
-                      className="badge"
-                      data-tone={ergebnisTone(t.ergebnis)}
-                    >
-                      {ERGEBNIS_LABELS[t.ergebnis]}
-                    </span>
-                  </td>
-                  <td>{t.notiz ?? "—"}</td>
-                  <td>{t.naechster_touch ?? "—"}</td>
-                </tr>
+                <TouchRow key={t.id} touch={t} companyId={companyId} />
               ))
             )}
           </tbody>
         </table>
       </div>
     </section>
+  );
+}
+
+const EUR = new Intl.NumberFormat("de-DE", {
+  style: "currency",
+  currency: "EUR",
+  maximumFractionDigits: 0,
+});
+
+/**
+ * Bestehende Opportunity bearbeiten.
+ *
+ * Ohne dieses Formular liess sich eine Opportunity nur anlegen, nie ändern —
+ * damit war kein Deal auf `gewonnen`/`verloren` zu setzen und Umsatz sowie
+ * Close-Rate im Analytics-Dashboard blieben dauerhaft bei null.
+ */
+function OppRow({ opp }: { opp: Opportunity }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [variante, setVariante] = useState<OppVariante>(opp.variante);
+  const [stage, setStage] = useState<OppStage>(opp.stage);
+  const [setup, setSetup] = useState(opp.setup_preis?.toString() ?? "");
+  const [retainer, setRetainer] = useState(
+    opp.retainer_monatlich?.toString() ?? "",
+  );
+  const [grund, setGrund] = useState(opp.close_grund ?? "");
+
+  useEffect(() => {
+    setVariante(opp.variante);
+    setStage(opp.stage);
+    setSetup(opp.setup_preis?.toString() ?? "");
+    setRetainer(opp.retainer_monatlich?.toString() ?? "");
+    setGrund(opp.close_grund ?? "");
+  }, [opp]);
+
+  const summary = [
+    opp.variante,
+    opp.stage,
+    opp.setup_preis != null ? EUR.format(opp.setup_preis) : null,
+    opp.retainer_monatlich != null
+      ? `${EUR.format(opp.retainer_monatlich)}/M`
+      : null,
+    opp.closed_at
+      ? `closed ${new Date(opp.closed_at).toLocaleDateString("de-DE")}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <div className="opp-row">
+      <div className="form-actions wrap">
+        <span>{summary}</span>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+        >
+          {open ? "Schließen" : "Bearbeiten"}
+        </button>
+      </div>
+
+      {open ? (
+        <form
+          className="stack"
+          style={{ marginTop: "0.6rem" }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            start(async () => {
+              const res = await upsertOpportunity({
+                id: opp.id,
+                company_id: opp.company_id,
+                variante,
+                stage,
+                setup_preis: setup === "" ? null : Number(setup),
+                retainer_monatlich: retainer === "" ? null : Number(retainer),
+                close_grund: grund || null,
+              });
+              if (res.error) {
+                setError(res.error);
+                return;
+              }
+              setError(null);
+              setOpen(false);
+              router.refresh();
+            });
+          }}
+        >
+          <div className="grid-2">
+            <div className="field">
+              <label>Variante</label>
+              <select
+                value={variante}
+                onChange={(e) => setVariante(e.target.value as OppVariante)}
+              >
+                {OPP_VARIANTE_OPTIONS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Stage</label>
+              <select
+                value={stage}
+                onChange={(e) => setStage(e.target.value as OppStage)}
+              >
+                {OPP_STAGE_OPTIONS.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Setup-Preis</label>
+              <input
+                type="number"
+                min={0}
+                value={setup}
+                onChange={(e) => setSetup(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label>Retainer / Monat</label>
+              <input
+                type="number"
+                min={0}
+                value={retainer}
+                onChange={(e) => setRetainer(e.target.value)}
+              />
+            </div>
+            <div className="field">
+              <label>Close-Grund</label>
+              <input
+                value={grund}
+                onChange={(e) => setGrund(e.target.value)}
+              />
+            </div>
+          </div>
+          {error ? <p className="error">{error}</p> : null}
+          <button className="btn btn-primary" type="submit" disabled={pending}>
+            Opportunity speichern
+          </button>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Eine Zeile der Touchpoint-Historie.
+ *
+ * Touchpoints bleiben append-only. Ein Fehlklick lässt sich aber stornieren:
+ * die Zeile bleibt sichtbar und nachvollziehbar, zählt jedoch in keiner
+ * Kennzahl mehr mit. Vorher blähte jeder Fehlklick die Dial-Zahlen dauerhaft
+ * auf, ohne jede Korrekturmöglichkeit.
+ */
+function TouchRow({
+  touch,
+  companyId,
+}: {
+  touch: Touchpoint;
+  companyId: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const voided = touch.voided_at != null;
+
+  return (
+    <tr className={voided ? "touch-voided" : undefined}>
+      <td>
+        {new Date(touch.occurred_at).toLocaleString("de-DE", {
+          timeZone: BUSINESS_TZ,
+        })}
+      </td>
+      <td>{KANAL_LABELS[touch.kanal]}</td>
+      <td>
+        <span className="badge" data-tone={ergebnisTone(touch.ergebnis)}>
+          {ERGEBNIS_LABELS[touch.ergebnis]}
+        </span>
+      </td>
+      <td>
+        {touch.notiz ?? "—"}
+        {voided ? (
+          <div className="muted">
+            Storniert{touch.void_grund ? `: ${touch.void_grund}` : ""}
+          </div>
+        ) : null}
+        {error ? <div className="error">{error}</div> : null}
+      </td>
+      <td>{touch.naechster_touch ?? "—"}</td>
+      <td>
+        {voided ? (
+          <span className="muted">—</span>
+        ) : (
+          <button
+            type="button"
+            className="btn"
+            disabled={pending}
+            onClick={() =>
+              start(async () => {
+                const grund = prompt(
+                  "Touch stornieren — Grund (optional):",
+                  "Fehleingabe",
+                );
+                if (grund === null) return;
+                const res = await voidTouchpoint(touch.id, companyId, grund);
+                if (res.error) {
+                  setError(res.error);
+                  return;
+                }
+                setError(null);
+                router.refresh();
+              })
+            }
+          >
+            Stornieren
+          </button>
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -764,16 +1141,11 @@ function OppSection({
       {opportunities.length === 0 ? (
         <p className="muted">Noch keine Opportunities.</p>
       ) : (
-        <ul className="muted">
+        <div className="stack">
           {opportunities.map((o) => (
-            <li key={o.id}>
-              {o.variante} · {o.stage}
-              {o.closed_at
-                ? ` · closed ${new Date(o.closed_at).toLocaleDateString("de-DE")}`
-                : ""}
-            </li>
+            <OppRow key={o.id} opp={o} />
           ))}
-        </ul>
+        </div>
       )}
       <form
         className="stack"
@@ -794,6 +1166,10 @@ function OppSection({
               return;
             }
             setError(null);
+            setSetup("");
+            setRetainer("");
+            setGrund("");
+            setStage("offen");
             router.refresh();
           });
         }}

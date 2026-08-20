@@ -69,6 +69,15 @@ export type CallListeRow = {
   facebook_url: string | null;
 };
 
+/** Fälligkeits-Filter der Call-Liste — geteilt von Server-Query und Tabelle. */
+export type ListeDueFilter = "" | "today" | "overdue";
+
+/**
+ * Sortierung der Liste. `""` = Anruf-Priorität aus der View
+ * (überfällig zuerst, dann nächster Touch, dann Anfragen/Woche).
+ */
+export type ListeSort = "" | "firma" | "faellig" | "tage";
+
 export type ListeColumnId =
   | "Firma"
   | "Entscheider"
@@ -99,37 +108,6 @@ export const LISTE_COLUMN_CATALOG: ListeColumnId[] = [
   "CRM",
   "Anfragen/W",
 ];
-
-export type AkquiseKpiTotals = {
-  dials: number;
-  dms: number;
-  connects: number;
-  conversations: number;
-  appointments: number;
-  total_touches: number;
-  connect_rate_pct: number | null;
-  appointment_rate_pct: number | null;
-};
-
-export type AkquiseKpiSeriesPoint = {
-  bucket: string;
-  dials: number;
-  dms: number;
-  appointments: number;
-};
-
-export type AkquiseKpiStatus = {
-  ergebnis: string;
-  n: number;
-};
-
-export type AkquiseKpis = {
-  from: string;
-  to: string;
-  totals: AkquiseKpiTotals;
-  series: AkquiseKpiSeriesPoint[];
-  status_mix: AkquiseKpiStatus[];
-};
 
 export type AnalyticsRange = "day" | "week" | "month" | "year";
 export type AnalyticsGrain = "hour" | "day" | "week" | "month";
@@ -214,32 +192,7 @@ export type AnalyticsDashboardData = {
   commercial: AnalyticsCommercial;
 };
 
-export function rangeBounds(range: AnalyticsRange, now = new Date()) {
-  const to = new Date(now);
-  const from = new Date(now);
-  if (range === "day") {
-    from.setHours(0, 0, 0, 0);
-    to.setDate(to.getDate() + 1);
-    to.setHours(0, 0, 0, 0);
-  } else if (range === "week") {
-    const day = from.getDay() || 7;
-    from.setDate(from.getDate() - day + 1);
-    from.setHours(0, 0, 0, 0);
-    to.setTime(from.getTime());
-    to.setDate(to.getDate() + 7);
-  } else if (range === "month") {
-    from.setDate(1);
-    from.setHours(0, 0, 0, 0);
-    to.setMonth(to.getMonth() + 1, 1);
-    to.setHours(0, 0, 0, 0);
-  } else {
-    from.setMonth(0, 1);
-    from.setHours(0, 0, 0, 0);
-    to.setFullYear(to.getFullYear() + 1, 0, 1);
-    to.setHours(0, 0, 0, 0);
-  }
-  return { from: from.toISOString(), to: to.toISOString() };
-}
+/** `rangeBounds` lebt in `@/lib/sales/dates` — dort mit Geschäftszeitzone. */
 
 export type Company = {
   id: string;
@@ -254,6 +207,8 @@ export type Company = {
   anfragen_pro_woche: number | null;
   inserate_aktiv: number | null;
   relationship: Relationship;
+  /** Freitext-Recherchenotizen zur Firma. */
+  recherche: string | null;
   pipeline_status: PipelineStatus;
   created_at: string;
   updated_at: string;
@@ -287,6 +242,12 @@ export type Touchpoint = {
   naechster_touch: string | null;
   occurred_at: string;
   created_at: string;
+  /** Auth-Nutzer, der den Touch protokolliert hat. NULL bei Altbestand/Import. */
+  created_by: string | null;
+  /** Gesetzt, wenn der Touch als Fehleingabe storniert wurde. */
+  voided_at: string | null;
+  voided_by: string | null;
+  void_grund: string | null;
 };
 
 export type Opportunity = {
@@ -299,24 +260,6 @@ export type Opportunity = {
   close_grund: string | null;
   created_at: string;
   closed_at: string | null;
-};
-
-export type CompanyStatus = {
-  company_id: string;
-  name: string;
-  stadt: string | null;
-  bundesland: string | null;
-  region: string | null;
-  crm_system: CrmSystem | null;
-  anfragen_pro_woche: number | null;
-  inserate_aktiv: number | null;
-  relationship: Relationship;
-  letztes_ergebnis: TouchErgebnis | null;
-  letzter_kanal: TouchKanal | null;
-  letzter_touch_at: string | null;
-  tage_seit_touch: number | null;
-  naechster_touch: string | null;
-  touches_gesamt: number | null;
 };
 
 export const MITARBEITER_OPTIONS: MitarbeiterKlasse[] = [
@@ -481,42 +424,6 @@ export function pipelineTone(
     default:
       return "grau";
   }
-}
-
-/** Map pipeline status → touch ergebnis so akquise_kpis stay honest */
-export function pipelineToErgebnis(status: PipelineStatus): TouchErgebnis {
-  switch (status) {
-    case "kein_anschluss_1":
-    case "kein_anschluss_2":
-    case "kein_anschluss_3":
-    case "kein_anschluss_4":
-    case "kein_anschluss_5":
-      return "nicht_erreicht";
-    case "callback":
-      return "erreicht_ohne_gespraech";
-    case "disqualified":
-      return "disqualifiziert";
-    case "set_appointment":
-    case "closed":
-    case "kunde":
-      return "termin_gebucht";
-    case "neu":
-      return "kein_ergebnis";
-    default: {
-      const _exhaustive: never = status;
-      return _exhaustive;
-    }
-  }
-}
-
-export function relationshipForPipeline(
-  status: PipelineStatus,
-  current: Relationship,
-): Relationship {
-  if (status === "kunde") return "Kunde";
-  if (status === "disqualified") return "Ausgeschlossen";
-  if (current === "Kunde") return "Kunde";
-  return "Prospect";
 }
 
 export function abbruchAllowed(ergebnis: TouchErgebnis): boolean {

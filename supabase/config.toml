@@ -33,7 +33,15 @@ enable_signup = false
 enable_anonymous_sign_ins = false
 
 [auth.email]
-enable_signup = false
+# `[auth.email] enable_signup` steuert in der Supabase-CLI den *E-Mail-Provider*
+# insgesamt (GOTRUE_EXTERNAL_EMAIL_ENABLED), nicht nur die Registrierung. Auf
+# `false` antwortet GoTrue jedem Login mit "email_provider_disabled" — auf einer
+# nach dieser Datei aufgesetzten Staging-Instanz käme niemand ins CRM.
+#
+# Die Registrierung wird stattdessen oben über `[auth] enable_signup = false`
+# geschlossen; zusätzlich muss jeder Nutzer in sales.app_users freigeschaltet
+# sein, sonst landet er auf /kein-zugriff.
+enable_signup = true
 enable_confirmations = true
 
 [studio]

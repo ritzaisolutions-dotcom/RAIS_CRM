@@ -1,5 +1,5 @@
 export const SB_URL  = 'https://qdywaenmojdxhfxqbvun.supabase.co';
-export const SB_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkeXdhZW5tb2pkeGhmeHFidnVuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0MDYwMTYsImV4cCI6MjA5MDk4MjAxNn0.rfIzS2eY3yZCvap0pKdB7V-AfKmnvQLx_QLaFEi1gts';
+export const SB_KEY  = ''; // REDAKTIERT 2026-08-20: hier lag der produktive anon-Key im Klartext. Key rotiert; nie wieder einchecken.
 
 let _token = SB_KEY;
 let _sbClient = null;

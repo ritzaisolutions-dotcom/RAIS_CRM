@@ -73,7 +73,7 @@
 **Status:** ✓ Frontend-Teil fertig — n8n-Seite wartet auf Kevin
 
 **Was gemacht wurde:**
-- Token generiert: `ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc`
+- Token generiert: `[REDAKTIERT 2026-08-20 — Token stand hier im Klartext; muss rotiert werden, er steht weiterhin in der Git-Historie]`
 - `WH_TOKEN` Konstante in `index.html` eingebaut
 - Hilfsfunktion `whFetch()` erstellt — setzt `X-RAIS-Token` Header automatisch
 - Alle 5 Webhook-Fetch-Calls auf `whFetch()` umgestellt (WF1, Email1-Gen, Email1-Send, Email2/3-Batch, Bulk-Email)
@@ -82,7 +82,7 @@
 Für jeden der 6 Webhooks in WF1–WF6:
 - n8n → Workflow öffnen → Webhook Node → "Authentication" → "Header Auth"
 - Header Name: `X-RAIS-Token`
-- Header Value: `ESyfcQbQHy5sFFJBRsmPJSPIs1-87jQw7zCGHetsGpc`
+- Header Value: `[REDAKTIERT — siehe oben]`
 
 **Wichtig:** Solange n8n den Token noch nicht prüft, funktioniert alles weiter wie bisher.
 Der Token-Check kann aktiviert werden wann Kevin will — unabhängig von Phase 1.2/1.3.

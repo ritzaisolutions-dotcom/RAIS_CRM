@@ -18,23 +18,26 @@ export default async function FirmaPage({
   params: Promise<{ companyId: string }>;
 }) {
   const { companyId } = await params;
-  const [company, stats] = await Promise.all([
-    fetchCompany(companyId),
-    fetchWorkspaceStats(),
-  ]);
+  // Alle fünf Queries hängen nur an `companyId` — vorher liefen sie in zwei
+  // aufeinanderfolgenden Wellen und kosteten eine vermeidbare Roundtrip-Runde.
+  const [company, stats, people, touchpoints, opportunities] =
+    await Promise.all([
+      fetchCompany(companyId),
+      fetchWorkspaceStats(),
+      fetchPeople(companyId),
+      fetchTouchpoints(companyId),
+      fetchOpportunities(companyId),
+    ]);
   if (!company) notFound();
 
-  const [people, touchpoints, opportunities] = await Promise.all([
-    fetchPeople(companyId),
-    fetchTouchpoints(companyId),
-    fetchOpportunities(companyId),
-  ]);
-
-  const back =
-    company.relationship === "Kunde" ? "/kunden" : "/liste";
+  const back = company.relationship === "Kunde" ? "/kunden" : "/liste";
 
   return (
-    <EfferdShell kpis={stats.kpis} activity={stats.activity}>
+    <EfferdShell
+      kpis={stats.kpis}
+      activity={stats.activity}
+      degraded={stats.degraded}
+    >
       <p className="muted mb-1">
         <Link href={back} className="hover:text-rais-orange">
           ← Zurück zur Liste
@@ -43,7 +46,8 @@ export default async function FirmaPage({
       <CompanyDetail
         company={company}
         people={people}
-        touchpoints={touchpoints}
+        touchpoints={touchpoints.rows}
+        touchpointsTotal={touchpoints.total}
         opportunities={opportunities}
       />
     </EfferdShell>

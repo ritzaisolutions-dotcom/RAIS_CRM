@@ -22,11 +22,14 @@ next-env.d.ts
 ### Vercel ###
 .vercel
 supabase/.temp/
+supabase/.branches/
 
 ### Misc ###
 .DS_Store
 *.pem
 .claude/
+.21st/
+.cursor/
 __pycache__/
 *.pyc
 data.json
@@ -37,6 +40,8 @@ scripts/hausverwaltungen-import*.json
 scripts/hausverwaltungen-import*.sql
 hausverwaltungen_rlp_prospektliste.csv
 scripts/one-off/
+# Daten-Importe gehoeren nie in migrations/ — dort werden sie mitversioniert
+supabase/migrations/*_import_*.sql
 
 # Lokale Tool-/Export-Artefakte
 scripts/ruixen-err.txt

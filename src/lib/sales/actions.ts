@@ -13,6 +13,7 @@ import {
   pipelineChangeSchema,
   safeDatabaseError,
   touchpointSchema,
+  voidTouchSchema,
   uuidSchema,
   validationError,
 } from "@/lib/sales/validation";
@@ -45,7 +46,6 @@ export async function updateCompanyQualification(
     mitarbeiterzahl: MitarbeiterKlasse | null;
     crm_system: CrmSystem | null;
     anfragen_pro_woche: number | null;
-    relationship: Relationship;
   },
 ): Promise<ActionResult> {
   const parsed = companyQualificationSchema.safeParse({ companyId, patch });
@@ -58,7 +58,6 @@ export async function updateCompanyQualification(
       mitarbeiterzahl: parsed.data.patch.mitarbeiterzahl,
       crm_system: parsed.data.patch.crm_system,
       anfragen_pro_woche: parsed.data.patch.anfragen_pro_woche,
-      relationship: parsed.data.patch.relationship,
     })
     .eq("id", parsed.data.companyId)
     .select("id")
@@ -80,6 +79,7 @@ export async function updateCompanyBasics(
     website?: string | null;
     instagram_url?: string | null;
     facebook_url?: string | null;
+    recherche?: string | null;
   },
 ): Promise<ActionResult> {
   const parsed = companyBasicsSchema.safeParse({ companyId, patch });
@@ -95,6 +95,7 @@ export async function updateCompanyBasics(
       website: parsed.data.patch.website || null,
       instagram_url: parsed.data.patch.instagram_url || null,
       facebook_url: parsed.data.patch.facebook_url || null,
+      recherche: parsed.data.patch.recherche || null,
     })
     .eq("id", parsed.data.companyId)
     .select("id")
@@ -148,6 +149,53 @@ export async function createCompany(input: {
   revalidatePath("/kunden");
   revalidatePath("/analytics");
   return { ok: true as const, companyId };
+}
+
+export type SimilarCompany = {
+  id: string;
+  name: string;
+  stadt: string | null;
+  relationship: Relationship;
+};
+
+/**
+ * Firmen mit ähnlichem Namen finden, bevor eine neue angelegt wird.
+ *
+ * Der Unique-Index greift nur bei exakter Übereinstimmung von
+ * `lower(name)` + `lower(coalesce(stadt,''))`. "Müller Immobilien GmbH" neben
+ * "Mueller Immobilien" läuft glatt durch, und wenn er doch greift, bekam der
+ * Nutzer nur "Dieser Datensatz existiert bereits." — ohne Hinweis, welcher.
+ * Firmen lassen sich nicht löschen, Duplikate bleiben also dauerhaft.
+ */
+export async function findSimilarCompanies(
+  name: string,
+): Promise<SimilarCompany[]> {
+  const trimmed = name.trim();
+  if (trimmed.length < 3) return [];
+
+  // Rechtsform-Suffixe und Umlaute normalisieren, damit "Mueller GmbH" und
+  // "Müller" denselben Kern liefern.
+  const core = trimmed
+    .toLowerCase()
+    .replace(/\b(gmbh|ug|ag|kg|ohg|e\.?k\.?|mbh|co)\b/g, " ")
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+  const token = core.split(" ").sort((a, b) => b.length - a.length)[0];
+  if (!token || token.length < 3) return [];
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("companies")
+    .select("id,name,stadt,relationship")
+    .ilike("name", `%${token.replace(/[%_]/g, "")}%`)
+    .limit(5);
+  if (error) return [];
+  return (data ?? []) as SimilarCompany[];
 }
 
 export async function setExcluded(companyId: string): Promise<ActionResult> {
@@ -224,18 +272,42 @@ export async function insertTouchpoint(input: {
   const parsed = touchpointSchema.safeParse(input);
   if (!parsed.success) return { error: validationError(parsed.error) };
 
+  // Über `log_touch` statt direktem INSERT: die RPC prüft, dass die Person
+  // wirklich zur Firma gehört. Der frühere direkte Insert konnte einen
+  // Touchpoint an die Person einer anderen Firma hängen — die Tabelle hat
+  // keinen FK, der das Paar erzwingt. Das INSERT-Recht ist inzwischen entzogen.
   const supabase = await createClient();
-  const { error } = await supabase.from("touchpoints").insert({
-    company_id: parsed.data.company_id,
-    person_id: parsed.data.person_id,
-    kanal: parsed.data.kanal,
-    ergebnis: parsed.data.ergebnis,
-    notiz: parsed.data.notiz || null,
-    naechster_touch: parsed.data.naechster_touch || null,
-    abbruchgrund: parsed.data.abbruchgrund,
+  const { error } = await supabase.rpc("log_touch", {
+    p_company_id: parsed.data.company_id,
+    p_kanal: parsed.data.kanal,
+    p_ergebnis: parsed.data.ergebnis,
+    p_person_id: parsed.data.person_id,
+    p_notiz: parsed.data.notiz || null,
+    p_naechster: parsed.data.naechster_touch || null,
+    p_abbruch: parsed.data.abbruchgrund,
   });
   if (error) return { error: safeDatabaseError(error, "insert-touchpoint") };
   revalidateCompany(parsed.data.company_id);
+  return { ok: true as const };
+}
+
+/** Fehleingabe stornieren — die Zeile bleibt, zählt aber in keiner KPI mehr. */
+export async function voidTouchpoint(
+  touchId: number,
+  companyId: string,
+  grund: string | null,
+): Promise<ActionResult> {
+  const parsed = voidTouchSchema.safeParse({ touchId, companyId, grund });
+  if (!parsed.success) return { error: validationError(parsed.error) };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("void_touch", {
+    p_touch_id: parsed.data.touchId,
+    p_grund: parsed.data.grund || null,
+  });
+  if (error) return { error: safeDatabaseError(error, "void-touchpoint") };
+  revalidateCompany(parsed.data.companyId);
+  revalidatePath("/analytics");
   return { ok: true as const };
 }
 
@@ -251,13 +323,31 @@ export async function upsertOpportunity(input: {
   const parsed = opportunitySchema.safeParse(input);
   if (!parsed.success) return { error: validationError(parsed.error) };
 
-  const closed =
-    parsed.data.stage === "gewonnen" || parsed.data.stage === "verloren"
-      ? new Date().toISOString()
-      : null;
+  const isClosed =
+    parsed.data.stage === "gewonnen" || parsed.data.stage === "verloren";
 
   const supabase = await createClient();
   if (parsed.data.id) {
+    // Bereits gesetztes `closed_at` erhalten. Sonst würde jedes erneute
+    // Speichern einer gewonnenen Opportunity das Abschlussdatum auf "jetzt"
+    // verschieben und damit die Umsatz-Zuordnung im Analytics-Zeitraum ändern.
+    const { data: current, error: readError } = await supabase
+      .from("opportunities")
+      .select("closed_at")
+      .eq("id", parsed.data.id)
+      .eq("company_id", parsed.data.company_id)
+      .maybeSingle();
+    if (readError) {
+      return { error: safeDatabaseError(readError, "read-opportunity") };
+    }
+    if (!current) {
+      return { error: "Opportunity nicht gefunden oder keine Berechtigung." };
+    }
+
+    const closed = isClosed
+      ? (current.closed_at ?? new Date().toISOString())
+      : null;
+
     const { data, error } = await supabase
       .from("opportunities")
       .update({
@@ -284,7 +374,7 @@ export async function upsertOpportunity(input: {
       retainer_monatlich: parsed.data.retainer_monatlich,
       stage: parsed.data.stage,
       close_grund: parsed.data.close_grund,
-      closed_at: closed,
+      closed_at: isClosed ? new Date().toISOString() : null,
     });
     if (error) return { error: safeDatabaseError(error, "create-opportunity") };
   }

@@ -2,7 +2,6 @@ import type {
   Abbruchgrund,
   CallListeRow,
   Company,
-  CompanyStatus,
   CrmSystem,
   MitarbeiterKlasse,
   Opportunity,
@@ -10,7 +9,6 @@ import type {
   OppVariante,
   Person,
   PipelineStatus,
-  Relationship,
   TouchErgebnis,
   TouchKanal,
   Touchpoint,
@@ -47,18 +45,19 @@ export type Database = {
           crm_system?: CrmSystem | null;
           anfragen_pro_woche?: number | null;
           inserate_aktiv?: number | null;
-          relationship?: Relationship;
+          recherche?: string | null;
           pipeline_status?: PipelineStatus;
         },
         {
+          // `relationship` fehlt bewusst: das UPDATE-Recht auf diese Spalte ist
+          // entzogen, sie wird nur noch von `set_pipeline_status` gesetzt.
           name?: string;
           stadt?: string | null;
           telefon?: string | null;
           mitarbeiterzahl?: MitarbeiterKlasse | null;
           crm_system?: CrmSystem | null;
           anfragen_pro_woche?: number | null;
-          relationship?: Relationship;
-          pipeline_status?: PipelineStatus;
+          recherche?: string | null;
           website?: string | null;
           instagram_url?: string | null;
           facebook_url?: string | null;
@@ -128,10 +127,6 @@ export type Database = {
         Row: CallListeRow;
         Relationships: [];
       };
-      v_company_status: {
-        Row: CompanyStatus;
-        Relationships: [];
-      };
     };
     Functions: {
       is_app_user: {
@@ -149,6 +144,17 @@ export type Database = {
           p_abbruch?: Abbruchgrund | null;
         };
         Returns: number;
+      };
+      void_touch: {
+        Args: {
+          p_touch_id: number;
+          p_grund?: string | null;
+        };
+        Returns: undefined;
+      };
+      business_today: {
+        Args: Record<string, never>;
+        Returns: string;
       };
       create_company: {
         Args: {

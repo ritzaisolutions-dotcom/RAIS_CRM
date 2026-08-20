@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { safeInternalRedirect } from "@/lib/auth/redirect";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -18,18 +19,28 @@ export function LoginForm() {
     e.preventDefault();
     setPending(true);
     setError(null);
-    const supabase = createClient();
-    const { error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    setPending(false);
-    if (authError) {
-      setError("Anmeldung fehlgeschlagen. Bitte Zugangsdaten prüfen.");
-      return;
+    // `createClient()` wirft, wenn die Supabase-Env-Variablen fehlen. Ohne
+    // try/catch lief `setPending(false)` dann nie und der Button blieb dauerhaft
+    // auf "Anmelden…" stehen — ohne jede Fehlermeldung.
+    try {
+      const supabase = createClient();
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (authError) {
+        setError("Anmeldung fehlgeschlagen. Bitte Zugangsdaten prüfen.");
+        return;
+      }
+      router.replace(next);
+      router.refresh();
+    } catch {
+      setError(
+        "Anmeldung derzeit nicht möglich. Bitte später erneut versuchen.",
+      );
+    } finally {
+      setPending(false);
     }
-    router.replace(next);
-    router.refresh();
   }
 
   return (
@@ -60,6 +71,11 @@ export function LoginForm() {
       <button className="btn btn-primary" type="submit" disabled={pending}>
         {pending ? "Anmelden…" : "Anmelden"}
       </button>
+      <p className="muted mb-0">
+        <Link href="/passwort-neu" className="hover:text-rais-orange">
+          Passwort vergessen?
+        </Link>
+      </p>
     </form>
   );
 }
