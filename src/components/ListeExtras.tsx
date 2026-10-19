@@ -1,15 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
+  addBusinessDays,
+  businessToday,
+} from "@/lib/sales/dates";
+import {
+  bulkCreateFollowUpTasks,
+  bulkEnrollInSequence,
   bulkSetPipelineStatus,
   completeTask,
+  deleteSavedView,
   importCompanies,
   logClickToCall,
   upsertSavedView,
 } from "@/lib/sales/actions";
-import { businessToday } from "@/lib/sales/dates";
+import { placeCallHref } from "@/lib/sales/placeCall";
 import {
   PIPELINE_STATUS_LABELS,
   PIPELINE_STATUS_OPTIONS,
@@ -18,10 +26,17 @@ import type {
   CallListeRow,
   PipelineStatus,
   SalesTask,
-  SavedView,
+  Sequence,
 } from "@/lib/sales/types";
+import type { SavedViewWithCount } from "@/lib/sales/queries";
 
-export function ListeDialer({ rows }: { rows: CallListeRow[] }) {
+export function ListeDialer({
+  rows,
+  dialerHref,
+}: {
+  rows: CallListeRow[];
+  dialerHref: string;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [index, setIndex] = useState(0);
@@ -31,60 +46,64 @@ export function ListeDialer({ rows }: { rows: CallListeRow[] }) {
   );
   const current = withPhone[index] ?? null;
 
-  if (!current) {
-    return (
-      <section className="dense-panel dialer-panel">
-        <h2 className="section-h">Dialer</h2>
-        <p className="muted">Keine Telefonnummer auf dieser Seite.</p>
-      </section>
-    );
-  }
-
   return (
     <section className="dense-panel dialer-panel">
-      <h2 className="section-h">Dialer</h2>
-      <p className="mb-1">
-        <strong>{current.firma}</strong>
-        {current.entscheider ? ` · ${current.entscheider}` : ""}
-      </p>
-      <p className="muted mb-2">
-        {index + 1} / {withPhone.length} · {current.tel}
-      </p>
-      <div className="form-actions wrap">
-        <a
-          className="btn btn-primary"
-          href={`tel:${current.tel!.replace(/\s+/g, "")}`}
-          onClick={() =>
-            start(async () => {
-              await logClickToCall({
-                company_id: current.company_id,
-                telefon: current.tel!,
-              });
-              router.refresh();
-            })
-          }
-        >
-          {pending ? "…" : "Anrufen"}
-        </a>
-        <button
-          type="button"
-          className="btn"
-          disabled={index <= 0}
-          onClick={() => setIndex((i) => Math.max(0, i - 1))}
-        >
-          Zurück
-        </button>
-        <button
-          type="button"
-          className="btn"
-          disabled={index >= withPhone.length - 1}
-          onClick={() =>
-            setIndex((i) => Math.min(withPhone.length - 1, i + 1))
-          }
-        >
-          Nächste
-        </button>
+      <div className="form-actions wrap" style={{ justifyContent: "space-between" }}>
+        <h2 className="section-h" style={{ margin: 0 }}>
+          Dialer
+        </h2>
+        <Link href={dialerHref} className="btn btn-primary">
+          Session starten
+        </Link>
       </div>
+      {!current ? (
+        <p className="muted">Keine Telefonnummer auf dieser Seite.</p>
+      ) : (
+        <>
+          <p className="mb-1">
+            <strong>{current.firma}</strong>
+            {current.entscheider ? ` · ${current.entscheider}` : ""}
+          </p>
+          <p className="muted mb-2">
+            {index + 1} / {withPhone.length} · {current.tel}
+          </p>
+          <div className="form-actions wrap">
+            <a
+              className="btn btn-primary"
+              href={placeCallHref(current.tel!)}
+              onClick={() =>
+                start(async () => {
+                  await logClickToCall({
+                    company_id: current.company_id,
+                    telefon: current.tel!,
+                  });
+                  router.refresh();
+                })
+              }
+            >
+              {pending ? "…" : "Anrufen"}
+            </a>
+            <button
+              type="button"
+              className="btn"
+              disabled={index <= 0}
+              onClick={() => setIndex((i) => Math.max(0, i - 1))}
+            >
+              Zurück
+            </button>
+            <button
+              type="button"
+              className="btn"
+              disabled={index >= withPhone.length - 1}
+              onClick={() =>
+                setIndex((i) => Math.min(withPhone.length - 1, i + 1))
+              }
+            >
+              Nächste
+            </button>
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -94,12 +113,32 @@ export function OpenTasksStrip({ tasks }: { tasks: SalesTask[] }) {
   const [pending, start] = useTransition();
   const today = businessToday();
   const due = tasks.filter((t) => t.due_on <= today).slice(0, 8);
-  if (!due.length) return null;
+  if (!due.length) {
+    return (
+      <section className="dense-panel">
+        <div className="form-actions wrap" style={{ justifyContent: "space-between" }}>
+          <h2 className="section-h" style={{ margin: 0 }}>
+            Nächste Aktionen
+          </h2>
+          <a href="/todos" className="btn">
+            Alle Todos →
+          </a>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="dense-panel">
-      <h2 className="section-h">Nächste Aktionen</h2>
-      <ul className="task-list">
+      <div className="form-actions wrap" style={{ justifyContent: "space-between" }}>
+        <h2 className="section-h" style={{ margin: 0 }}>
+          Nächste Aktionen
+        </h2>
+        <a href="/todos" className="btn">
+          Alle Todos →
+        </a>
+      </div>
+      <ul className="task-list" style={{ marginTop: "0.65rem" }}>
         {due.map((t) => (
           <li key={t.id} className="task-item">
             <div>
@@ -134,25 +173,87 @@ export function OpenTasksStrip({ tasks }: { tasks: SalesTask[] }) {
 export function BulkPipelineBar({
   selectedIds,
   onClear,
+  sequences = [],
+  desk = "dialen",
 }: {
   selectedIds: string[];
   onClear: () => void;
+  sequences?: Sequence[];
+  desk?: "dialen" | "termine" | "kunden";
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
-  const [status, setStatus] = useState<PipelineStatus>("callback");
+  const [status, setStatus] = useState<PipelineStatus>(
+    desk === "termine" ? "kunde" : "callback",
+  );
+  const [sequenceId, setSequenceId] = useState(sequences[0]?.id ?? "");
   const [msg, setMsg] = useState<string | null>(null);
 
   if (!selectedIds.length) return null;
 
+  const dueIn2 = addBusinessDays(businessToday(), 2);
+  const statusOptions =
+    desk === "termine"
+      ? (["set_appointment", "callback", "kunde", "disqualified"] as const)
+      : desk === "kunden"
+        ? (["callback", "kunde", "disqualified"] as const)
+        : PIPELINE_STATUS_OPTIONS;
+
+  function applyStatus(next: PipelineStatus, label: string) {
+    start(async () => {
+      const res = await bulkSetPipelineStatus({
+        companyIds: selectedIds,
+        pipelineStatus: next,
+        kanal: "status_change",
+        naechsterTouch: dueIn2,
+      });
+      if (res.error) setMsg(res.error);
+      else {
+        setMsg(`${res.updated} ${label}`);
+        onClear();
+        router.refresh();
+      }
+    });
+  }
+
   return (
     <div className="dense-panel bulk-bar">
       <span>{selectedIds.length} ausgewählt</span>
+      {desk === "dialen" ? (
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={pending}
+          onClick={() => applyStatus("set_appointment", "→ Termine")}
+        >
+          → Termine
+        </button>
+      ) : null}
+      {desk === "termine" ? (
+        <>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={pending}
+            onClick={() => applyStatus("kunde", "→ Kunden")}
+          >
+            → Kunde
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={pending}
+            onClick={() => applyStatus("callback", "→ Dialen")}
+          >
+            Zurück Dialen
+          </button>
+        </>
+      ) : null}
       <select
         value={status}
         onChange={(e) => setStatus(e.target.value as PipelineStatus)}
       >
-        {PIPELINE_STATUS_OPTIONS.map((s) => (
+        {statusOptions.map((s) => (
           <option key={s} value={s}>
             {PIPELINE_STATUS_LABELS[s]}
           </option>
@@ -160,24 +261,79 @@ export function BulkPipelineBar({
       </select>
       <button
         type="button"
-        className="btn btn-primary"
+        className="btn"
+        disabled={pending}
+        onClick={() =>
+          applyStatus(
+            status,
+            status === "set_appointment"
+              ? "→ Termine"
+              : status === "kunde"
+                ? "→ Kunden"
+                : "aktualisiert",
+          )
+        }
+      >
+        Status setzen
+      </button>
+      {sequences.length > 0 ? (
+        <>
+          <select
+            value={sequenceId}
+            onChange={(e) => setSequenceId(e.target.value)}
+          >
+            {sequences
+              .filter((s) => s.active)
+              .map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+          </select>
+          <button
+            type="button"
+            className="btn"
+            disabled={pending || !sequenceId}
+            onClick={() =>
+              start(async () => {
+                const res = await bulkEnrollInSequence({
+                  companyIds: selectedIds,
+                  sequence_id: sequenceId,
+                });
+                if (res.error) setMsg(res.error);
+                else {
+                  setMsg(`${res.enrolled} eingeschrieben`);
+                  onClear();
+                  router.refresh();
+                }
+              })
+            }
+          >
+            Sequenz
+          </button>
+        </>
+      ) : null}
+      <button
+        type="button"
+        className="btn"
         disabled={pending}
         onClick={() =>
           start(async () => {
-            const res = await bulkSetPipelineStatus({
+            const res = await bulkCreateFollowUpTasks({
               companyIds: selectedIds,
-              pipelineStatus: status,
+              titel: "Follow-up (Bulk)",
+              due_on: dueIn2,
             });
             if (res.error) setMsg(res.error);
             else {
-              setMsg(`${res.updated} aktualisiert`);
+              setMsg(`${res.created} Aufgaben (+2 Werktage)`);
               onClear();
               router.refresh();
             }
           })
         }
       >
-        Status setzen
+        Follow-up
       </button>
       <button type="button" className="btn" onClick={onClear}>
         Auswahl leeren
@@ -191,12 +347,18 @@ export function SavedViewsBar({
   views,
   current,
 }: {
-  views: SavedView[];
+  views: SavedViewWithCount[];
   current: { status: string; due: string; q: string; sort: string };
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [name, setName] = useState("");
+
+  const dialParams = new URLSearchParams();
+  if (current.status) dialParams.set("status", current.status);
+  if (current.due) dialParams.set("due", current.due);
+  if (current.q) dialParams.set("q", current.q);
+  if (current.sort) dialParams.set("sort", current.sort);
 
   return (
     <div className="saved-views-bar">
@@ -207,12 +369,35 @@ export function SavedViewsBar({
           if (v.filters.due) params.set("due", v.filters.due);
           if (v.filters.q) params.set("q", v.filters.q);
           if (v.filters.sort) params.set("sort", v.filters.sort);
+          const qs = params.toString();
           return (
-            <a key={v.id} className="btn" href={`/liste?${params.toString()}`}>
-              {v.name}
-            </a>
+            <span key={v.id} className="form-actions wrap">
+              <a className="btn" href={`/liste?${qs}`}>
+                {v.name} ({v.count})
+              </a>
+              <a className="btn" href={`/liste/dialen?${qs}`} title="Abarbeiten">
+                ▶
+              </a>
+              <button
+                type="button"
+                className="btn"
+                disabled={pending}
+                title="Löschen"
+                onClick={() =>
+                  start(async () => {
+                    await deleteSavedView(v.id);
+                    router.refresh();
+                  })
+                }
+              >
+                ×
+              </button>
+            </span>
           );
         })}
+        <Link href={`/liste/dialen?${dialParams.toString()}`} className="btn btn-primary">
+          Diese View abarbeiten
+        </Link>
       </div>
       <form
         className="form-actions wrap"

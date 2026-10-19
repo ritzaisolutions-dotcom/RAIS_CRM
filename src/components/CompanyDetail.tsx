@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import {
   gdprAnonymize,
   logClickToCall,
+  setCustomFieldValue,
   setExcluded,
   setListPipelineStatus,
+  summarizeLead,
   updateCompanyBasics,
   updateCompanyQualification,
   upsertOpportunity,
@@ -27,6 +29,8 @@ import {
 import type {
   Company,
   CrmSystem,
+  CustomFieldDef,
+  CustomFieldValue,
   EmailTemplate,
   MitarbeiterKlasse,
   Opportunity,
@@ -40,6 +44,7 @@ import type {
   Touchpoint,
 } from "@/lib/sales/types";
 import { CompanyTimeline } from "@/components/CompanyTimeline";
+import { placeCallHref } from "@/lib/sales/placeCall";
 
 export function CompanyDetail({
   company,
@@ -51,6 +56,8 @@ export function CompanyDetail({
   templates,
   sequences,
   enrollments,
+  customDefs = [],
+  customValues = [],
 }: {
   company: Company;
   people: Person[];
@@ -61,11 +68,17 @@ export function CompanyDetail({
   templates: EmailTemplate[];
   sequences: Sequence[];
   enrollments: SequenceEnrollment[];
+  customDefs?: CustomFieldDef[];
+  customValues?: CustomFieldValue[];
 }) {
   const router = useRouter();
   const [callPending, startCall] = useTransition();
   const entscheider = people.find((p) => p.ist_entscheider) ?? people[0];
   const dialNumber = entscheider?.telefon || company.telefon;
+  const nextTouch = touchpoints.find(
+    (t) => t.naechster_touch && !t.voided_at,
+  )?.naechster_touch;
+  const lastTouch = touchpoints.find((t) => !t.voided_at);
 
   return (
     <div className="stack company-detail">
@@ -79,19 +92,44 @@ export function CompanyDetail({
             .join(" · ") || "Keine Kontaktdaten hinterlegt"}
         </p>
         <p className="muted mt-1 mb-0">
-          Pipeline:{" "}
+          Desk:{" "}
+          <strong>
+            {company.relationship === "Kunde"
+              ? "Kunden"
+              : company.pipeline_status === "set_appointment"
+                ? "Termine"
+                : "Dialen"}
+          </strong>
+          {" · "}
+          Status:{" "}
           <span
             className="badge-tone"
             data-tone={pipelineTone(company.pipeline_status)}
           >
             {PIPELINE_STATUS_LABELS[company.pipeline_status]}
           </span>
+          {nextTouch ? ` · nächster Touch ${nextTouch}` : ""}
         </p>
+        {company.recherche?.trim() ? (
+          <p className="mt-2 mb-0 text-sm">
+            <strong>Hook: </strong>
+            {company.recherche.trim().slice(0, 220)}
+            {company.recherche.trim().length > 220 ? "…" : ""}
+          </p>
+        ) : null}
+        {lastTouch ? (
+          <p className="muted mt-1 mb-0 text-xs">
+            Letzter Touch: {lastTouch.kanal}
+            {lastTouch.notiz
+              ? ` — ${lastTouch.notiz.slice(0, 120)}${lastTouch.notiz.length > 120 ? "…" : ""}`
+              : ""}
+          </p>
+        ) : null}
         {dialNumber ? (
           <p className="mt-2 mb-0">
             <a
               className="btn btn-primary"
-              href={`tel:${dialNumber.replace(/\s+/g, "")}`}
+              href={placeCallHref(dialNumber)}
               onClick={() =>
                 startCall(async () => {
                   await logClickToCall({
@@ -107,13 +145,20 @@ export function CompanyDetail({
             </a>
           </p>
         ) : null}
+        <LeadBriefPanel company={company} />
       </header>
 
       <div className="company-detail-grid">
         <div className="company-detail-col stack">
+          <OppStrip opportunities={opportunities} />
           <BasicsForm company={company} />
           <PipelineStatusForm company={company} />
           <QualificationForm company={company} />
+          <CustomFieldsSection
+            companyId={company.id}
+            defs={customDefs}
+            values={customValues}
+          />
         </div>
         <div className="company-detail-col stack">
           <PeopleSection companyId={company.id} people={people} />
@@ -145,6 +190,83 @@ export function CompanyDetail({
   );
 }
 
+function LeadBriefPanel({ company }: { company: Company }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [summary, setSummary] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  return (
+    <div className="stack" style={{ marginTop: "0.85rem" }}>
+      <div className="form-actions wrap">
+        <button
+          type="button"
+          className="btn"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              setError(null);
+              const res = await summarizeLead(company.id);
+              if (res.error) {
+                setError(res.error);
+                setSummary(null);
+                return;
+              }
+              if (res.ok) setSummary(res.summary);
+            })
+          }
+        >
+          {pending ? "KI läuft…" : "Was wissen wir? (KI)"}
+        </button>
+        {summary ? (
+          <button
+            type="button"
+            className="btn"
+            disabled={pending}
+            onClick={() =>
+              start(async () => {
+                const next = [company.recherche?.trim(), summary]
+                  .filter(Boolean)
+                  .join("\n\n");
+                const res = await updateCompanyBasics(company.id, {
+                  name: company.name,
+                  stadt: company.stadt,
+                  telefon: company.telefon,
+                  website: company.website,
+                  instagram_url: company.instagram_url,
+                  facebook_url: company.facebook_url,
+                  linkedin_url: company.linkedin_url,
+                  recherche: next,
+                  inserate_aktiv: company.inserate_aktiv,
+                  meta_ads: company.meta_ads,
+                });
+                if (res.error) setError(res.error);
+                else router.refresh();
+              })
+            }
+          >
+            In Recherche speichern
+          </button>
+        ) : null}
+      </div>
+      {error ? <p className="muted mb-0">{error}</p> : null}
+      {summary ? (
+        <pre
+          className="dense-panel"
+          style={{
+            whiteSpace: "pre-wrap",
+            fontFamily: "inherit",
+            fontSize: "0.85rem",
+            margin: 0,
+          }}
+        >
+          {summary}
+        </pre>
+      ) : null}
+    </div>
+  );
+}
+
 function BasicsForm({ company }: { company: Company }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -155,6 +277,7 @@ function BasicsForm({ company }: { company: Company }) {
   const [website, setWebsite] = useState(company.website ?? "");
   const [instagram, setInstagram] = useState(company.instagram_url ?? "");
   const [facebook, setFacebook] = useState(company.facebook_url ?? "");
+  const [linkedin, setLinkedin] = useState(company.linkedin_url ?? "");
   const [recherche, setRecherche] = useState(company.recherche ?? "");
 
   useEffect(() => {
@@ -164,6 +287,7 @@ function BasicsForm({ company }: { company: Company }) {
     setWebsite(company.website ?? "");
     setInstagram(company.instagram_url ?? "");
     setFacebook(company.facebook_url ?? "");
+    setLinkedin(company.linkedin_url ?? "");
     setRecherche(company.recherche ?? "");
   }, [company]);
 
@@ -184,6 +308,7 @@ function BasicsForm({ company }: { company: Company }) {
               website: website || null,
               instagram_url: instagram || null,
               facebook_url: facebook || null,
+              linkedin_url: linkedin || null,
               recherche: recherche || null,
             });
             if (res.error) {
@@ -209,6 +334,14 @@ function BasicsForm({ company }: { company: Company }) {
             <input value={stadt} onChange={(e) => setStadt(e.target.value)} />
           </div>
           <div className="field">
+            <label>Bundesland</label>
+            <input
+              value={company.bundesland ?? "—"}
+              disabled
+              title="Abgeleitet — nicht clientseitig schreibbar"
+            />
+          </div>
+          <div className="field">
             <label>Telefon</label>
             <input
               value={telefon}
@@ -221,6 +354,13 @@ function BasicsForm({ company }: { company: Company }) {
               value={website}
               onChange={(e) => setWebsite(e.target.value)}
               placeholder="https://…"
+            />
+          </div>
+          <div className="field">
+            <label>LinkedIn</label>
+            <input
+              value={linkedin}
+              onChange={(e) => setLinkedin(e.target.value)}
             />
           </div>
           <div className="field">
@@ -360,18 +500,32 @@ function QualificationForm({ company }: { company: Company }) {
   const [anfragen, setAnfragen] = useState(
     company.anfragen_pro_woche?.toString() ?? "",
   );
+  const [inserate, setInserate] = useState(
+    company.inserate_aktiv?.toString() ?? "",
+  );
+  const [metaAds, setMetaAds] = useState<"" | "ja" | "nein">(
+    company.meta_ads === true ? "ja" : company.meta_ads === false ? "nein" : "",
+  );
 
   useEffect(() => {
     setMitarbeiterzahl(company.mitarbeiterzahl ?? "");
     setCrm(company.crm_system ?? "");
     setAnfragen(company.anfragen_pro_woche?.toString() ?? "");
+    setInserate(company.inserate_aktiv?.toString() ?? "");
+    setMetaAds(
+      company.meta_ads === true
+        ? "ja"
+        : company.meta_ads === false
+          ? "nein"
+          : "",
+    );
   }, [company]);
 
   return (
     <section className="dense-panel">
       <h2 className="section-h">Qualifikation</h2>
       <p className="muted">
-        Mitarbeiter, CRM und Anfragen. Relationship ist{" "}
+        Mitarbeiter, CRM, Inserate und Meta Ads. Relationship ist{" "}
         <strong>{company.relationship}</strong> — abgeleitet aus dem
         Pipeline-Status und nur dort änderbar.
       </p>
@@ -381,14 +535,31 @@ function QualificationForm({ company }: { company: Company }) {
         onSubmit={(e) => {
           e.preventDefault();
           start(async () => {
-            const res = await updateCompanyQualification(company.id, {
+            const qual = await updateCompanyQualification(company.id, {
               mitarbeiterzahl: (mitarbeiterzahl ||
                 null) as MitarbeiterKlasse | null,
               crm_system: (crm || null) as CrmSystem | null,
               anfragen_pro_woche: anfragen === "" ? null : Number(anfragen),
             });
-            if (res.error) {
-              setMsg(res.error);
+            if (qual.error) {
+              setMsg(qual.error);
+              return;
+            }
+            const basics = await updateCompanyBasics(company.id, {
+              name: company.name,
+              stadt: company.stadt,
+              telefon: company.telefon,
+              website: company.website,
+              instagram_url: company.instagram_url,
+              facebook_url: company.facebook_url,
+              linkedin_url: company.linkedin_url,
+              recherche: company.recherche,
+              inserate_aktiv: inserate === "" ? null : Number(inserate),
+              meta_ads:
+                metaAds === "ja" ? true : metaAds === "nein" ? false : null,
+            });
+            if (basics.error) {
+              setMsg(basics.error);
               return;
             }
             setMsg("Gespeichert");
@@ -436,6 +607,28 @@ function QualificationForm({ company }: { company: Company }) {
               onChange={(e) => setAnfragen(e.target.value)}
             />
           </div>
+          <div className="field">
+            <label>Inserate aktiv</label>
+            <input
+              type="number"
+              min={0}
+              value={inserate}
+              onChange={(e) => setInserate(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label>Meta Ads</label>
+            <select
+              value={metaAds}
+              onChange={(e) =>
+                setMetaAds(e.target.value as "" | "ja" | "nein")
+              }
+            >
+              <option value="">—</option>
+              <option value="ja">Ja</option>
+              <option value="nein">Nein</option>
+            </select>
+          </div>
         </div>
         <div className="form-actions">
           <button className="btn btn-primary" type="submit" disabled={pending}>
@@ -445,6 +638,168 @@ function QualificationForm({ company }: { company: Company }) {
         </div>
       </form>
     </section>
+  );
+}
+
+function CustomFieldsSection({
+  companyId,
+  defs,
+  values,
+}: {
+  companyId: string;
+  defs: CustomFieldDef[];
+  values: CustomFieldValue[];
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [msg, setMsg] = useState<string | null>(null);
+  const byField = new Map(values.map((v) => [v.field_id, v]));
+
+  if (!defs.length) return null;
+
+  return (
+    <section className="dense-panel">
+      <h2 className="section-h">Freie Felder</h2>
+      <p className="muted">Werte aus den Einstellungen-Felddefinitionen.</p>
+      <div className="stack" style={{ marginTop: "0.85rem" }}>
+        {defs.map((def) => {
+          const current = byField.get(def.id);
+          return (
+            <CustomFieldEditor
+              key={def.id}
+              def={def}
+              value={current}
+              disabled={pending}
+              onSave={(patch) =>
+                start(async () => {
+                  const res = await setCustomFieldValue({
+                    company_id: companyId,
+                    field_id: def.id,
+                    ...patch,
+                  });
+                  if (res.error) setMsg(res.error);
+                  else {
+                    setMsg("Gespeichert");
+                    router.refresh();
+                  }
+                })
+              }
+            />
+          );
+        })}
+        {msg ? <span className="muted">{msg}</span> : null}
+      </div>
+    </section>
+  );
+}
+
+function CustomFieldEditor({
+  def,
+  value,
+  disabled,
+  onSave,
+}: {
+  def: CustomFieldDef;
+  value?: CustomFieldValue;
+  disabled: boolean;
+  onSave: (patch: {
+    value_text?: string | null;
+    value_number?: number | null;
+    value_json?: string[] | null;
+  }) => void;
+}) {
+  const [text, setText] = useState(value?.value_text ?? "");
+  const [number, setNumber] = useState(
+    value?.value_number != null ? String(value.value_number) : "",
+  );
+  const [multi, setMulti] = useState<string[]>(value?.value_json ?? []);
+
+  useEffect(() => {
+    setText(value?.value_text ?? "");
+    setNumber(value?.value_number != null ? String(value.value_number) : "");
+    setMulti(value?.value_json ?? []);
+  }, [value]);
+
+  return (
+    <div className="field">
+      <label>{def.name}</label>
+      {def.field_type === "number" ? (
+        <input
+          type="number"
+          disabled={disabled}
+          value={number}
+          onChange={(e) => setNumber(e.target.value)}
+          onBlur={() =>
+            onSave({
+              value_number: number === "" ? null : Number(number),
+              value_text: null,
+              value_json: null,
+            })
+          }
+        />
+      ) : def.field_type === "single_select" ? (
+        <select
+          disabled={disabled}
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            onSave({
+              value_text: e.target.value || null,
+              value_number: null,
+              value_json: null,
+            });
+          }}
+        >
+          <option value="">—</option>
+          {def.options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      ) : def.field_type === "multi_select" ? (
+        <div className="form-actions wrap">
+          {def.options.map((o) => {
+            const on = multi.includes(o);
+            return (
+              <button
+                key={o}
+                type="button"
+                className={`btn${on ? " btn-primary" : ""}`}
+                disabled={disabled}
+                onClick={() => {
+                  const next = on
+                    ? multi.filter((x) => x !== o)
+                    : [...multi, o];
+                  setMulti(next);
+                  onSave({
+                    value_json: next,
+                    value_text: null,
+                    value_number: null,
+                  });
+                }}
+              >
+                {o}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <input
+          type={def.field_type === "url" ? "url" : "text"}
+          disabled={disabled}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onBlur={() =>
+            onSave({
+              value_text: text || null,
+              value_number: null,
+              value_json: null,
+            })
+          }
+        />
+      )}
+    </div>
   );
 }
 
@@ -922,6 +1277,42 @@ function OppRow({ opp }: { opp: Opportunity }) {
         </form>
       ) : null}
     </div>
+  );
+}
+
+function OppStrip({ opportunities }: { opportunities: Opportunity[] }) {
+  const open = opportunities.filter(
+    (o) => o.stage !== "gewonnen" && o.stage !== "verloren",
+  );
+  return (
+    <section className="dense-panel">
+      <h2 className="section-h">Opportunities</h2>
+      {open.length === 0 ? (
+        <p className="muted mb-0">
+          Keine offenen Deals.{" "}
+          <span className="muted">Anlage unter „Opportunities & Admin“.</span>
+        </p>
+      ) : (
+        <ul className="task-list">
+          {open.map((o) => (
+            <li key={o.id} className="task-item">
+              <div>
+                <strong>{o.titel || o.variante}</strong>
+                <div className="muted">
+                  {o.stage}
+                  {o.erwarteter_umsatz != null
+                    ? ` · ${EUR.format(o.erwarteter_umsatz)}`
+                    : ""}
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {opportunities.length > 0 && open.length === 0 ? (
+        <p className="muted text-xs mb-0">{opportunities.length} geschlossen</p>
+      ) : null}
+    </section>
   );
 }
 

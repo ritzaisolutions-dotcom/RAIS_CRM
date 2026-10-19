@@ -56,17 +56,23 @@ function parseDue(value: string | null): ListeDueFilter {
 
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const kunden = params.get("view") === "kunden";
-  const view = kunden ? "v_kunden_liste" : "v_call_liste";
+  const viewParam = params.get("view");
+  const kunden = viewParam === "kunden";
+  const termine = viewParam === "termine";
+  const view = kunden
+    ? "v_kunden_liste"
+    : termine
+      ? "v_termine_liste"
+      : "v_call_liste";
 
   const { rows, truncated } = await fetchListeForExport(view, {
-    status: kunden ? "" : parseStatus(params.get("status")),
+    status: kunden || termine ? "" : parseStatus(params.get("status")),
     due: kunden ? "" : parseDue(params.get("due")),
     q: params.get("q") ?? "",
   });
 
   const csv = buildCsv(rows, COLUMNS);
-  const filename = `${kunden ? "kunden" : "prospects"}-${businessToday()}.csv`;
+  const filename = `${kunden ? "kunden" : termine ? "termine" : "prospects"}-${businessToday()}.csv`;
 
   return new NextResponse(csv, {
     status: 200,

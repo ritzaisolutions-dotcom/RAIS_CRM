@@ -22,6 +22,8 @@ import {
 import type {
   CallListeRow,
   CrmSystem,
+  CustomFieldDef,
+  CustomFieldValue,
   ListeColumnId,
   ListeDueFilter,
   ListeSort,
@@ -32,14 +34,39 @@ import {
   LISTE_COLUMN_CATALOG,
   OUTREACH_KANAL_LABELS,
   OUTREACH_KANAL_OPTIONS,
+  OPP_STAGE_LABELS,
   PIPELINE_STATUS_LABELS,
   PIPELINE_STATUS_OPTIONS,
   pipelineTone,
 } from "@/lib/sales/types";
 import { businessToday } from "@/lib/sales/dates";
+import { placeCallHref } from "@/lib/sales/placeCall";
 import { CreateCompanyModal } from "@/components/CreateCompanyModal";
+import {
+  ListeContextMenuLayer,
+  useListeContextMenu,
+} from "@/components/ListeContextMenu";
+import { MITARBEITER_OPTIONS } from "@/lib/sales/types";
+import type { MitarbeiterKlasse } from "@/lib/sales/types";
 
-const STORAGE_KEY = "rais_liste_columns_v1";
+const STORAGE_KEY_DIALEN = "rais_liste_columns_v3_dialen";
+const STORAGE_KEY_TERMINE = "rais_liste_columns_v3_termine";
+const STORAGE_KEY_KUNDEN = "rais_liste_columns_v3_kunden";
+
+function storageKeyFor(desk: "dialen" | "termine" | "kunden"): string {
+  switch (desk) {
+    case "termine":
+      return STORAGE_KEY_TERMINE;
+    case "kunden":
+      return STORAGE_KEY_KUNDEN;
+    case "dialen":
+      return STORAGE_KEY_DIALEN;
+    default: {
+      const _exhaustive: never = desk;
+      return _exhaustive;
+    }
+  }
+}
 
 const SORT_OPTIONS: { id: ListeSort; label: string }[] = [
   { id: "", label: "Anruf-Priorität" },
@@ -48,45 +75,132 @@ const SORT_OPTIONS: { id: ListeSort; label: string }[] = [
   { id: "firma", label: "Firma A–Z" },
 ];
 
+type ColumnKey = ListeColumnId | `cf:${string}`;
+
 type ColumnPrefs = {
-  order: ListeColumnId[];
-  visible: ListeColumnId[];
+  order: ColumnKey[];
+  visible: ColumnKey[];
 };
 
 type Feedback = { text: string; tone: "ok" | "error" } | null;
 
-function defaultPrefs(): ColumnPrefs {
+function cfKey(id: string): `cf:${string}` {
+  return `cf:${id}`;
+}
+
+function isCfKey(col: string): col is `cf:${string}` {
+  return col.startsWith("cf:");
+}
+
+function catalogFor(defs: CustomFieldDef[]): ColumnKey[] {
+  return [...LISTE_COLUMN_CATALOG, ...defs.map((d) => cfKey(d.id))];
+}
+
+const LEAN_DEFAULT_DIALEN: ListeColumnId[] = [
+  "Firma",
+  "Tel",
+  "Entscheider",
+  "Status",
+  "Nächster Touch",
+  "Stadt",
+];
+
+const LEAN_DEFAULT_TERMINE: ListeColumnId[] = [
+  "Firma",
+  "Entscheider",
+  "Tel",
+  "Nächster Touch",
+  "Opp/Stage",
+  "Stadt",
+];
+
+const LEAN_DEFAULT_KUNDEN: ListeColumnId[] = [
+  "Firma",
+  "Entscheider",
+  "Tel",
+  "Nächster Touch",
+  "Stadt",
+];
+
+function leanDefaults(desk: "dialen" | "termine" | "kunden"): ListeColumnId[] {
+  switch (desk) {
+    case "termine":
+      return [...LEAN_DEFAULT_TERMINE];
+    case "kunden":
+      return [...LEAN_DEFAULT_KUNDEN];
+    case "dialen":
+      return [...LEAN_DEFAULT_DIALEN];
+    default: {
+      const _exhaustive: never = desk;
+      return _exhaustive;
+    }
+  }
+}
+
+function defaultPrefs(
+  defs: CustomFieldDef[] = [],
+  desk: "dialen" | "termine" | "kunden" = "dialen",
+): ColumnPrefs {
+  const catalog = catalogFor(defs);
   return {
-    order: [...LISTE_COLUMN_CATALOG],
-    visible: [...LISTE_COLUMN_CATALOG],
+    order: [...catalog],
+    visible: leanDefaults(desk),
   };
 }
 
-function loadPrefs(): ColumnPrefs {
-  if (typeof window === "undefined") return defaultPrefs();
+function loadPrefs(
+  defs: CustomFieldDef[],
+  desk: "dialen" | "termine" | "kunden",
+): ColumnPrefs {
+  if (typeof window === "undefined") return defaultPrefs(defs, desk);
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return defaultPrefs();
+    const raw = localStorage.getItem(storageKeyFor(desk));
+    const catalog = catalogFor(defs);
+    const catalogSet = new Set(catalog);
+    if (!raw) return defaultPrefs(defs, desk);
     const parsed = JSON.parse(raw) as Partial<ColumnPrefs>;
     if (!Array.isArray(parsed.order) || !Array.isArray(parsed.visible)) {
-      return defaultPrefs();
+      return defaultPrefs(defs, desk);
     }
 
-    const order = parsed.order.filter((c) => LISTE_COLUMN_CATALOG.includes(c));
+    const order = parsed.order.filter((c) => catalogSet.has(c as ColumnKey));
     const visible = parsed.visible.filter((c) =>
-      LISTE_COLUMN_CATALOG.includes(c),
+      catalogSet.has(c as ColumnKey),
     );
-    // Neue Spalten aus dem Katalog ergänzen und standardmäßig einblenden.
-    for (const c of LISTE_COLUMN_CATALOG) {
+    for (const c of catalog) {
       if (!order.includes(c)) {
         order.push(c);
-        if (!visible.includes(c)) visible.push(c);
       }
     }
-    return { order, visible: visible.length ? visible : [...order] };
+    return {
+      order,
+      visible: visible.length ? visible : leanDefaults(desk),
+    };
   } catch {
-    return defaultPrefs();
+    return defaultPrefs(defs, desk);
   }
+}
+
+function columnLabel(col: ColumnKey, defs: CustomFieldDef[]): string {
+  if (isCfKey(col)) {
+    const id = col.slice(3);
+    return defs.find((d) => d.id === id)?.name ?? "Feld";
+  }
+  return col;
+}
+
+function formatCustomValue(
+  def: CustomFieldDef | undefined,
+  value: CustomFieldValue | undefined,
+): string {
+  if (!def || !value) return "—";
+  if (def.field_type === "number") {
+    return value.value_number != null ? String(value.value_number) : "—";
+  }
+  if (def.field_type === "multi_select") {
+    return value.value_json?.length ? value.value_json.join(", ") : "—";
+  }
+  return value.value_text?.trim() || "—";
 }
 
 function hrefWebsite(url: string | null) {
@@ -108,6 +222,13 @@ export function CallListeTable({
   pageSize,
   total,
   hideStatusFilters = false,
+  customDefs = [],
+  customValues = [],
+  selectedIds = [],
+  focusedId = null,
+  onToggleSelect,
+  pathnameOverride,
+  desk = "dialen",
 }: {
   rows: CallListeRow[];
   title: string;
@@ -121,22 +242,47 @@ export function CallListeTable({
   pageSize: number;
   total: number;
   hideStatusFilters?: boolean;
+  customDefs?: CustomFieldDef[];
+  customValues?: CustomFieldValue[];
+  selectedIds?: string[];
+  focusedId?: string | null;
+  onToggleSelect?: (companyId: string) => void;
+  pathnameOverride?: string;
+  desk?: "dialen" | "termine" | "kunden";
 }) {
-  const [prefs, setPrefs] = useState<ColumnPrefs>(defaultPrefs);
+  const [prefs, setPrefs] = useState<ColumnPrefs>(() =>
+    defaultPrefs(customDefs, desk),
+  );
   const [editMode, setEditMode] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [q, setQ] = useState(initialQuery);
-  const [dragId, setDragId] = useState<ListeColumnId | null>(null);
+  const [dragId, setDragId] = useState<ColumnKey | null>(null);
   const [navPending, startNav] = useTransition();
   const [feedback, setFeedback] = useState<Feedback>(null);
+  const [headerDrag, setHeaderDrag] = useState<ColumnKey | null>(null);
+  const ctx = useListeContextMenu();
 
   const router = useRouter();
-  const pathname = usePathname();
+  const pathnameRaw = usePathname();
+  const pathname = pathnameOverride ?? pathnameRaw;
   const searchParams = useSearchParams();
 
+  const customValueMap = useMemo(() => {
+    const map = new Map<string, CustomFieldValue>();
+    for (const v of customValues) {
+      map.set(`${v.company_id}:${v.field_id}`, v);
+    }
+    return map;
+  }, [customValues]);
+
+  const defById = useMemo(() => {
+    const map = new Map(customDefs.map((d) => [d.id, d]));
+    return map;
+  }, [customDefs]);
+
   useEffect(() => {
-    setPrefs(loadPrefs());
-  }, []);
+    setPrefs(loadPrefs(customDefs, desk));
+  }, [customDefs, desk]);
 
   useEffect(() => {
     setQ(initialQuery);
@@ -179,29 +325,34 @@ export function CallListeTable({
   function persist(next: ColumnPrefs) {
     setPrefs(next);
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      localStorage.setItem(storageKeyFor(desk), JSON.stringify(next));
     } catch {
       // Speicher voll oder gesperrt — Spaltenwahl gilt dann nur für diese Sitzung.
     }
   }
 
-  function toggleVisible(col: ListeColumnId) {
+  function toggleVisible(col: ColumnKey) {
     const visible = prefs.visible.includes(col)
       ? prefs.visible.filter((c) => c !== col)
       : [...prefs.visible, col];
     persist({ ...prefs, visible });
   }
 
-  function onDrop(target: ListeColumnId) {
-    if (!dragId || dragId === target) return;
+  function reorderTo(target: ColumnKey, source: ColumnKey | null) {
+    if (!source || source === target) return;
     const order = [...prefs.order];
-    const from = order.indexOf(dragId);
+    const from = order.indexOf(source);
     const to = order.indexOf(target);
     if (from < 0 || to < 0) return;
     order.splice(from, 1);
-    order.splice(to, 0, dragId);
+    order.splice(to, 0, source);
     persist({ ...prefs, order });
     setDragId(null);
+    setHeaderDrag(null);
+  }
+
+  function onDrop(target: ColumnKey) {
+    reorderTo(target, dragId);
   }
 
   function plus48h() {
@@ -247,7 +398,9 @@ export function CallListeTable({
                 className="h-9 w-44 rounded-md border border-rais-border bg-white px-2 text-sm"
               >
                 <option value="">Alle Status</option>
-                {PIPELINE_STATUS_OPTIONS.map((s) => (
+                {PIPELINE_STATUS_OPTIONS.filter(
+                  (s) => s !== "set_appointment",
+                ).map((s) => (
                   <option key={s} value={s}>
                     {PIPELINE_STATUS_LABELS[s]}
                   </option>
@@ -294,7 +447,11 @@ export function CallListeTable({
           ) : null}
           <a
             href={`/api/export?${new URLSearchParams({
-              ...(hideStatusFilters ? { view: "kunden" } : {}),
+              ...(desk === "kunden"
+                ? { view: "kunden" }
+                : desk === "termine"
+                  ? { view: "termine" }
+                  : {}),
               ...(status ? { status } : {}),
               ...(due ? { due } : {}),
               ...(q ? { q } : {}),
@@ -331,7 +488,8 @@ export function CallListeTable({
         <div className="rounded-md border border-dashed border-rais-border bg-white/50 p-3">
           <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-rais-charcoal">
             <Columns3 className="h-4 w-4 text-rais-orange" />
-            Spalten ein-/ausblenden und per Drag sortieren
+            Spalten per Drag sortieren · Häkchen = einblenden (Ausblenden löscht
+            nichts)
           </div>
           <ul className="space-y-1">
             {prefs.order.map((col) => (
@@ -350,7 +508,10 @@ export function CallListeTable({
                     checked={prefs.visible.includes(col)}
                     onChange={() => toggleVisible(col)}
                   />
-                  {col}
+                  <span>{columnLabel(col, customDefs)}</span>
+                  <span className="muted">
+                    {prefs.visible.includes(col) ? "" : "(ausgeblendet)"}
+                  </span>
                 </label>
               </li>
             ))}
@@ -365,8 +526,26 @@ export function CallListeTable({
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
+              {onToggleSelect ? (
+                <TableHead className="w-8 px-2">
+                  <span className="sr-only">Auswahl</span>
+                </TableHead>
+              ) : null}
               {displayCols.map((col) => (
-                <TableHead key={col}>{col}</TableHead>
+                <TableHead
+                  key={col}
+                  draggable
+                  onDragStart={() => setHeaderDrag(col)}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => reorderTo(col, headerDrag)}
+                  title="Ziehen zum Umsortieren"
+                  className="cursor-grab"
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <GripVertical className="h-3 w-3 text-rais-stone" />
+                    {columnLabel(col, customDefs)}
+                  </span>
+                </TableHead>
               ))}
             </TableRow>
           </TableHeader>
@@ -374,7 +553,9 @@ export function CallListeTable({
             {rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={displayCols.length || 1}
+                  colSpan={
+                    (displayCols.length || 1) + (onToggleSelect ? 1 : 0)
+                  }
                   className="py-10 text-center text-rais-stone"
                 >
                   Keine Einträge für diese Filter.
@@ -388,12 +569,29 @@ export function CallListeTable({
                   displayCols={displayCols}
                   defaultNext={plus48h()}
                   onFeedback={setFeedback}
+                  onContextMenu={(e) =>
+                    ctx.openMenu(e, row.company_id, row.firma)
+                  }
+                  customValueMap={customValueMap}
+                  defById={defById}
+                  selected={selectedIds.includes(row.company_id)}
+                  focused={focusedId === row.company_id}
+                  onToggleSelect={onToggleSelect}
                 />
               ))
             )}
           </TableBody>
         </Table>
       </div>
+
+      <ListeContextMenuLayer
+        menu={ctx.menu}
+        modal={ctx.modal}
+        onCloseMenu={ctx.closeMenu}
+        onOpenModal={ctx.setModal}
+        onCloseModal={() => ctx.setModal(null)}
+        desk={desk}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
         <span className="text-xs text-rais-stone">
@@ -443,11 +641,23 @@ function ListeRow({
   displayCols,
   defaultNext,
   onFeedback,
+  onContextMenu,
+  customValueMap,
+  defById,
+  selected = false,
+  focused = false,
+  onToggleSelect,
 }: {
   row: CallListeRow;
-  displayCols: ListeColumnId[];
+  displayCols: ColumnKey[];
   defaultNext: string;
   onFeedback: (f: Feedback) => void;
+  onContextMenu: (e: React.MouseEvent) => void;
+  customValueMap: Map<string, CustomFieldValue>;
+  defById: Map<string, CustomFieldDef>;
+  selected?: boolean;
+  focused?: boolean;
+  onToggleSelect?: (companyId: string) => void;
 }) {
   // Eigene Transition pro Zeile: vorher hat ein einziges `useTransition` im
   // Tabellen-Root beim Speichern *alle* Zeilen gleichzeitig deaktiviert.
@@ -479,7 +689,11 @@ function ListeRow({
           ? " · jetzt unter Kunden"
           : res.relationship === "Ausgeschlossen"
             ? " · aus Prospects entfernt"
-            : "";
+            : status === "set_appointment"
+              ? " · jetzt unter Termine"
+              : status === "callback" || status === "neu"
+                ? " · Dialen"
+                : "";
       onFeedback({
         text: `${row.firma}: Status gesetzt · nächster Touch ${res.naechster_touch}${note}`,
         tone: "ok",
@@ -514,8 +728,65 @@ function ListeRow({
     });
   }
 
+  function onMitarbeiter(v: MitarbeiterKlasse | null) {
+    start(async () => {
+      const res = await updateListFields(row.company_id, {
+        mitarbeiterzahl: v,
+      });
+      if (res.error) {
+        onFeedback({ text: res.error, tone: "error" });
+        return;
+      }
+      onFeedback({ text: `${row.firma}: Mitarbeiter gespeichert`, tone: "ok" });
+      router.refresh();
+    });
+  }
+
+  function onInserate(n: number | null) {
+    start(async () => {
+      const res = await updateListFields(row.company_id, {
+        inserate_aktiv: n,
+      });
+      if (res.error) {
+        onFeedback({ text: res.error, tone: "error" });
+        return;
+      }
+      onFeedback({ text: `${row.firma}: Inserate gespeichert`, tone: "ok" });
+      router.refresh();
+    });
+  }
+
+  function onMetaAds(v: boolean | null) {
+    start(async () => {
+      const res = await updateListFields(row.company_id, { meta_ads: v });
+      if (res.error) {
+        onFeedback({ text: res.error, tone: "error" });
+        return;
+      }
+      onFeedback({ text: `${row.firma}: Meta Ads gespeichert`, tone: "ok" });
+      router.refresh();
+    });
+  }
+
   return (
-    <TableRow className="hover:bg-white/70">
+    <TableRow
+      className={cn(
+        "hover:bg-white/70",
+        focused && "bg-rais-orange/10 ring-1 ring-inset ring-rais-orange/40",
+        selected && "bg-rais-linen",
+      )}
+      onContextMenu={onContextMenu}
+    >
+      {onToggleSelect ? (
+        <TableCell className="w-8 px-2 align-middle">
+          <input
+            type="checkbox"
+            checked={selected}
+            aria-label={`${row.firma} auswählen`}
+            onChange={() => onToggleSelect(row.company_id)}
+          />
+        </TableCell>
+      ) : null}
       {displayCols.map((col) => (
         <TableCell key={col} className="whitespace-nowrap align-middle">
           <Cell
@@ -530,6 +801,11 @@ function ListeRow({
             onStatus={onStatus}
             onCrm={onCrm}
             onAnfragen={onAnfragen}
+            onMitarbeiter={onMitarbeiter}
+            onInserate={onInserate}
+            onMetaAds={onMetaAds}
+            customValueMap={customValueMap}
+            defById={defById}
           />
         </TableCell>
       ))}
@@ -549,8 +825,13 @@ function Cell({
   onStatus,
   onCrm,
   onAnfragen,
+  onMitarbeiter,
+  onInserate,
+  onMetaAds,
+  customValueMap,
+  defById,
 }: {
-  col: ListeColumnId;
+  col: ColumnKey;
   row: CallListeRow;
   pending: boolean;
   nextDate: string;
@@ -561,8 +842,21 @@ function Cell({
   onStatus: (status: PipelineStatus) => void;
   onCrm: (c: CrmSystem | null) => void;
   onAnfragen: (n: number | null) => void;
+  onMitarbeiter: (v: MitarbeiterKlasse | null) => void;
+  onInserate: (n: number | null) => void;
+  onMetaAds: (v: boolean | null) => void;
+  customValueMap: Map<string, CustomFieldValue>;
+  defById: Map<string, CustomFieldDef>;
 }) {
-  switch (col) {
+  if (isCfKey(col)) {
+    const fieldId = col.slice(3);
+    const def = defById.get(fieldId);
+    const value = customValueMap.get(`${row.company_id}:${fieldId}`);
+    return formatCustomValue(def, value);
+  }
+
+  const fixedCol: ListeColumnId = col;
+  switch (fixedCol) {
     case "Firma":
       return (
         <Link
@@ -646,7 +940,7 @@ function Cell({
       return <span className="tabular-nums">{row.tage_seit_touch ?? "—"}</span>;
     case "Tel":
       return row.tel ? (
-        <a href={`tel:${row.tel}`} className="text-rais-orange hover:underline">
+        <a href={placeCallHref(row.tel)} className="text-rais-orange hover:underline">
           {row.tel}
         </a>
       ) : (
@@ -753,8 +1047,78 @@ function Cell({
           }}
         />
       );
+    case "Mitarbeiter":
+      return (
+        <select
+          className="h-8 min-w-[5rem] rounded-md border border-rais-border bg-white px-2 text-xs"
+          disabled={pending}
+          value={row.mitarbeiterzahl ?? ""}
+          onChange={(e) =>
+            onMitarbeiter(
+              (e.target.value || null) as MitarbeiterKlasse | null,
+            )
+          }
+        >
+          <option value="">—</option>
+          {MITARBEITER_OPTIONS.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      );
+    case "Inserate":
+      return (
+        <input
+          type="number"
+          min={0}
+          className="h-8 w-16 rounded-md border border-rais-border bg-white px-2 text-xs tabular-nums"
+          disabled={pending}
+          defaultValue={row.inserate_aktiv ?? ""}
+          onBlur={(e) => {
+            const raw = e.target.value;
+            const n = raw === "" ? null : Number(raw);
+            if (n === row.inserate_aktiv) return;
+            onInserate(n);
+          }}
+        />
+      );
+    case "Stadt":
+      return row.stadt ?? "—";
+    case "Bundesland":
+      return row.bundesland ?? "—";
+    case "Meta Ads":
+      return (
+        <select
+          className="h-8 min-w-[5rem] rounded-md border border-rais-border bg-white px-2 text-xs"
+          disabled={pending}
+          value={
+            row.meta_ads === true
+              ? "ja"
+              : row.meta_ads === false
+                ? "nein"
+                : ""
+          }
+          onChange={(e) => {
+            const v = e.target.value;
+            onMetaAds(v === "ja" ? true : v === "nein" ? false : null);
+          }}
+        >
+          <option value="">—</option>
+          <option value="ja">Ja</option>
+          <option value="nein">Nein</option>
+        </select>
+      );
+    case "Opp/Stage":
+      return row.opp_stage ? (
+        <span className="badge-tone" data-tone="gelb">
+          {OPP_STAGE_LABELS[row.opp_stage]}
+        </span>
+      ) : (
+        "—"
+      );
     default: {
-      const _exhaustive: never = col;
+      const _exhaustive: never = fixedCol;
       return _exhaustive;
     }
   }

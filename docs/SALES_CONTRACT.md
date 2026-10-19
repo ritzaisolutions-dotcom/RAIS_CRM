@@ -11,7 +11,7 @@ Project: `qdywaenmojdxhfxqbvun` · Schema: **`sales`** · Contract date: 28.07.2
 
 ## Routes
 
-- `/login`, `/liste` (`v_call_liste`), `/kunden` (`v_kunden_liste`), `/firma/[id]`, `/analytics`
+- `/login`, `/liste` (`v_call_liste`), `/todos` (`v_open_tasks`), `/kunden` (`v_kunden_liste`), `/firma/[id]`, `/einstellungen`, `/analytics`
 
 ## Write rules
 
@@ -23,6 +23,10 @@ Project: `qdywaenmojdxhfxqbvun` · Schema: **`sales`** · Contract date: 28.07.2
 6. LinkedIn DMs KPI = touches with `kanal = 'dm'`
 7. Firma + optionaler Entscheider sowie Pipeline-Status + Touch werden atomar
    über RPCs geschrieben
+8. Tasks via `sales.create_task` (`art`: follow_up | email | sonstiges); only
+   follow_up defaults to setting `naechster_touch`
+9. Custom fields via `custom_field_defs` / `custom_field_values` under RLS
+   (`is_app_user`); reorder via `reorder_custom_field_defs`; soft-deactivate defs
 
 ## Pipeline status (`sales.pipeline_status`)
 
@@ -33,9 +37,17 @@ Project: `qdywaenmojdxhfxqbvun` · Schema: **`sales`** · Contract date: 28.07.2
 
 ## Editable company fields
 
-Stammdaten: `name`, `stadt`, `telefon`, `website`, `instagram_url`, `facebook_url`, `pipeline_status`
+Stammdaten: `name`, `stadt`, `telefon`, `website`, `instagram_url`, `facebook_url`, `linkedin_url`, `pipeline_status`, `recherche`
 
-Qualifikation: `mitarbeiterzahl`, `crm_system`, `anfragen_pro_woche`, `relationship`
+Qualifikation: `mitarbeiterzahl`, `crm_system`, `anfragen_pro_woche`, `inserate_aktiv`, `meta_ads`
+
+Read-only: `bundesland`, `region`, `relationship` (derived)
+
+## Custom fields (EAV)
+
+- `sales.custom_field_defs` — name, slug, field_type, options, active, sort_order
+- `sales.custom_field_values` — per company/field (`value_text` | `value_number` | `value_json`)
+- No service-role in client; no hard-delete of defs that still have values
 
 ## RPCs
 
@@ -43,10 +55,13 @@ Qualifikation: `mitarbeiterzahl`, `crm_system`, `anfragen_pro_woche`, `relations
 - `sales.create_company(...)`
 - `sales.set_pipeline_status(...)`
 - `sales.upsert_person_atomic(...)`
+- `sales.create_task(...)` / `sales.complete_task(...)`
+- `sales.reorder_custom_field_defs(uuid[])`
 - `sales.gdpr_anonymize(company_id)` — Art.17 only
 - `sales.akquise_kpis(p_from, p_to)`
 - `sales.analytics_dashboard(p_from, p_to)` — priorisierter Funnel, Tagessteuerung, Kanal- und Commercial-KPIs
 - `sales.pipeline_status_counts()`
+- Server-only: `summarizeLead` (Anthropic) when `ANTHROPIC_API_KEY` is set
 
 ## Ops
 

@@ -4,7 +4,11 @@ import type {
   AnalyticsRange,
   CallListeRow,
   Company,
+  CustomFieldDef,
+  CustomFieldValue,
+  DialenQueue,
   EmailTemplate,
+  LeadList,
   ListeDueFilter,
   ListeSort,
   Opportunity,
@@ -23,10 +27,20 @@ import { ERGEBNIS_LABELS } from "@/lib/sales/types";
 import { BUSINESS_TZ, businessToday, rangeBounds } from "@/lib/sales/dates";
 
 const CALL_LISTE_COLUMNS =
-  "company_id,firma,entscheider,bundesland,crm,\"anfragen/woche\",naechster_touch,status,tage_seit_touch,tel,email,linkedin_url,inserate_aktiv,website,instagram_url,facebook_url";
+  "company_id,firma,entscheider,bundesland,stadt,crm,\"anfragen/woche\",naechster_touch,status,tage_seit_touch,tel,email,linkedin_url,inserate_aktiv,mitarbeiterzahl,meta_ads,website,instagram_url,facebook_url,opp_stage";
 
 /** Zeilen pro Seite. PostgREST liefert ohnehin max. 1000 (`config.toml`). */
 export const LISTE_PAGE_SIZE = 100;
+
+export type ListeViewName =
+  | "v_call_liste"
+  | "v_termine_liste"
+  | "v_kunden_liste";
+
+type ListeQueryView =
+  | ListeViewName
+  | "v_call_liste_by_list"
+  | "v_termine_liste_by_list";
 
 export type CallListeFilters = {
   status?: PipelineStatus | "";
@@ -34,6 +48,10 @@ export type CallListeFilters = {
   q?: string;
   sort?: ListeSort;
   page?: number;
+  /** Membership list filter (Dialen / Termine). */
+  listId?: string;
+  /** Dialen work-queue chip. */
+  queue?: DialenQueue;
 };
 
 export type ListeResult = {
@@ -43,8 +61,19 @@ export type ListeResult = {
   pageSize: number;
 };
 
+function resolveListeQueryView(
+  view: ListeViewName,
+  listId: string | undefined,
+): ListeQueryView {
+  if (!listId) return view;
+  if (view === "v_call_liste") return "v_call_liste_by_list";
+  if (view === "v_termine_liste") return "v_termine_liste_by_list";
+  // Kunden has no membership bar; ignore listId.
+  return view;
+}
+
 async function fetchListe(
-  view: "v_call_liste" | "v_kunden_liste",
+  view: ListeViewName,
   filters: CallListeFilters,
 ): Promise<ListeResult> {
   const supabase = await createClient();
@@ -53,10 +82,22 @@ async function fetchListe(
       ? Math.floor(filters.page as number)
       : 1;
   const offset = (page - 1) * LISTE_PAGE_SIZE;
+  const listId = filters.listId?.trim() || undefined;
+  const queryView = resolveListeQueryView(view, listId);
 
-  let query = supabase.from(view).select(CALL_LISTE_COLUMNS, {
-    count: "exact",
-  });
+  // Membership views carry list_id; base views do not — branch so TS keeps columns tight.
+  let query =
+    queryView === "v_call_liste_by_list"
+      ? supabase
+          .from("v_call_liste_by_list")
+          .select(CALL_LISTE_COLUMNS, { count: "exact" })
+          .eq("list_id", listId as string)
+      : queryView === "v_termine_liste_by_list"
+        ? supabase
+            .from("v_termine_liste_by_list")
+            .select(CALL_LISTE_COLUMNS, { count: "exact" })
+            .eq("list_id", listId as string)
+        : supabase.from(view).select(CALL_LISTE_COLUMNS, { count: "exact" });
 
   if (filters.status) {
     query = query.eq("status", filters.status);
@@ -71,6 +112,19 @@ async function fetchListe(
       .not("naechster_touch", "is", null);
   }
 
+  const queue = filters.queue ?? "";
+  if (queue === "today") {
+    query = query
+      .not("naechster_touch", "is", null)
+      .lte("naechster_touch", today);
+  } else if (queue === "wiedervorlage") {
+    query = query.gt("naechster_touch", today);
+  } else if (queue === "no_phone") {
+    query = query.is("tel", null);
+  } else if (queue === "call") {
+    query = query.not("tel", "is", null);
+  }
+
   const term = filters.q?.trim();
   if (term) {
     const safe = term.replace(/[%,()]/g, " ");
@@ -79,13 +133,9 @@ async function fetchListe(
     );
   }
 
-  // Ohne explizite Auswahl bleibt die ORDER BY der View erhalten: überfällig
-  // zuerst, dann nächster Touch, dann Anfragen/Woche. Das ist die
-  // Anruf-Priorität — vorher hat die App sie mit `.order("firma")`
-  // überschrieben und damit alphabetisch statt nach Dringlichkeit sortiert.
   if (filters.sort === "firma") {
     query = query.order("firma");
-  } else if (filters.sort === "faellig") {
+  } else if (filters.sort === "faellig" || queue === "wiedervorlage") {
     query = query.order("naechster_touch", { nullsFirst: false });
   } else if (filters.sort === "tage") {
     query = query.order("tage_seit_touch", {
@@ -113,6 +163,12 @@ export function fetchCallListe(
   return fetchListe("v_call_liste", filters);
 }
 
+export function fetchTermineListe(
+  filters: CallListeFilters = {},
+): Promise<ListeResult> {
+  return fetchListe("v_termine_liste", filters);
+}
+
 /** Obergrenze für den Export — schützt vor einem versehentlichen Vollabzug. */
 export const EXPORT_MAX_ROWS = 10_000;
 
@@ -124,7 +180,7 @@ export const EXPORT_MAX_ROWS = 10_000;
  * Prospects unvollständig war, ohne dass es jemand gemerkt hätte.
  */
 export async function fetchListeForExport(
-  view: "v_call_liste" | "v_kunden_liste",
+  view: ListeViewName,
   filters: CallListeFilters = {},
 ): Promise<{ rows: CallListeRow[]; truncated: boolean }> {
   const rows: CallListeRow[] = [];
@@ -156,12 +212,33 @@ export async function fetchCompany(id: string): Promise<Company | null> {
   const { data, error } = await supabase
     .from("companies")
     .select(
-      "id,name,stadt,website,instagram_url,facebook_url,telefon,mitarbeiterzahl,crm_system,anfragen_pro_woche,inserate_aktiv,relationship,recherche,pipeline_status,created_at,updated_at",
+      "id,name,stadt,bundesland,website,instagram_url,facebook_url,linkedin_url,telefon,mitarbeiterzahl,crm_system,anfragen_pro_woche,inserate_aktiv,meta_ads,relationship,recherche,pipeline_status,created_at,updated_at",
     )
     .eq("id", id)
     .maybeSingle();
   if (error) throw error;
   return data as Company | null;
+}
+
+export async function fetchCustomValuesForCompanies(
+  companyIds: string[],
+): Promise<CustomFieldValue[]> {
+  if (!companyIds.length) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("custom_field_values")
+    .select("company_id,field_id,value_text,value_number,value_json")
+    .in("company_id", companyIds);
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    company_id: row.company_id,
+    field_id: row.field_id,
+    value_text: row.value_text,
+    value_number: row.value_number,
+    value_json: Array.isArray(row.value_json)
+      ? (row.value_json as string[])
+      : null,
+  }));
 }
 
 export async function fetchPeople(companyId: string): Promise<Person[]> {
@@ -427,21 +504,87 @@ export async function fetchCompanyTasks(
   return (data ?? []) as SalesTask[];
 }
 
+export type OpenTasksFilter =
+  | "today"
+  | "overdue"
+  | "week"
+  | "all";
+
 export async function fetchOpenTasksDue(
-  filter: "today" | "overdue" | "all" = "all",
+  filter: OpenTasksFilter = "all",
+  opts?: { art?: SalesTask["art"]; limit?: number },
 ): Promise<SalesTask[]> {
   const supabase = await createClient();
   const today = businessToday();
+  const [y, m, d] = today.split("-").map(Number);
+  const weekEnd = new Date(Date.UTC(y, m - 1, d + 7))
+    .toISOString()
+    .slice(0, 10);
   let query = supabase
     .from("v_open_tasks")
     .select("*")
     .order("due_on")
-    .limit(100);
+    .limit(opts?.limit ?? 500);
   if (filter === "today") query = query.eq("due_on", today);
   if (filter === "overdue") query = query.lt("due_on", today);
+  if (filter === "week") {
+    query = query.gte("due_on", today).lt("due_on", weekEnd);
+  }
+  if (opts?.art) query = query.eq("art", opts.art);
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as SalesTask[];
+}
+
+export async function countOpenTasksDueToday(): Promise<number> {
+  const supabase = await createClient();
+  const today = businessToday();
+  const { count, error } = await supabase
+    .from("v_open_tasks")
+    .select("id", { count: "exact", head: true })
+    .lte("due_on", today);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function fetchCustomFieldDefs(
+  activeOnly = true,
+): Promise<CustomFieldDef[]> {
+  const supabase = await createClient();
+  let query = supabase
+    .from("custom_field_defs")
+    .select("id,name,slug,field_type,options,active,sort_order,created_at")
+    .order("sort_order")
+    .order("name");
+  if (activeOnly) query = query.eq("active", true);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    ...row,
+    options: Array.isArray(row.options)
+      ? (row.options as string[])
+      : [],
+  }));
+}
+
+export async function fetchCompanyCustomValues(
+  companyId: string,
+): Promise<CustomFieldValue[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("custom_field_values")
+    .select("company_id,field_id,value_text,value_number,value_json")
+    .eq("company_id", companyId);
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    company_id: row.company_id,
+    field_id: row.field_id,
+    value_text: row.value_text,
+    value_number: row.value_number,
+    value_json: Array.isArray(row.value_json)
+      ? (row.value_json as string[])
+      : null,
+  }));
 }
 
 export async function fetchEmailTemplates(): Promise<EmailTemplate[]> {
@@ -511,4 +654,161 @@ export async function fetchSavedViews(
     .order("name");
   if (error) throw error;
   return (data ?? []) as SavedView[];
+}
+
+export type SavedViewWithCount = SavedView & { count: number };
+
+export async function fetchSavedViewsWithCounts(
+  scope: "liste" | "kunden" = "liste",
+): Promise<SavedViewWithCount[]> {
+  const views = await fetchSavedViews(scope);
+  const viewName = scope === "kunden" ? "v_kunden_liste" : "v_call_liste";
+  return Promise.all(
+    views.map(async (v) => {
+      const filters: CallListeFilters = {
+        status: (v.filters.status as PipelineStatus | undefined) ?? "",
+        due: (v.filters.due as ListeDueFilter | undefined) ?? "",
+        q: v.filters.q ?? "",
+        sort: (v.filters.sort as ListeSort | undefined) ?? "",
+        page: 1,
+      };
+      const result = await fetchListe(viewName, filters);
+      return { ...v, count: result.total };
+    }),
+  );
+}
+
+/** Full smart-view queue for the session dialer (capped). */
+export const DIALER_MAX_ROWS = 500;
+
+export async function fetchDialerQueue(
+  filters: CallListeFilters = {},
+): Promise<{ rows: CallListeRow[]; truncated: boolean }> {
+  // Dialer only runs the Dialen lane (never Termine/Kunden).
+  const { rows, truncated } = await fetchListeForExport("v_call_liste", filters);
+  return {
+    rows: rows.slice(0, DIALER_MAX_ROWS),
+    truncated: truncated || rows.length > DIALER_MAX_ROWS,
+  };
+}
+
+export async function fetchLeadLists(): Promise<LeadList[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("lead_lists")
+    .select("id,name,sort_order,created_at")
+    .order("sort_order")
+    .order("name");
+  if (error) throw error;
+  const lists = (data ?? []) as LeadList[];
+  if (!lists.length) return lists;
+
+  const { data: members } = await supabase
+    .from("lead_list_members")
+    .select("list_id");
+  const counts = new Map<string, number>();
+  for (const m of members ?? []) {
+    counts.set(m.list_id, (counts.get(m.list_id) ?? 0) + 1);
+  }
+  return lists.map((l) => ({ ...l, member_count: counts.get(l.id) ?? 0 }));
+}
+
+export async function fetchCompanyListIds(
+  companyId: string,
+): Promise<string[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("lead_list_members")
+    .select("list_id")
+    .eq("company_id", companyId);
+  if (error) throw error;
+  return (data ?? []).map((r) => r.list_id);
+}
+
+export type QuarantineRow = {
+  id: string;
+  provider_ref: string;
+  from_email: string | null;
+  subject: string | null;
+  body: string | null;
+  received_at: string;
+};
+
+export async function fetchInboundQuarantine(): Promise<QuarantineRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("inbound_email_quarantine")
+    .select("id,provider_ref,from_email,subject,body,received_at")
+    .is("resolved_at", null)
+    .order("received_at", { ascending: false })
+    .limit(50);
+  if (error) throw error;
+  return (data ?? []) as QuarantineRow[];
+}
+
+export type GlobalSearchHit = {
+  kind: "firma" | "person" | "touch";
+  id: string;
+  companyId: string;
+  title: string;
+  subtitle: string;
+};
+
+export async function searchGlobal(
+  term: string,
+): Promise<GlobalSearchHit[]> {
+  const q = term.trim();
+  if (q.length < 2) return [];
+  const safe = q.replace(/[%,()]/g, " ").slice(0, 80);
+  const supabase = await createClient();
+  const hits: GlobalSearchHit[] = [];
+
+  const [companies, people, touches] = await Promise.all([
+    supabase
+      .from("companies")
+      .select("id,name,stadt,telefon")
+      .ilike("name", `%${safe}%`)
+      .limit(8),
+    supabase
+      .from("people")
+      .select("id,company_id,name,email,telefon")
+      .or(`name.ilike.%${safe}%,email.ilike.%${safe}%`)
+      .limit(8),
+    supabase
+      .from("touchpoints")
+      .select("id,company_id,notiz,kanal")
+      .ilike("notiz", `%${safe}%`)
+      .is("voided_at", null)
+      .order("created_at", { ascending: false })
+      .limit(8),
+  ]);
+
+  for (const c of companies.data ?? []) {
+    hits.push({
+      kind: "firma",
+      id: c.id,
+      companyId: c.id,
+      title: c.name,
+      subtitle: [c.stadt, c.telefon].filter(Boolean).join(" · ") || "Firma",
+    });
+  }
+  for (const p of people.data ?? []) {
+    hits.push({
+      kind: "person",
+      id: p.id,
+      companyId: p.company_id,
+      title: p.name,
+      subtitle: p.email ?? p.telefon ?? "Kontakt",
+    });
+  }
+  for (const t of touches.data ?? []) {
+    hits.push({
+      kind: "touch",
+      id: String(t.id),
+      companyId: t.company_id,
+      title: (t.notiz ?? "").slice(0, 80) || t.kanal,
+      subtitle: `Touch · ${t.kanal}`,
+    });
+  }
+  return hits;
 }

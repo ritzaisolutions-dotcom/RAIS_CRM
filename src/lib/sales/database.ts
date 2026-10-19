@@ -3,6 +3,8 @@ import type {
   CallListeRow,
   Company,
   CrmSystem,
+  CustomFieldDef,
+  CustomFieldValue,
   EmailTemplate,
   MitarbeiterKlasse,
   Opportunity,
@@ -78,11 +80,13 @@ export type Database = {
           website?: string | null;
           instagram_url?: string | null;
           facebook_url?: string | null;
+          linkedin_url?: string | null;
           telefon?: string | null;
           mitarbeiterzahl?: MitarbeiterKlasse | null;
           crm_system?: CrmSystem | null;
           anfragen_pro_woche?: number | null;
           inserate_aktiv?: number | null;
+          meta_ads?: boolean | null;
           recherche?: string | null;
           pipeline_status?: PipelineStatus;
         },
@@ -97,6 +101,9 @@ export type Database = {
           website?: string | null;
           instagram_url?: string | null;
           facebook_url?: string | null;
+          linkedin_url?: string | null;
+          inserate_aktiv?: number | null;
+          meta_ads?: boolean | null;
         }
       >;
       people: TableDef<
@@ -166,6 +173,8 @@ export type Database = {
           notiz?: string | null;
           due_on: string;
           status?: SalesTask["status"];
+          art?: SalesTask["art"];
+          email_preset?: SalesTask["email_preset"];
           created_by?: string | null;
         },
         {
@@ -174,6 +183,79 @@ export type Database = {
           titel?: string;
           notiz?: string | null;
           due_on?: string;
+          art?: SalesTask["art"];
+          email_preset?: SalesTask["email_preset"];
+        }
+      >;
+      custom_field_defs: TableDef<
+        CustomFieldDef & { options: unknown },
+        {
+          name: string;
+          slug: string;
+          field_type: CustomFieldDef["field_type"];
+          options?: unknown;
+          active?: boolean;
+          sort_order?: number;
+          created_by?: string | null;
+        },
+        {
+          name?: string;
+          slug?: string;
+          field_type?: CustomFieldDef["field_type"];
+          options?: unknown;
+          active?: boolean;
+          sort_order?: number;
+        }
+      >;
+      custom_field_values: TableDef<
+        CustomFieldValue & { updated_at?: string },
+        {
+          company_id: string;
+          field_id: string;
+          value_text?: string | null;
+          value_number?: number | null;
+          value_json?: unknown;
+          updated_at?: string;
+        },
+        {
+          value_text?: string | null;
+          value_number?: number | null;
+          value_json?: unknown;
+          updated_at?: string;
+        }
+      >;
+      app_settings: TableDef<
+        { key: string; value: unknown; updated_at: string },
+        { key: string; value?: unknown; updated_at?: string },
+        { value?: unknown; updated_at?: string }
+      >;
+      inbound_email_quarantine: TableDef<
+        {
+          id: string;
+          provider_ref: string;
+          from_email: string | null;
+          subject: string | null;
+          body: string | null;
+          received_at: string;
+          resolved_at: string | null;
+          resolved_company_id: string | null;
+          created_at: string;
+        },
+        {
+          provider_ref: string;
+          from_email?: string | null;
+          subject?: string | null;
+          body?: string | null;
+          received_at?: string;
+          resolved_at?: string | null;
+          resolved_company_id?: string | null;
+        },
+        {
+          resolved_at?: string | null;
+          resolved_company_id?: string | null;
+          from_email?: string | null;
+          subject?: string | null;
+          body?: string | null;
         }
       >;
       email_templates: TableDef<
@@ -315,14 +397,58 @@ export type Database = {
           filters?: SavedView["filters"];
         }
       >;
+      lead_lists: TableDef<
+        {
+          id: string;
+          name: string;
+          sort_order: number;
+          created_at: string;
+          created_by: string | null;
+        },
+        {
+          name: string;
+          sort_order?: number;
+          created_by?: string | null;
+        },
+        {
+          name?: string;
+          sort_order?: number;
+        }
+      >;
+      lead_list_members: TableDef<
+        {
+          list_id: string;
+          company_id: string;
+          added_at: string;
+          added_by: string | null;
+        },
+        {
+          list_id: string;
+          company_id: string;
+          added_by?: string | null;
+        },
+        Record<string, never>
+      >;
     };
     Views: {
       v_call_liste: {
         Row: CallListeRow;
         Relationships: [];
       };
+      v_termine_liste: {
+        Row: CallListeRow;
+        Relationships: [];
+      };
       v_kunden_liste: {
         Row: CallListeRow;
+        Relationships: [];
+      };
+      v_call_liste_by_list: {
+        Row: CallListeRow & { list_id: string };
+        Relationships: [];
+      };
+      v_termine_liste_by_list: {
+        Row: CallListeRow & { list_id: string };
         Relationships: [];
       };
       v_open_tasks: {
@@ -344,6 +470,7 @@ export type Database = {
           p_notiz?: string | null;
           p_naechster?: string | null;
           p_abbruch?: Abbruchgrund | null;
+          p_source_key?: string | null;
         };
         Returns: number;
       };
@@ -385,6 +512,13 @@ export type Database = {
         };
         Returns: Json;
       };
+      set_company_list_membership: {
+        Args: {
+          p_company_id: string;
+          p_list_ids: string[];
+        };
+        Returns: undefined;
+      };
       upsert_person_atomic: {
         Args: {
           p_person_id: string | null;
@@ -421,6 +555,9 @@ export type Database = {
           p_due_on: string;
           p_person_id?: string | null;
           p_notiz?: string | null;
+          p_art?: string;
+          p_email_preset?: string | null;
+          p_set_naechster?: boolean | null;
         };
         Returns: string;
       };
@@ -431,6 +568,10 @@ export type Database = {
       run_due_sequence_steps: {
         Args: Record<string, never>;
         Returns: number;
+      };
+      reorder_custom_field_defs: {
+        Args: { p_ordered_ids: string[] };
+        Returns: undefined;
       };
     };
     Enums: {

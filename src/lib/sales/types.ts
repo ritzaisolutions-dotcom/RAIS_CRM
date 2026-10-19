@@ -54,6 +54,8 @@ export type OppVariante = "system_3k" | "system_crm_6k";
 export type OppStage = "offen" | "angebot_raus" | "gewonnen" | "verloren";
 
 export type TaskStatus = "offen" | "erledigt" | "storniert";
+export type TaskArt = "follow_up" | "email" | "sonstiges";
+export type EmailTaskPreset = "info" | "ueber_uns" | "frei";
 
 export type SalesTask = {
   id: string;
@@ -66,6 +68,35 @@ export type SalesTask = {
   created_at: string;
   completed_at: string | null;
   firma?: string | null;
+  art?: TaskArt;
+  email_preset?: EmailTaskPreset | null;
+};
+
+export type CustomFieldType =
+  | "single_select"
+  | "multi_select"
+  | "text"
+  | "number"
+  | "url"
+  | "phone";
+
+export type CustomFieldDef = {
+  id: string;
+  name: string;
+  slug: string;
+  field_type: CustomFieldType;
+  options: string[];
+  active: boolean;
+  sort_order: number;
+  created_at: string;
+};
+
+export type CustomFieldValue = {
+  company_id: string;
+  field_id: string;
+  value_text: string | null;
+  value_number: number | null;
+  value_json: string[] | null;
 };
 
 export type EmailTemplate = {
@@ -137,6 +168,7 @@ export type CallListeRow = {
   firma: string;
   entscheider: string | null;
   bundesland: string | null;
+  stadt: string | null;
   crm: CrmSystem | null;
   "anfragen/woche": number | null;
   naechster_touch: string | null;
@@ -146,9 +178,13 @@ export type CallListeRow = {
   email: string | null;
   linkedin_url: string | null;
   inserate_aktiv: number | null;
+  mitarbeiterzahl: MitarbeiterKlasse | null;
+  meta_ads: boolean | null;
   website: string | null;
   instagram_url: string | null;
   facebook_url: string | null;
+  /** Open opportunity stage (offen / angebot_raus), if any. */
+  opp_stage: OppStage | null;
 };
 
 /** Fälligkeits-Filter der Call-Liste — geteilt von Server-Query und Tabelle. */
@@ -173,7 +209,13 @@ export type ListeColumnId =
   | "Instagram"
   | "Facebook"
   | "CRM"
-  | "Anfragen/W";
+  | "Anfragen/W"
+  | "Mitarbeiter"
+  | "Inserate"
+  | "Stadt"
+  | "Bundesland"
+  | "Meta Ads"
+  | "Opp/Stage";
 
 export const LISTE_COLUMN_CATALOG: ListeColumnId[] = [
   "Firma",
@@ -183,13 +225,41 @@ export const LISTE_COLUMN_CATALOG: ListeColumnId[] = [
   "Tage",
   "Tel",
   "Email",
+  "Stadt",
+  "Bundesland",
+  "Mitarbeiter",
+  "Inserate",
   "Website",
   "LinkedIn",
   "Instagram",
   "Facebook",
   "CRM",
   "Anfragen/W",
+  "Meta Ads",
+  "Opp/Stage",
 ];
+
+export const OPP_STAGE_LABELS: Record<OppStage, string> = {
+  offen: "Offen",
+  angebot_raus: "Angebot raus",
+  gewonnen: "Gewonnen",
+  verloren: "Verloren",
+};
+
+export const EMAIL_TASK_PRESETS: {
+  id: EmailTaskPreset;
+  label: string;
+}[] = [
+  { id: "info", label: "Nur Info" },
+  { id: "ueber_uns", label: "Über uns / Details" },
+  { id: "frei", label: "Freitext" },
+];
+
+export const TASK_ART_LABELS: Record<TaskArt, string> = {
+  follow_up: "Follow-up",
+  email: "E-Mail",
+  sonstiges: "Sonstiges",
+};
 
 export type AnalyticsRange = "day" | "week" | "month" | "year";
 export type AnalyticsGrain = "hour" | "day" | "week" | "month";
@@ -280,14 +350,18 @@ export type Company = {
   id: string;
   name: string;
   stadt: string | null;
+  /** Read-only in UI — never client-written. */
+  bundesland: string | null;
   website: string | null;
   instagram_url: string | null;
   facebook_url: string | null;
+  linkedin_url: string | null;
   telefon: string | null;
   mitarbeiterzahl: MitarbeiterKlasse | null;
   crm_system: CrmSystem | null;
   anfragen_pro_woche: number | null;
   inserate_aktiv: number | null;
+  meta_ads: boolean | null;
   relationship: Relationship;
   /** Freitext-Recherchenotizen zur Firma. */
   recherche: string | null;
@@ -438,17 +512,28 @@ export const PIPELINE_STATUS_OPTIONS: PipelineStatus[] = [
 ];
 
 export const PIPELINE_STATUS_LABELS: Record<PipelineStatus, string> = {
-  neu: "Neu",
-  kein_anschluss_1: "Kein Anschluss (1)",
-  kein_anschluss_2: "Kein Anschluss (2)",
-  kein_anschluss_3: "Kein Anschluss (3)",
-  kein_anschluss_4: "Kein Anschluss (4)",
-  kein_anschluss_5: "Kein Anschluss (5)",
+  neu: "Offen",
+  kein_anschluss_1: "Nicht erreicht",
+  kein_anschluss_2: "Nicht erreicht 2",
+  kein_anschluss_3: "Nicht erreicht 3",
+  kein_anschluss_4: "Nicht erreicht 4",
+  kein_anschluss_5: "Nicht erreicht 5",
   callback: "Rückruf",
-  disqualified: "Disqualifiziert",
-  set_appointment: "Setting",
+  disqualified: "Kein Interesse",
+  set_appointment: "Termin gebucht",
   closed: "Closing",
   kunde: "Kunde",
+};
+
+/** Dialen work-queue chips (filter, not membership). */
+export type DialenQueue = "" | "today" | "wiedervorlage" | "no_phone" | "call";
+
+export type LeadList = {
+  id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+  member_count?: number;
 };
 
 /** Call | DM for list/status logging (DM increments Analytics LinkedIn DMs) */

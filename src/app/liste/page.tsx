@@ -1,12 +1,18 @@
 import { EfferdShell } from "@/components/EfferdShell";
 import { ListeWorkspace } from "@/components/ListeWorkspace";
 import {
+  countOpenTasksDueToday,
   fetchCallListe,
+  fetchCustomFieldDefs,
+  fetchCustomValuesForCompanies,
+  fetchLeadLists,
   fetchOpenTasksDue,
-  fetchSavedViews,
+  fetchSavedViewsWithCounts,
+  fetchSequences,
   fetchWorkspaceStats,
 } from "@/lib/sales/queries";
 import type {
+  DialenQueue,
   ListeDueFilter,
   ListeSort,
   PipelineStatus,
@@ -36,6 +42,18 @@ function parsePage(value: string | undefined): number {
   return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
 }
 
+function parseQueue(value: string | undefined): DialenQueue {
+  if (
+    value === "today" ||
+    value === "wiedervorlage" ||
+    value === "no_phone" ||
+    value === "call"
+  ) {
+    return value;
+  }
+  return "";
+}
+
 export default async function ListePage({
   searchParams,
 }: {
@@ -45,6 +63,8 @@ export default async function ListePage({
     sort?: string;
     page?: string;
     q?: string;
+    list?: string;
+    queue?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -53,30 +73,56 @@ export default async function ListePage({
   const sort = parseSort(params.sort);
   const page = parsePage(params.page);
   const q = params.q?.trim() ?? "";
+  const listId = params.list?.trim() ?? "";
+  const queue = parseQueue(params.queue);
 
-  const [liste, stats, tasks, savedViews] = await Promise.all([
-    fetchCallListe({ status, due, sort, page, q }),
+  const [
+    liste,
+    stats,
+    tasks,
+    savedViews,
+    leadLists,
+    customDefs,
+    sequences,
+    todoBadge,
+  ] = await Promise.all([
+    fetchCallListe({
+      status,
+      due,
+      sort,
+      page,
+      q,
+      listId: listId || undefined,
+      queue,
+    }),
     fetchWorkspaceStats(),
     fetchOpenTasksDue("all"),
-    fetchSavedViews("liste"),
+    fetchSavedViewsWithCounts("liste"),
+    fetchLeadLists(),
+    fetchCustomFieldDefs(true),
+    fetchSequences(),
+    countOpenTasksDueToday(),
   ]);
+  const customValues = await fetchCustomValuesForCompanies(
+    liste.rows.map((r) => r.company_id),
+  );
 
   const filterNote = [
     status ? `Status ${status}` : null,
     due === "today" ? "fällig heute" : due === "overdue" ? "überfällig" : null,
+    queue === "today"
+      ? "Anrufliste heute"
+      : queue === "wiedervorlage"
+        ? "Wiedervorlage"
+        : queue === "no_phone"
+          ? "ohne Telefon"
+          : queue === "call"
+            ? "CALL"
+            : null,
     q ? `Suche "${q}"` : null,
   ]
     .filter(Boolean)
     .join(" · ");
-
-  const sortNote =
-    sort === "firma"
-      ? "sortiert nach Firma"
-      : sort === "faellig"
-        ? "sortiert nach Fälligkeit"
-        : sort === "tage"
-          ? "sortiert nach Tagen seit Touch"
-          : "sortiert nach Anruf-Priorität";
 
   const shown = liste.rows.length;
   const rangeNote =
@@ -89,21 +135,29 @@ export default async function ListePage({
       kpis={stats.kpis}
       activity={stats.activity}
       degraded={stats.degraded}
+      todoBadge={todoBadge}
     >
       <ListeWorkspace
         rows={liste.rows}
-        title="Prospects"
-        subtitle={`${rangeNote}${filterNote ? ` · ${filterNote}` : ""} · ${sortNote}`}
+        title="Dialen"
+        subtitle={`${rangeNote}${filterNote ? ` · ${filterNote}` : ""}`}
         showCreate
         initialStatus={status}
         initialDue={due}
         initialSort={sort}
         initialQuery={q}
+        initialListId={listId}
+        initialQueue={queue}
         page={liste.page}
         pageSize={liste.pageSize}
         total={liste.total}
         tasks={tasks}
         savedViews={savedViews}
+        leadLists={leadLists}
+        sequences={sequences}
+        customDefs={customDefs}
+        customValues={customValues}
+        desk="dialen"
       />
     </EfferdShell>
   );

@@ -7,6 +7,8 @@ import {
   createTask,
   enrollInSequence,
   insertTouchpoint,
+  pauseSequenceEnrollment,
+  resumeSequenceEnrollment,
   sendCompanyEmail,
   sendCompanySms,
   stopSequenceEnrollment,
@@ -435,7 +437,17 @@ function EmailComposer({
             return;
           }
           setError(null);
-          setMsg("E-Mail in der Timeline gespeichert (Warteschlange).");
+          const status =
+            "status" in res && typeof res.status === "string"
+              ? res.status
+              : "queued";
+          setMsg(
+            status === "sent"
+              ? "E-Mail gesendet."
+              : status === "failed"
+                ? "Senden fehlgeschlagen — siehe Timeline."
+                : "E-Mail in der Warteschlange.",
+          );
           setSubject("");
           setBody("");
           router.refresh();
@@ -733,7 +745,9 @@ function SequencesPanel({
   const [error, setError] = useState<string | null>(null);
   const [sequenceId, setSequenceId] = useState(sequences[0]?.id ?? "");
   const [personId, setPersonId] = useState("");
-  const active = enrollments.filter((e) => e.status === "aktiv");
+  const open = enrollments.filter(
+    (e) => e.status === "aktiv" || e.status === "pausiert",
+  );
 
   return (
     <div className="stack" style={{ marginTop: "0.85rem" }}>
@@ -803,10 +817,10 @@ function SequencesPanel({
       </form>
 
       <ul className="task-list">
-        {active.length === 0 ? (
+        {open.length === 0 ? (
           <li className="muted">Keine aktive Sequenz</li>
         ) : (
-          active.map((e) => (
+          open.map((e) => (
             <li key={e.id} className="task-item">
               <div>
                 <strong>
@@ -814,23 +828,55 @@ function SequencesPanel({
                     "Sequenz"}
                 </strong>
                 <div className="muted">
+                  {e.status === "pausiert" ? "pausiert · " : ""}
                   Schritt {e.current_step} · nächster Lauf{" "}
                   {e.next_run_on ?? "—"}
                 </div>
               </div>
-              <button
-                type="button"
-                className="btn"
-                disabled={pending}
-                onClick={() =>
-                  start(async () => {
-                    await stopSequenceEnrollment(e.id, companyId);
-                    router.refresh();
-                  })
-                }
-              >
-                Stoppen
-              </button>
+              <div className="form-actions wrap">
+                {e.status === "aktiv" ? (
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={pending}
+                    onClick={() =>
+                      start(async () => {
+                        await pauseSequenceEnrollment(e.id, companyId);
+                        router.refresh();
+                      })
+                    }
+                  >
+                    Pause
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn"
+                    disabled={pending}
+                    onClick={() =>
+                      start(async () => {
+                        await resumeSequenceEnrollment(e.id, companyId);
+                        router.refresh();
+                      })
+                    }
+                  >
+                    Fortsetzen
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={pending}
+                  onClick={() =>
+                    start(async () => {
+                      await stopSequenceEnrollment(e.id, companyId);
+                      router.refresh();
+                    })
+                  }
+                >
+                  Stoppen
+                </button>
+              </div>
             </li>
           ))
         )}

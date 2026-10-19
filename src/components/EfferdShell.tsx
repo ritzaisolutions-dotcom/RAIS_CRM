@@ -6,11 +6,15 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Building2,
+  CalendarCheck,
+  CheckSquare,
+  Headphones,
   LogOut,
   PhoneCall,
   Settings,
   Users,
 } from "lucide-react";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { signOut } from "@/lib/sales/actions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,6 +32,7 @@ export function EfferdShell({
   activity = [],
   focus = false,
   degraded = false,
+  todoBadge = 0,
 }: {
   children: React.ReactNode;
   kpis?: Kpi[];
@@ -35,11 +40,16 @@ export function EfferdShell({
   focus?: boolean;
   /** Mindestens eine KPI-Query ist fehlgeschlagen — Zahlen sind unvollständig. */
   degraded?: boolean;
+  /** Offene Todos fällig heute oder überfällig. */
+  todoBadge?: number;
 }) {
   const pathname = usePathname();
   const nav = [
-    { href: "/liste", label: "Prospects", icon: PhoneCall },
+    { href: "/liste", label: "Dialen", icon: PhoneCall },
+    { href: "/termine", label: "Termine", icon: CalendarCheck },
     { href: "/kunden", label: "Kunden", icon: Users },
+    { href: "/liste/dialen", label: "Dialer", icon: Headphones },
+    { href: "/todos", label: "Todos", icon: CheckSquare, badge: todoBadge },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/einstellungen", label: "Einstellungen", icon: Settings },
   ];
@@ -67,7 +77,16 @@ export function EfferdShell({
               const Icon = item.icon;
               const active =
                 pathname === item.href ||
-                (item.href === "/liste" && pathname.startsWith("/firma"));
+                (item.href === "/liste" &&
+                  pathname === "/liste") ||
+                (item.href === "/liste/dialen" &&
+                  pathname.startsWith("/liste/dialen")) ||
+                (item.href === "/termine" && pathname.startsWith("/termine")) ||
+                (item.href === "/kunden" && pathname.startsWith("/kunden"));
+              const badge =
+                "badge" in item && typeof item.badge === "number"
+                  ? item.badge
+                  : 0;
               return (
                 <Link
                   key={item.href}
@@ -79,7 +98,10 @@ export function EfferdShell({
                   )}
                 >
                   <Icon className="h-4 w-4" />
-                  {item.label}
+                  <span className="flex-1">{item.label}</span>
+                  {badge > 0 ? (
+                    <span className="todo-badge">{badge > 99 ? "99+" : badge}</span>
+                  ) : null}
                 </Link>
               );
             })}
@@ -118,6 +140,20 @@ export function EfferdShell({
             )}
           >
             <div className="min-w-0 space-y-3">
+              {todoBadge > 0 ? (
+                <div
+                  role="status"
+                  className="rounded-md border border-rais-orange/40 bg-rais-orange/10 px-3 py-2 text-sm"
+                >
+                  <Link
+                    href="/todos"
+                    className="font-medium text-rais-orange hover:underline"
+                  >
+                    {todoBadge} Todo{todoBadge === 1 ? "" : "s"} fällig heute
+                    oder überfällig →
+                  </Link>
+                </div>
+              ) : null}
               {degraded ? (
                 <div
                   role="alert"
@@ -191,6 +227,7 @@ export function EfferdShell({
           </div>
         </div>
       </div>
+      <GlobalSearch />
     </div>
   );
 }

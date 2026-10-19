@@ -1,6 +1,11 @@
-import { CallListeTable } from "@/components/CallListeTable";
 import { EfferdShell } from "@/components/EfferdShell";
-import { fetchKundenListe, fetchWorkspaceStats } from "@/lib/sales/queries";
+import { ListeWorkspace } from "@/components/ListeWorkspace";
+import {
+  countOpenTasksDueToday,
+  fetchKundenListe,
+  fetchOpenTasksDue,
+  fetchWorkspaceStats,
+} from "@/lib/sales/queries";
 import type { ListeSort } from "@/lib/sales/types";
 
 export const dynamic = "force-dynamic";
@@ -26,9 +31,11 @@ export default async function KundenPage({
   const page = parsePage(params.page);
   const q = params.q?.trim() ?? "";
 
-  const [liste, stats] = await Promise.all([
+  const [liste, stats, tasks, todoBadge] = await Promise.all([
     fetchKundenListe({ sort, page, q }),
     fetchWorkspaceStats(),
+    fetchOpenTasksDue("all"),
+    countOpenTasksDueToday(),
   ]);
 
   const shown = liste.rows.length;
@@ -42,17 +49,21 @@ export default async function KundenPage({
       kpis={stats.kpis}
       activity={stats.activity}
       degraded={stats.degraded}
+      todoBadge={todoBadge}
     >
-      <CallListeTable
+      <ListeWorkspace
         rows={liste.rows}
         title="Kunden"
-        subtitle={`${rangeNote}${q ? ` · Suche "${q}"` : ""}`}
+        subtitle={`${rangeNote} · echte Kunden (Nurture)${q ? ` · Suche "${q}"` : ""}`}
         initialSort={sort}
         initialQuery={q}
         page={liste.page}
         pageSize={liste.pageSize}
         total={liste.total}
         hideStatusFilters
+        tasks={tasks}
+        savedViews={[]}
+        desk="kunden"
       />
     </EfferdShell>
   );

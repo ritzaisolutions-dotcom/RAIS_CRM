@@ -160,7 +160,10 @@ export const companyBasicsSchema = z.object({
     website: nullableUrl,
     instagram_url: nullableUrl,
     facebook_url: nullableUrl,
+    linkedin_url: nullableUrl,
     recherche: nullableText(10000),
+    inserate_aktiv: z.number().int().min(0).max(100000).nullable().optional(),
+    meta_ads: z.boolean().nullable().optional(),
   }),
 });
 
@@ -233,12 +236,50 @@ export const opportunitySchema = z.object({
   erwarteter_umsatz: z.number().min(0).max(100000000).nullable().optional(),
 });
 
+export const taskArtSchema = z.enum(["follow_up", "email", "sonstiges"]);
+export const emailTaskPresetSchema = z.enum(["info", "ueber_uns", "frei"]);
+
 export const taskSchema = z.object({
   company_id: uuidSchema,
   person_id: uuidSchema.nullable().optional(),
   titel: z.string().trim().min(1, "Titel ist Pflicht").max(200),
   notiz: nullableText(5000),
   due_on: dateSchema,
+  art: taskArtSchema.optional(),
+  email_preset: emailTaskPresetSchema.nullable().optional(),
+  set_naechster: z.boolean().optional(),
+});
+
+export const customFieldTypeSchema = z.enum([
+  "single_select",
+  "multi_select",
+  "text",
+  "number",
+  "url",
+  "phone",
+]);
+
+export const customFieldDefSchema = z.object({
+  id: uuidSchema.optional(),
+  name: z.string().trim().min(1).max(120),
+  slug: z
+    .string()
+    .trim()
+    .min(1)
+    .max(80)
+    .regex(/^[a-z0-9_]+$/, "Slug: nur a-z, 0-9, _"),
+  field_type: customFieldTypeSchema,
+  options: z.array(z.string().trim().min(1).max(120)).max(50).optional(),
+  active: z.boolean().optional(),
+  sort_order: z.number().int().min(0).max(10000).optional(),
+});
+
+export const customFieldValueSchema = z.object({
+  company_id: uuidSchema,
+  field_id: uuidSchema,
+  value_text: nullableText(5000).optional(),
+  value_number: z.number().nullable().optional(),
+  value_json: z.array(z.string().trim().min(1).max(200)).nullable().optional(),
 });
 
 export const emailTemplateSchema = z.object({
@@ -316,6 +357,7 @@ export const bulkPipelineSchema = z.object({
   companyIds: z.array(uuidSchema).min(1).max(100),
   pipelineStatus: pipelineStatusSchema,
   kanal: outreachChannelSchema.optional(),
+  naechsterTouch: nullableDateSchema,
 });
 
 export const importCompanyRowSchema = z.object({
@@ -349,6 +391,17 @@ export const listFieldsSchema = z.object({
       website: nullableUrl,
       instagram_url: nullableUrl,
       facebook_url: nullableUrl,
+      linkedin_url: nullableUrl,
+      stadt: nullableText(120),
+      mitarbeiterzahl: employeeClassSchema.nullable().optional(),
+      inserate_aktiv: z
+        .number()
+        .int()
+        .min(0)
+        .max(100000)
+        .nullable()
+        .optional(),
+      meta_ads: z.boolean().nullable().optional(),
     })
     .refine((patch) => Object.keys(patch).length > 0, "Keine Änderungen"),
 });

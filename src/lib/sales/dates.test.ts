@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { BUSINESS_TZ, businessToday, rangeBounds } from "./dates";
+import {
+  BUSINESS_TZ,
+  addBusinessDays,
+  addCalendarWeeksSkipWeekend,
+  businessToday,
+  dueFromFollowUpPreset,
+  rangeBounds,
+  skipWeekend,
+} from "./dates";
 
 /** Zivil-Datum eines Instants in Geschäftszeitzone, für Assertions. */
 function berlinYmd(iso: string) {
@@ -103,5 +111,29 @@ describe("rangeBounds", () => {
     expect(new Date(from).getTime()).toBeLessThan(new Date(to).getTime());
     expect(berlinYmd(from)).toBe("2026-05-20");
     expect(berlinYmd(to)).toBe("2026-05-21");
+  });
+});
+
+describe("skipWeekend / addBusinessDays", () => {
+  it("rollt Samstag und Sonntag auf Montag", () => {
+    expect(skipWeekend("2026-10-17")).toBe("2026-10-19"); // Sat → Mon
+    expect(skipWeekend("2026-10-18")).toBe("2026-10-19"); // Sun → Mon
+    expect(skipWeekend("2026-10-16")).toBe("2026-10-16"); // Fri
+  });
+
+  it("zählt nur Werktage", () => {
+    // Fr + 1 BD → Mo
+    expect(addBusinessDays("2026-10-16", 1)).toBe("2026-10-19");
+    // Fr + 2 BD → Di
+    expect(addBusinessDays("2026-10-16", 2)).toBe("2026-10-20");
+  });
+
+  it("kalenderwochen + weekend skip", () => {
+    expect(addCalendarWeeksSkipWeekend("2026-10-16", 1)).toBe("2026-10-23");
+  });
+
+  it("Follow-up-Presets", () => {
+    expect(dueFromFollowUpPreset("d2", "2026-10-16")).toBe("2026-10-20");
+    expect(dueFromFollowUpPreset("w1", "2026-10-16")).toBe("2026-10-23");
   });
 });

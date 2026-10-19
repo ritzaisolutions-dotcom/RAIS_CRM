@@ -3,9 +3,12 @@ import { notFound } from "next/navigation";
 import { CompanyDetail } from "@/components/CompanyDetail";
 import { EfferdShell } from "@/components/EfferdShell";
 import {
+  countOpenTasksDueToday,
   fetchCompany,
+  fetchCompanyCustomValues,
   fetchCompanyEnrollments,
   fetchCompanyTasks,
+  fetchCustomFieldDefs,
   fetchEmailTemplates,
   fetchOpportunities,
   fetchPeople,
@@ -32,6 +35,9 @@ export default async function FirmaPage({
     templates,
     sequences,
     enrollments,
+    customDefs,
+    customValues,
+    todoBadge,
   ] = await Promise.all([
     fetchCompany(companyId),
     fetchWorkspaceStats(),
@@ -42,6 +48,9 @@ export default async function FirmaPage({
     fetchEmailTemplates(),
     fetchSequences(),
     fetchCompanyEnrollments(companyId),
+    fetchCustomFieldDefs(true),
+    fetchCompanyCustomValues(companyId),
+    countOpenTasksDueToday(),
   ]);
   if (!company) notFound();
 
@@ -52,6 +61,7 @@ export default async function FirmaPage({
       kpis={stats.kpis}
       activity={stats.activity}
       degraded={stats.degraded}
+      todoBadge={todoBadge}
     >
       <p className="muted mb-1">
         <Link href={back} className="hover:text-rais-orange">
@@ -68,6 +78,8 @@ export default async function FirmaPage({
         templates={templates}
         sequences={sequences}
         enrollments={enrollments}
+        customDefs={customDefs}
+        customValues={customValues}
       />
     </EfferdShell>
   );
