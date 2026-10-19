@@ -511,6 +511,15 @@ export const PIPELINE_STATUS_OPTIONS: PipelineStatus[] = [
   "kunde",
 ];
 
+/** Common dispositions on the dial sheet; rest sit under „Mehr…“. */
+export const PIPELINE_STATUS_PRIMARY: PipelineStatus[] = [
+  "neu",
+  "kein_anschluss_1",
+  "callback",
+  "set_appointment",
+  "disqualified",
+];
+
 export const PIPELINE_STATUS_LABELS: Record<PipelineStatus, string> = {
   neu: "Offen",
   kein_anschluss_1: "Nicht erreicht",
@@ -524,6 +533,19 @@ export const PIPELINE_STATUS_LABELS: Record<PipelineStatus, string> = {
   closed: "Closing",
   kunde: "Kunde",
 };
+
+/** Options for a row status select: primary first, then the rest (always includes current). */
+export function pipelineStatusSelectOptions(
+  current: PipelineStatus | null | undefined,
+): { primary: PipelineStatus[]; more: PipelineStatus[] } {
+  const primary = [...PIPELINE_STATUS_PRIMARY];
+  if (current && !primary.includes(current)) {
+    primary.push(current);
+  }
+  const primarySet = new Set(primary);
+  const more = PIPELINE_STATUS_OPTIONS.filter((s) => !primarySet.has(s));
+  return { primary, more };
+}
 
 /** Dialen work-queue chips (filter, not membership). */
 export type DialenQueue = "" | "today" | "wiedervorlage" | "no_phone" | "call";

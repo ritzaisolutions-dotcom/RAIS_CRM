@@ -375,28 +375,45 @@ export function SavedViewsBar({
               <a className="btn" href={`/liste?${qs}`}>
                 {v.name} ({v.count})
               </a>
-              <a className="btn" href={`/liste/dialen?${qs}`} title="Abarbeiten">
+              <a
+                className="btn"
+                href={`/liste/dialen?${qs}`}
+                title="Im Power-Dialer abarbeiten"
+                aria-label={`${v.name} im Power-Dialer abarbeiten`}
+              >
                 ▶
               </a>
               <button
                 type="button"
                 className="btn"
                 disabled={pending}
-                title="Löschen"
-                onClick={() =>
+                title="Ansicht löschen"
+                aria-label={`Ansicht ${v.name} löschen`}
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      `Gespeicherte Ansicht „${v.name}“ wirklich löschen?`,
+                    )
+                  ) {
+                    return;
+                  }
                   start(async () => {
                     await deleteSavedView(v.id);
                     router.refresh();
-                  })
-                }
+                  });
+                }}
               >
                 ×
               </button>
             </span>
           );
         })}
-        <Link href={`/liste/dialen?${dialParams.toString()}`} className="btn btn-primary">
-          Diese View abarbeiten
+        <Link
+          href={`/liste/dialen?${dialParams.toString()}`}
+          className="btn"
+          title="Aktuelle Filter im Power-Dialer"
+        >
+          Filter im Dialer
         </Link>
       </div>
       <form
@@ -420,10 +437,15 @@ export function SavedViewsBar({
           });
         }}
       >
+        <label className="sr-only" htmlFor="saved-view-name">
+          Ansicht speichern
+        </label>
         <input
+          id="saved-view-name"
           placeholder="Ansicht speichern…"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          aria-label="Name der gespeicherten Ansicht"
         />
         <button className="btn" type="submit" disabled={pending}>
           Speichern

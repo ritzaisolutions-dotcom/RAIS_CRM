@@ -37,6 +37,7 @@ import {
   OPP_STAGE_LABELS,
   PIPELINE_STATUS_LABELS,
   PIPELINE_STATUS_OPTIONS,
+  pipelineStatusSelectOptions,
   pipelineTone,
 } from "@/lib/sales/types";
 import { businessToday } from "@/lib/sales/dates";
@@ -388,6 +389,7 @@ export function CallListeTable({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="w-52"
+            aria-label="Suche Firma, Person oder Telefon"
           />
           {!hideStatusFilters ? (
             <>
@@ -870,6 +872,7 @@ function Cell({
       return <>{row.entscheider ?? "—"}</>;
     case "Status": {
       const tone = pipelineTone(row.status);
+      const { primary, more } = pipelineStatusSelectOptions(row.status);
       return (
         <div className="flex min-w-[14rem] items-center gap-1.5">
           <select
@@ -877,23 +880,36 @@ function Cell({
             data-tone={tone}
             disabled={pending}
             value={row.status ?? "neu"}
+            aria-label={`Status ${row.firma}`}
             onChange={(e) => {
               const val = e.target.value as PipelineStatus;
               if (!val || val === row.status) return;
               onStatus(val);
             }}
           >
-            {PIPELINE_STATUS_OPTIONS.map((o) => (
-              <option key={o} value={o} data-tone={pipelineTone(o)}>
-                {PIPELINE_STATUS_LABELS[o]}
-              </option>
-            ))}
+            <optgroup label="Häufig">
+              {primary.map((o) => (
+                <option key={o} value={o} data-tone={pipelineTone(o)}>
+                  {PIPELINE_STATUS_LABELS[o]}
+                </option>
+              ))}
+            </optgroup>
+            {more.length > 0 ? (
+              <optgroup label="Mehr…">
+                {more.map((o) => (
+                  <option key={o} value={o} data-tone={pipelineTone(o)}>
+                    {PIPELINE_STATUS_LABELS[o]}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
           </select>
           <select
             className="h-8 rounded-md border border-rais-border bg-white px-1.5 text-xs"
             disabled={pending}
             value={kanal}
             title="Kanal für Status-Log (DM zählt in Analytics)"
+            aria-label={`Kanal ${row.firma}`}
             onChange={(e) => setKanal(e.target.value as "call" | "dm")}
           >
             {OUTREACH_KANAL_OPTIONS.map((o) => (

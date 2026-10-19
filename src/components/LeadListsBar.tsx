@@ -63,25 +63,27 @@ export function LeadListsBar({
   return (
     <div className="stack">
       {showQueues ? (
-        <div className="form-actions wrap">
-          <span className="muted text-xs">Queues</span>
-          {QUEUES.map((q) => (
+        <div className="form-actions wrap" role="group" aria-label="Warteschlangen">
+          <span className="muted text-xs">Warteschlangen</span>
+          {QUEUES.map((queue) => (
             <Link
-              key={q.id || "all"}
-              href={href({ queue: q.id })}
-              className={`btn${currentQueue === q.id ? " btn-primary" : ""}`}
+              key={queue.id || "all"}
+              href={href({ queue: queue.id })}
+              className={`btn${currentQueue === queue.id ? " btn-primary" : ""}`}
+              aria-current={currentQueue === queue.id ? "page" : undefined}
             >
-              {q.label}
+              {queue.label}
             </Link>
           ))}
         </div>
       ) : null}
 
-      <div className="form-actions wrap">
+      <div className="form-actions wrap" role="group" aria-label="Listen">
         <span className="muted text-xs">Listen</span>
         <Link
           href={href({ list: "" })}
           className={`btn${!currentListId ? " btn-primary" : ""}`}
+          aria-current={!currentListId ? "page" : undefined}
         >
           Alle
         </Link>
@@ -90,6 +92,7 @@ export function LeadListsBar({
             <Link
               href={href({ list: l.id })}
               className={`btn${currentListId === l.id ? " btn-primary" : ""}`}
+              aria-current={currentListId === l.id ? "page" : undefined}
             >
               {l.name} ({l.member_count ?? 0})
             </Link>
@@ -97,6 +100,7 @@ export function LeadListsBar({
               type="button"
               className="btn"
               title="Liste löschen"
+              aria-label={`Liste ${l.name} löschen`}
               disabled={pending}
               onClick={() => {
                 if (
@@ -130,10 +134,15 @@ export function LeadListsBar({
           });
         }}
       >
+        <label className="sr-only" htmlFor="new-lead-list-name">
+          Neue Liste
+        </label>
         <input
+          id="new-lead-list-name"
           placeholder="Neue Liste…"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          aria-label="Name der neuen Liste"
         />
         <button type="submit" className="btn" disabled={pending}>
           Anlegen
@@ -142,6 +151,7 @@ export function LeadListsBar({
           <select
             defaultValue=""
             disabled={pending}
+            aria-label="Auswahl zur Liste hinzufügen"
             onChange={(e) => {
               const listId = e.target.value;
               if (!listId) return;
