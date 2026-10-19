@@ -3,15 +3,23 @@ import type {
   CallListeRow,
   Company,
   CrmSystem,
+  EmailTemplate,
   MitarbeiterKlasse,
   Opportunity,
   OppStage,
   OppVariante,
   Person,
   PipelineStatus,
+  SalesTask,
+  SavedView,
+  Sequence,
+  SequenceEnrollment,
+  SequenceKanal,
+  SequenceStep,
   TouchErgebnis,
   TouchKanal,
   Touchpoint,
+  WorkflowRule,
 } from "@/lib/sales/types";
 
 type Json =
@@ -27,6 +35,36 @@ type TableDef<Row, Insert = Partial<Row>, Update = Partial<Row>> = {
   Insert: Insert;
   Update: Update;
   Relationships: [];
+};
+
+type EmailMessage = {
+  id: string;
+  company_id: string;
+  person_id: string | null;
+  template_id: string | null;
+  direction: "outbound" | "inbound";
+  to_email: string;
+  subject: string;
+  body: string;
+  status: "queued" | "sent" | "failed" | "received";
+  provider_ref: string | null;
+  error: string | null;
+  created_at: string;
+  created_by: string | null;
+};
+
+type SmsMessage = {
+  id: string;
+  company_id: string;
+  person_id: string | null;
+  direction: "outbound" | "inbound";
+  to_phone: string;
+  body: string;
+  status: "queued" | "sent" | "failed" | "received";
+  provider_ref: string | null;
+  error: string | null;
+  created_at: string;
+  created_by: string | null;
 };
 
 export type Database = {
@@ -49,8 +87,6 @@ export type Database = {
           pipeline_status?: PipelineStatus;
         },
         {
-          // `relationship` fehlt bewusst: das UPDATE-Recht auf diese Spalte ist
-          // entzogen, sie wird nur noch von `set_pipeline_status` gesetzt.
           name?: string;
           stadt?: string | null;
           telefon?: string | null;
@@ -107,6 +143,8 @@ export type Database = {
           stage?: OppStage;
           close_grund?: string | null;
           closed_at?: string | null;
+          titel?: string | null;
+          erwarteter_umsatz?: number | null;
         },
         {
           variante?: OppVariante;
@@ -115,6 +153,166 @@ export type Database = {
           stage?: OppStage;
           close_grund?: string | null;
           closed_at?: string | null;
+          titel?: string | null;
+          erwarteter_umsatz?: number | null;
+        }
+      >;
+      tasks: TableDef<
+        SalesTask,
+        {
+          company_id: string;
+          person_id?: string | null;
+          titel: string;
+          notiz?: string | null;
+          due_on: string;
+          status?: SalesTask["status"];
+          created_by?: string | null;
+        },
+        {
+          status?: SalesTask["status"];
+          completed_at?: string | null;
+          titel?: string;
+          notiz?: string | null;
+          due_on?: string;
+        }
+      >;
+      email_templates: TableDef<
+        EmailTemplate,
+        {
+          name: string;
+          subject: string;
+          body: string;
+          created_by?: string | null;
+        },
+        {
+          name?: string;
+          subject?: string;
+          body?: string;
+          updated_at?: string;
+        }
+      >;
+      email_messages: TableDef<
+        EmailMessage,
+        {
+          company_id: string;
+          person_id?: string | null;
+          template_id?: string | null;
+          direction?: EmailMessage["direction"];
+          to_email: string;
+          subject: string;
+          body: string;
+          status?: EmailMessage["status"];
+          provider_ref?: string | null;
+          error?: string | null;
+          created_by?: string | null;
+        },
+        {
+          status?: EmailMessage["status"];
+          provider_ref?: string | null;
+          error?: string | null;
+        }
+      >;
+      sms_messages: TableDef<
+        SmsMessage,
+        {
+          company_id: string;
+          person_id?: string | null;
+          direction?: SmsMessage["direction"];
+          to_phone: string;
+          body: string;
+          status?: SmsMessage["status"];
+          provider_ref?: string | null;
+          error?: string | null;
+          created_by?: string | null;
+        },
+        {
+          status?: SmsMessage["status"];
+          provider_ref?: string | null;
+          error?: string | null;
+        }
+      >;
+      sequences: TableDef<
+        Sequence,
+        {
+          name: string;
+          active?: boolean;
+          created_by?: string | null;
+        },
+        {
+          name?: string;
+          active?: boolean;
+        }
+      >;
+      sequence_steps: TableDef<
+        SequenceStep,
+        {
+          sequence_id: string;
+          step_order: number;
+          kanal: SequenceKanal;
+          delay_days?: number;
+          subject?: string | null;
+          body?: string | null;
+          task_titel?: string | null;
+        },
+        {
+          step_order?: number;
+          kanal?: SequenceKanal;
+          delay_days?: number;
+          subject?: string | null;
+          body?: string | null;
+          task_titel?: string | null;
+        }
+      >;
+      sequence_enrollments: TableDef<
+        SequenceEnrollment,
+        {
+          sequence_id: string;
+          company_id: string;
+          person_id?: string | null;
+          status?: SequenceEnrollment["status"];
+          current_step?: number;
+          next_run_on?: string | null;
+          stop_reason?: string | null;
+          created_by?: string | null;
+        },
+        {
+          status?: SequenceEnrollment["status"];
+          current_step?: number;
+          next_run_on?: string | null;
+          stop_reason?: string | null;
+        }
+      >;
+      workflow_rules: TableDef<
+        WorkflowRule,
+        {
+          name: string;
+          active?: boolean;
+          trigger_pipeline_status: PipelineStatus;
+          action_type?: "create_task";
+          task_titel: string;
+          task_due_days?: number;
+          created_by?: string | null;
+        },
+        {
+          name?: string;
+          active?: boolean;
+          trigger_pipeline_status?: PipelineStatus;
+          task_titel?: string;
+          task_due_days?: number;
+        }
+      >;
+      saved_views: TableDef<
+        SavedView,
+        {
+          name: string;
+          scope?: SavedView["scope"];
+          filters?: SavedView["filters"];
+          created_by?: string | null;
+        },
+        {
+          name?: string;
+          scope?: SavedView["scope"];
+          filters?: SavedView["filters"];
         }
       >;
     };
@@ -125,6 +323,10 @@ export type Database = {
       };
       v_kunden_liste: {
         Row: CallListeRow;
+        Relationships: [];
+      };
+      v_open_tasks: {
+        Row: SalesTask;
         Relationships: [];
       };
     };
@@ -212,9 +414,28 @@ export type Database = {
         Args: Record<string, never>;
         Returns: Json;
       };
+      create_task: {
+        Args: {
+          p_company_id: string;
+          p_titel: string;
+          p_due_on: string;
+          p_person_id?: string | null;
+          p_notiz?: string | null;
+        };
+        Returns: string;
+      };
+      complete_task: {
+        Args: { p_task_id: string };
+        Returns: undefined;
+      };
+      run_due_sequence_steps: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
     };
     Enums: {
       pipeline_status: PipelineStatus;
+      touch_kanal: TouchKanal;
     };
     CompositeTypes: Record<string, never>;
   };

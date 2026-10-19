@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <title>RAIS CRM</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 40px;
+        font-family: system-ui, sans-serif;
+        background: #fbf8f3;
+        color: #2f2a24;
+        border-bottom: 1px solid #d9d1c7;
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        height: 40px;
+        padding: 0 0.75rem;
+        font-size: 13px;
+      }
+      button {
+        border: 1px solid #d9d1c7;
+        background: #fff;
+        border-radius: 6px;
+        padding: 0.2rem 0.55rem;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: #ec6a37;
+      }
+      .muted {
+        color: #7b746b;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="bar">
+      <strong>RAIS CRM</strong>
+      <span class="muted">Desktop</span>
+      <button type="button" id="new-tab">+ Tab</button>
+      <span class="muted">Tabs &amp; Sessions über das Menü „Tabs“</span>
+    </div>
+    <script>
+      document.getElementById("new-tab").addEventListener("click", () => {
+        window.raisDesktop?.newTab();
+      });
+    </script>
+  </body>
+</html>

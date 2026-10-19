@@ -4,13 +4,20 @@ import type {
   AnalyticsRange,
   CallListeRow,
   Company,
+  EmailTemplate,
   ListeDueFilter,
   ListeSort,
   Opportunity,
   Person,
   PipelineStatus,
+  SalesTask,
+  SavedView,
+  Sequence,
+  SequenceEnrollment,
+  SequenceStep,
   TouchErgebnis,
   Touchpoint,
+  WorkflowRule,
 } from "@/lib/sales/types";
 import { ERGEBNIS_LABELS } from "@/lib/sales/types";
 import { BUSINESS_TZ, businessToday, rangeBounds } from "@/lib/sales/dates";
@@ -404,4 +411,104 @@ export async function fetchAnalyticsDashboard(
       close_rate_pct: optionalMetric(commercial?.close_rate_pct),
     },
   };
+}
+
+export async function fetchCompanyTasks(
+  companyId: string,
+): Promise<SalesTask[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("due_on")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as SalesTask[];
+}
+
+export async function fetchOpenTasksDue(
+  filter: "today" | "overdue" | "all" = "all",
+): Promise<SalesTask[]> {
+  const supabase = await createClient();
+  const today = businessToday();
+  let query = supabase
+    .from("v_open_tasks")
+    .select("*")
+    .order("due_on")
+    .limit(100);
+  if (filter === "today") query = query.eq("due_on", today);
+  if (filter === "overdue") query = query.lt("due_on", today);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as SalesTask[];
+}
+
+export async function fetchEmailTemplates(): Promise<EmailTemplate[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("email_templates")
+    .select("id,name,subject,body,created_at")
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as EmailTemplate[];
+}
+
+export async function fetchSequences(): Promise<Sequence[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sequences")
+    .select("id,name,active,created_at")
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as Sequence[];
+}
+
+export async function fetchSequenceSteps(
+  sequenceId: string,
+): Promise<SequenceStep[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sequence_steps")
+    .select("*")
+    .eq("sequence_id", sequenceId)
+    .order("step_order");
+  if (error) throw error;
+  return (data ?? []) as SequenceStep[];
+}
+
+export async function fetchCompanyEnrollments(
+  companyId: string,
+): Promise<SequenceEnrollment[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("sequence_enrollments")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as SequenceEnrollment[];
+}
+
+export async function fetchWorkflowRules(): Promise<WorkflowRule[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("workflow_rules")
+    .select("*")
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as WorkflowRule[];
+}
+
+export async function fetchSavedViews(
+  scope: "liste" | "kunden" = "liste",
+): Promise<SavedView[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("saved_views")
+    .select("*")
+    .eq("scope", scope)
+    .order("name");
+  if (error) throw error;
+  return (data ?? []) as SavedView[];
 }

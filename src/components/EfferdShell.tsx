@@ -8,6 +8,7 @@ import {
   Building2,
   LogOut,
   PhoneCall,
+  Settings,
   Users,
 } from "lucide-react";
 import { signOut } from "@/lib/sales/actions";
@@ -40,6 +41,7 @@ export function EfferdShell({
     { href: "/liste", label: "Prospects", icon: PhoneCall },
     { href: "/kunden", label: "Kunden", icon: Users },
     { href: "/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/einstellungen", label: "Einstellungen", icon: Settings },
   ];
 
   return (

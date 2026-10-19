@@ -1,0 +1,13 @@
+{
+  "name": "rais-crm-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Thin desktop window around the RAIS CRM web app (tabs + separate sessions).",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^37.2.0"
+  }
+}

@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   gdprAnonymize,
-  insertTouchpoint,
+  logClickToCall,
   setExcluded,
   setListPipelineStatus,
   updateCompanyBasics,
@@ -12,17 +12,9 @@ import {
   upsertOpportunity,
   upsertPerson,
   deletePerson,
-  voidTouchpoint,
 } from "@/lib/sales/actions";
-import { BUSINESS_TZ } from "@/lib/sales/dates";
 import {
-  ABBRUCH_OPTIONS,
-  abbruchAllowed,
   CRM_OPTIONS,
-  ERGEBNIS_LABELS,
-  ERGEBNIS_OPTIONS,
-  KANAL_LABELS,
-  KANAL_OPTIONS,
   MITARBEITER_OPTIONS,
   OPP_STAGE_OPTIONS,
   OPP_VARIANTE_OPTIONS,
@@ -30,23 +22,24 @@ import {
   OUTREACH_KANAL_OPTIONS,
   PIPELINE_STATUS_LABELS,
   PIPELINE_STATUS_OPTIONS,
-  ergebnisTone,
   pipelineTone,
 } from "@/lib/sales/types";
 import type {
-  Abbruchgrund,
   Company,
   CrmSystem,
+  EmailTemplate,
   MitarbeiterKlasse,
   Opportunity,
   OppStage,
   OppVariante,
   Person,
   PipelineStatus,
-  TouchErgebnis,
-  TouchKanal,
+  SalesTask,
+  Sequence,
+  SequenceEnrollment,
   Touchpoint,
 } from "@/lib/sales/types";
+import { CompanyTimeline } from "@/components/CompanyTimeline";
 
 export function CompanyDetail({
   company,
@@ -54,13 +47,26 @@ export function CompanyDetail({
   touchpoints,
   touchpointsTotal,
   opportunities,
+  tasks,
+  templates,
+  sequences,
+  enrollments,
 }: {
   company: Company;
   people: Person[];
   touchpoints: Touchpoint[];
   touchpointsTotal: number;
   opportunities: Opportunity[];
+  tasks: SalesTask[];
+  templates: EmailTemplate[];
+  sequences: Sequence[];
+  enrollments: SequenceEnrollment[];
 }) {
+  const router = useRouter();
+  const [callPending, startCall] = useTransition();
+  const entscheider = people.find((p) => p.ist_entscheider) ?? people[0];
+  const dialNumber = entscheider?.telefon || company.telefon;
+
   return (
     <div className="stack company-detail">
       <header>
@@ -81,6 +87,26 @@ export function CompanyDetail({
             {PIPELINE_STATUS_LABELS[company.pipeline_status]}
           </span>
         </p>
+        {dialNumber ? (
+          <p className="mt-2 mb-0">
+            <a
+              className="btn btn-primary"
+              href={`tel:${dialNumber.replace(/\s+/g, "")}`}
+              onClick={() =>
+                startCall(async () => {
+                  await logClickToCall({
+                    company_id: company.id,
+                    person_id: entscheider?.id ?? null,
+                    telefon: dialNumber,
+                  });
+                  router.refresh();
+                })
+              }
+            >
+              {callPending ? "Wird gewählt…" : `Anrufen ${dialNumber}`}
+            </a>
+          </p>
+        ) : null}
       </header>
 
       <div className="company-detail-grid">
@@ -91,11 +117,17 @@ export function CompanyDetail({
         </div>
         <div className="company-detail-col stack">
           <PeopleSection companyId={company.id} people={people} />
-          <TouchSection
+          <CompanyTimeline
             companyId={company.id}
             people={people}
             touchpoints={touchpoints}
             total={touchpointsTotal}
+            tasks={tasks}
+            templates={templates}
+            sequences={sequences}
+            enrollments={enrollments}
+            defaultEmail={entscheider?.email ?? null}
+            defaultPhone={dialNumber}
           />
         </div>
       </div>
@@ -712,186 +744,6 @@ function PeopleSection({
   );
 }
 
-function TouchSection({
-  companyId,
-  people,
-  touchpoints,
-  total,
-}: {
-  companyId: string;
-  people: Person[];
-  touchpoints: Touchpoint[];
-  total: number;
-}) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const entscheider = people.find((p) => p.ist_entscheider) ?? people[0];
-  const [kanal, setKanal] = useState<TouchKanal>("call");
-  const [ergebnis, setErgebnis] = useState<TouchErgebnis>("nicht_erreicht");
-  const [abbruch, setAbbruch] = useState<Abbruchgrund | "">("");
-  const [notiz, setNotiz] = useState("");
-  const [next, setNext] = useState("");
-  const [personId, setPersonId] = useState(entscheider?.id ?? "");
-
-  useEffect(() => {
-    if (entscheider?.id) setPersonId(entscheider.id);
-  }, [entscheider?.id]);
-
-  return (
-    <section className="dense-panel">
-      <h2 className="section-h">Touchpoints</h2>
-      <p className="muted">
-        Append-only — kein Bearbeiten oder Löschen. Fehleingaben lassen sich
-        stornieren; sie bleiben sichtbar, zählen aber in keiner Kennzahl mehr.
-        Kanal DM erhöht den LinkedIn-DM-KPI in Analytics.
-        {total > touchpoints.length
-          ? ` Zeigt die letzten ${touchpoints.length} von ${total}.`
-          : ""}
-      </p>
-
-      <form
-        className="stack"
-        style={{ marginTop: "0.85rem" }}
-        onSubmit={(e) => {
-          e.preventDefault();
-          start(async () => {
-            const res = await insertTouchpoint({
-              company_id: companyId,
-              person_id: personId || null,
-              kanal,
-              ergebnis,
-              notiz: notiz || null,
-              naechster_touch: next || null,
-              abbruchgrund: abbruchAllowed(ergebnis)
-                ? (abbruch as Abbruchgrund) || null
-                : null,
-            });
-            if (res.error) {
-              setError(res.error);
-              return;
-            }
-            setError(null);
-            setNotiz("");
-            setAbbruch("");
-            router.refresh();
-          });
-        }}
-      >
-        <div className="grid-3">
-          <div className="field">
-            <label>Person</label>
-            <select
-              value={personId}
-              onChange={(e) => setPersonId(e.target.value)}
-            >
-              <option value="">—</option>
-              {people.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                  {p.ist_entscheider ? " (E)" : ""}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label>Kanal</label>
-            <select
-              value={kanal}
-              onChange={(e) => setKanal(e.target.value as TouchKanal)}
-            >
-              {KANAL_OPTIONS.map((o) => (
-                <option key={o} value={o}>
-                  {KANAL_LABELS[o]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label>Ergebnis</label>
-            <select
-              value={ergebnis}
-              onChange={(e) => setErgebnis(e.target.value as TouchErgebnis)}
-            >
-              {ERGEBNIS_OPTIONS.map((o) => (
-                <option key={o} value={o}>
-                  {ERGEBNIS_LABELS[o]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label>Abbruchgrund</label>
-            <select
-              value={abbruch}
-              disabled={!abbruchAllowed(ergebnis)}
-              onChange={(e) => setAbbruch(e.target.value as Abbruchgrund | "")}
-            >
-              <option value="">—</option>
-              {ABBRUCH_OPTIONS.map((o) => (
-                <option key={o} value={o}>
-                  {o}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="field">
-            <label>Nächster Touch</label>
-            <input
-              type="date"
-              value={next}
-              onChange={(e) => setNext(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="field">
-          <label>Notiz</label>
-          {/* Textarea statt einzeiligem Input: das Feld erlaubt 5000 Zeichen,
-              war aber als einzeilige Zeile kaum für Gesprächsnotizen nutzbar. */}
-          <textarea
-            rows={3}
-            value={notiz}
-            onChange={(e) => setNotiz(e.target.value)}
-            placeholder="Was wurde besprochen?"
-          />
-        </div>
-        {error ? <p className="error">{error}</p> : null}
-        <button className="btn btn-primary" type="submit" disabled={pending}>
-          Touch speichern
-        </button>
-      </form>
-
-      <div className="table-wrap" style={{ marginTop: "1rem" }}>
-        <table className="data">
-          <thead>
-            <tr>
-              <th>Wann</th>
-              <th>Kanal</th>
-              <th>Ergebnis</th>
-              <th>Notiz</th>
-              <th>Nächster</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {touchpoints.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="empty">
-                  Noch keine Touchpoints
-                </td>
-              </tr>
-            ) : (
-              touchpoints.map((t) => (
-                <TouchRow key={t.id} touch={t} companyId={companyId} />
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
 const EUR = new Intl.NumberFormat("de-DE", {
   style: "currency",
   currency: "EUR",
@@ -917,6 +769,10 @@ function OppRow({ opp }: { opp: Opportunity }) {
     opp.retainer_monatlich?.toString() ?? "",
   );
   const [grund, setGrund] = useState(opp.close_grund ?? "");
+  const [titel, setTitel] = useState(opp.titel ?? "");
+  const [erwarteter, setErwarteter] = useState(
+    opp.erwarteter_umsatz?.toString() ?? "",
+  );
 
   useEffect(() => {
     setVariante(opp.variante);
@@ -924,11 +780,17 @@ function OppRow({ opp }: { opp: Opportunity }) {
     setSetup(opp.setup_preis?.toString() ?? "");
     setRetainer(opp.retainer_monatlich?.toString() ?? "");
     setGrund(opp.close_grund ?? "");
+    setTitel(opp.titel ?? "");
+    setErwarteter(opp.erwarteter_umsatz?.toString() ?? "");
   }, [opp]);
 
   const summary = [
+    opp.titel,
     opp.variante,
     opp.stage,
+    opp.erwarteter_umsatz != null
+      ? EUR.format(opp.erwarteter_umsatz)
+      : null,
     opp.setup_preis != null ? EUR.format(opp.setup_preis) : null,
     opp.retainer_monatlich != null
       ? `${EUR.format(opp.retainer_monatlich)}/M`
@@ -969,6 +831,9 @@ function OppRow({ opp }: { opp: Opportunity }) {
                 setup_preis: setup === "" ? null : Number(setup),
                 retainer_monatlich: retainer === "" ? null : Number(retainer),
                 close_grund: grund || null,
+                titel: titel || null,
+                erwarteter_umsatz:
+                  erwarteter === "" ? null : Number(erwarteter),
               });
               if (res.error) {
                 setError(res.error);
@@ -981,6 +846,23 @@ function OppRow({ opp }: { opp: Opportunity }) {
           }}
         >
           <div className="grid-2">
+            <div className="field">
+              <label>Titel</label>
+              <input
+                value={titel}
+                onChange={(e) => setTitel(e.target.value)}
+                placeholder="Deal-Name"
+              />
+            </div>
+            <div className="field">
+              <label>Erwarteter Umsatz</label>
+              <input
+                type="number"
+                min={0}
+                value={erwarteter}
+                onChange={(e) => setErwarteter(e.target.value)}
+              />
+            </div>
             <div className="field">
               <label>Variante</label>
               <select
@@ -1043,82 +925,6 @@ function OppRow({ opp }: { opp: Opportunity }) {
   );
 }
 
-/**
- * Eine Zeile der Touchpoint-Historie.
- *
- * Touchpoints bleiben append-only. Ein Fehlklick lässt sich aber stornieren:
- * die Zeile bleibt sichtbar und nachvollziehbar, zählt jedoch in keiner
- * Kennzahl mehr mit. Vorher blähte jeder Fehlklick die Dial-Zahlen dauerhaft
- * auf, ohne jede Korrekturmöglichkeit.
- */
-function TouchRow({
-  touch,
-  companyId,
-}: {
-  touch: Touchpoint;
-  companyId: string;
-}) {
-  const router = useRouter();
-  const [pending, start] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const voided = touch.voided_at != null;
-
-  return (
-    <tr className={voided ? "touch-voided" : undefined}>
-      <td>
-        {new Date(touch.occurred_at).toLocaleString("de-DE", {
-          timeZone: BUSINESS_TZ,
-        })}
-      </td>
-      <td>{KANAL_LABELS[touch.kanal]}</td>
-      <td>
-        <span className="badge" data-tone={ergebnisTone(touch.ergebnis)}>
-          {ERGEBNIS_LABELS[touch.ergebnis]}
-        </span>
-      </td>
-      <td>
-        {touch.notiz ?? "—"}
-        {voided ? (
-          <div className="muted">
-            Storniert{touch.void_grund ? `: ${touch.void_grund}` : ""}
-          </div>
-        ) : null}
-        {error ? <div className="error">{error}</div> : null}
-      </td>
-      <td>{touch.naechster_touch ?? "—"}</td>
-      <td>
-        {voided ? (
-          <span className="muted">—</span>
-        ) : (
-          <button
-            type="button"
-            className="btn"
-            disabled={pending}
-            onClick={() =>
-              start(async () => {
-                const grund = prompt(
-                  "Touch stornieren — Grund (optional):",
-                  "Fehleingabe",
-                );
-                if (grund === null) return;
-                const res = await voidTouchpoint(touch.id, companyId, grund);
-                if (res.error) {
-                  setError(res.error);
-                  return;
-                }
-                setError(null);
-                router.refresh();
-              })
-            }
-          >
-            Stornieren
-          </button>
-        )}
-      </td>
-    </tr>
-  );
-}
-
 function OppSection({
   companyId,
   opportunities,
@@ -1134,6 +940,8 @@ function OppSection({
   const [setup, setSetup] = useState("");
   const [retainer, setRetainer] = useState("");
   const [grund, setGrund] = useState("");
+  const [titel, setTitel] = useState("");
+  const [erwarteter, setErwarteter] = useState("");
 
   return (
     <section>
@@ -1160,6 +968,9 @@ function OppSection({
               setup_preis: setup === "" ? null : Number(setup),
               retainer_monatlich: retainer === "" ? null : Number(retainer),
               close_grund: grund || null,
+              titel: titel || null,
+              erwarteter_umsatz:
+                erwarteter === "" ? null : Number(erwarteter),
             });
             if (res.error) {
               setError(res.error);
@@ -1169,12 +980,31 @@ function OppSection({
             setSetup("");
             setRetainer("");
             setGrund("");
+            setTitel("");
+            setErwarteter("");
             setStage("offen");
             router.refresh();
           });
         }}
       >
         <div className="grid-2">
+          <div className="field">
+            <label>Titel</label>
+            <input
+              value={titel}
+              onChange={(e) => setTitel(e.target.value)}
+              placeholder="Deal-Name"
+            />
+          </div>
+          <div className="field">
+            <label>Erwarteter Umsatz</label>
+            <input
+              type="number"
+              min={0}
+              value={erwarteter}
+              onChange={(e) => setErwarteter(e.target.value)}
+            />
+          </div>
           <div className="field">
             <label>Variante</label>
             <select

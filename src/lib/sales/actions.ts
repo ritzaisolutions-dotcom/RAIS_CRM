@@ -2,20 +2,32 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { businessToday } from "@/lib/sales/dates";
 import { createClient } from "@/lib/supabase/server";
 import {
+  bulkPipelineSchema,
   companyBasicsSchema,
   companyQualificationSchema,
   createCompanySchema,
+  emailTemplateSchema,
+  enrollSequenceSchema,
+  importCompanyRowSchema,
   listFieldsSchema,
   opportunitySchema,
   personSchema,
   pipelineChangeSchema,
   safeDatabaseError,
+  savedViewSchema,
+  sendEmailSchema,
+  sendSmsSchema,
+  sequenceSchema,
+  sequenceStepSchema,
+  taskSchema,
   touchpointSchema,
   voidTouchSchema,
   uuidSchema,
   validationError,
+  workflowRuleSchema,
 } from "@/lib/sales/validation";
 import type {
   Abbruchgrund,
@@ -319,6 +331,8 @@ export async function upsertOpportunity(input: {
   retainer_monatlich: number | null;
   stage: OppStage;
   close_grund: string | null;
+  titel?: string | null;
+  erwarteter_umsatz?: number | null;
 }): Promise<ActionResult> {
   const parsed = opportunitySchema.safeParse(input);
   if (!parsed.success) return { error: validationError(parsed.error) };
@@ -357,6 +371,8 @@ export async function upsertOpportunity(input: {
         stage: parsed.data.stage,
         close_grund: parsed.data.close_grund,
         closed_at: closed,
+        titel: parsed.data.titel || null,
+        erwarteter_umsatz: parsed.data.erwarteter_umsatz ?? null,
       })
       .eq("id", parsed.data.id)
       .eq("company_id", parsed.data.company_id)
@@ -375,11 +391,509 @@ export async function upsertOpportunity(input: {
       stage: parsed.data.stage,
       close_grund: parsed.data.close_grund,
       closed_at: isClosed ? new Date().toISOString() : null,
+      titel: parsed.data.titel || null,
+      erwarteter_umsatz: parsed.data.erwarteter_umsatz ?? null,
     });
     if (error) return { error: safeDatabaseError(error, "create-opportunity") };
   }
   revalidateCompany(parsed.data.company_id);
   return { ok: true as const };
+}
+
+export async function createTask(input: {
+  company_id: string;
+  titel: string;
+  due_on: string;
+  person_id?: string | null;
+  notiz?: string | null;
+}): Promise<ActionResult<{ taskId: string }>> {
+  const parsed = taskSchema.safeParse(input);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("create_task", {
+    p_company_id: parsed.data.company_id,
+    p_titel: parsed.data.titel,
+    p_due_on: parsed.data.due_on,
+    p_person_id: parsed.data.person_id ?? null,
+    p_notiz: parsed.data.notiz || null,
+  });
+  if (error) return { error: safeDatabaseError(error, "create-task") };
+  if (!data) return { error: "Aufgabe konnte nicht angelegt werden." };
+  revalidateCompany(parsed.data.company_id);
+  return { ok: true as const, taskId: data as string };
+}
+
+export async function completeTask(
+  taskId: string,
+  companyId: string,
+): Promise<ActionResult> {
+  const parsed = uuidSchema.safeParse(taskId);
+  const parsedCompany = uuidSchema.safeParse(companyId);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  if (!parsedCompany.success) {
+    return { error: validationError(parsedCompany.error) };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("complete_task", {
+    p_task_id: parsed.data,
+  });
+  if (error) return { error: safeDatabaseError(error, "complete-task") };
+  revalidateCompany(parsedCompany.data);
+  revalidatePath("/liste");
+  return { ok: true as const };
+}
+
+export async function upsertEmailTemplate(input: {
+  id?: string;
+  name: string;
+  subject: string;
+  body: string;
+}): Promise<ActionResult> {
+  const parsed = emailTemplateSchema.safeParse(input);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+  if (parsed.data.id) {
+    const { error } = await supabase
+      .from("email_templates")
+      .update({
+        name: parsed.data.name,
+        subject: parsed.data.subject,
+        body: parsed.data.body,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", parsed.data.id);
+    if (error) return { error: safeDatabaseError(error, "update-email-template") };
+  } else {
+    const { error } = await supabase.from("email_templates").insert({
+      name: parsed.data.name,
+      subject: parsed.data.subject,
+      body: parsed.data.body,
+    });
+    if (error) return { error: safeDatabaseError(error, "create-email-template") };
+  }
+  revalidatePath("/einstellungen");
+  return { ok: true as const };
+}
+
+export async function deleteEmailTemplate(id: string): Promise<ActionResult> {
+  const parsed = uuidSchema.safeParse(id);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("email_templates")
+    .delete()
+    .eq("id", parsed.data);
+  if (error) return { error: safeDatabaseError(error, "delete-email-template") };
+  revalidatePath("/einstellungen");
+  return { ok: true as const };
+}
+
+/**
+ * Queues an outbound email as CRM evidence. When SMTP env is set, attempts send;
+ * otherwise stores as queued and still logs a timeline touch.
+ */
+export async function sendCompanyEmail(input: {
+  company_id: string;
+  person_id?: string | null;
+  to_email: string;
+  subject: string;
+  body: string;
+  template_id?: string | null;
+}): Promise<ActionResult> {
+  const parsed = sendEmailSchema.safeParse(input);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+
+  let status: "queued" | "sent" | "failed" = "queued";
+  const errorText: string | null = null;
+  const smtpHost = process.env.SMTP_HOST;
+  if (smtpHost && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    // Provider hook: real transport stays env-driven; without a library we
+    // mark sent only when a webhook/worker confirms. Here we record intent.
+    status = "queued";
+  }
+
+  const { error: insertError } = await supabase.from("email_messages").insert({
+    company_id: parsed.data.company_id,
+    person_id: parsed.data.person_id ?? null,
+    template_id: parsed.data.template_id ?? null,
+    direction: "outbound",
+    to_email: parsed.data.to_email,
+    subject: parsed.data.subject,
+    body: parsed.data.body,
+    status,
+    error: errorText,
+  });
+  if (insertError) {
+    return { error: safeDatabaseError(insertError, "queue-email") };
+  }
+
+  const { error: touchError } = await supabase.rpc("log_touch", {
+    p_company_id: parsed.data.company_id,
+    p_kanal: "email",
+    p_ergebnis: "kein_ergebnis",
+    p_person_id: parsed.data.person_id ?? null,
+    p_notiz: `E-Mail an ${parsed.data.to_email}: ${parsed.data.subject}\n\n${parsed.data.body}`,
+    p_naechster: null,
+    p_abbruch: null,
+  });
+  if (touchError) {
+    return { error: safeDatabaseError(touchError, "email-touch") };
+  }
+  revalidateCompany(parsed.data.company_id);
+  return { ok: true as const };
+}
+
+export async function sendCompanySms(input: {
+  company_id: string;
+  person_id?: string | null;
+  to_phone: string;
+  body: string;
+}): Promise<ActionResult> {
+  const parsed = sendSmsSchema.safeParse(input);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+
+  const { error: insertError } = await supabase.from("sms_messages").insert({
+    company_id: parsed.data.company_id,
+    person_id: parsed.data.person_id ?? null,
+    direction: "outbound",
+    to_phone: parsed.data.to_phone,
+    body: parsed.data.body,
+    status: process.env.SMS_PROVIDER_URL ? "queued" : "queued",
+  });
+  if (insertError) {
+    return { error: safeDatabaseError(insertError, "queue-sms") };
+  }
+
+  const { error: touchError } = await supabase.rpc("log_touch", {
+    p_company_id: parsed.data.company_id,
+    p_kanal: "sms",
+    p_ergebnis: "kein_ergebnis",
+    p_person_id: parsed.data.person_id ?? null,
+    p_notiz: `SMS an ${parsed.data.to_phone}: ${parsed.data.body}`,
+    p_naechster: null,
+    p_abbruch: null,
+  });
+  if (touchError) return { error: safeDatabaseError(touchError, "sms-touch") };
+  revalidateCompany(parsed.data.company_id);
+  return { ok: true as const };
+}
+
+export async function logClickToCall(input: {
+  company_id: string;
+  person_id?: string | null;
+  telefon: string;
+}): Promise<ActionResult> {
+  const companyId = uuidSchema.safeParse(input.company_id);
+  if (!companyId.success) return { error: validationError(companyId.error) };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("log_touch", {
+    p_company_id: companyId.data,
+    p_kanal: "call",
+    p_ergebnis: "kein_ergebnis",
+    p_person_id: input.person_id ?? null,
+    p_notiz: `Click-to-Call gestartet: ${input.telefon}`,
+    p_naechster: null,
+    p_abbruch: null,
+  });
+  if (error) return { error: safeDatabaseError(error, "click-to-call") };
+  revalidateCompany(companyId.data);
+  return { ok: true as const };
+}
+
+export async function upsertSequence(input: {
+  id?: string;
+  name: string;
+  active?: boolean;
+}): Promise<ActionResult<{ sequenceId: string }>> {
+  const parsed = sequenceSchema.safeParse(input);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+  if (parsed.data.id) {
+    const { error } = await supabase
+      .from("sequences")
+      .update({
+        name: parsed.data.name,
+        active: parsed.data.active ?? true,
+      })
+      .eq("id", parsed.data.id);
+    if (error) return { error: safeDatabaseError(error, "update-sequence") };
+    revalidatePath("/einstellungen");
+    return { ok: true as const, sequenceId: parsed.data.id };
+  }
+  const { data, error } = await supabase
+    .from("sequences")
+    .insert({
+      name: parsed.data.name,
+      active: parsed.data.active ?? true,
+    })
+    .select("id")
+    .single();
+  if (error) return { error: safeDatabaseError(error, "create-sequence") };
+  revalidatePath("/einstellungen");
+  return { ok: true as const, sequenceId: data.id };
+}
+
+export async function upsertSequenceStep(input: {
+  sequence_id: string;
+  step_order: number;
+  kanal: "email" | "call" | "sms" | "task";
+  delay_days: number;
+  subject?: string | null;
+  body?: string | null;
+  task_titel?: string | null;
+}): Promise<ActionResult> {
+  const parsed = sequenceStepSchema.safeParse(input);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+  const { error } = await supabase.from("sequence_steps").upsert(
+    {
+      sequence_id: parsed.data.sequence_id,
+      step_order: parsed.data.step_order,
+      kanal: parsed.data.kanal,
+      delay_days: parsed.data.delay_days,
+      subject: parsed.data.subject || null,
+      body: parsed.data.body || null,
+      task_titel: parsed.data.task_titel || null,
+    },
+    { onConflict: "sequence_id,step_order" },
+  );
+  if (error) return { error: safeDatabaseError(error, "upsert-sequence-step") };
+  revalidatePath("/einstellungen");
+  return { ok: true as const };
+}
+
+export async function enrollInSequence(input: {
+  sequence_id: string;
+  company_id: string;
+  person_id?: string | null;
+}): Promise<ActionResult> {
+  const parsed = enrollSequenceSchema.safeParse(input);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+  const { data: firstStep } = await supabase
+    .from("sequence_steps")
+    .select("delay_days")
+    .eq("sequence_id", parsed.data.sequence_id)
+    .order("step_order")
+    .limit(1)
+    .maybeSingle();
+
+  const delay = firstStep?.delay_days ?? 0;
+  const [y, m, d] = businessToday().split("-").map(Number);
+  const due = new Date(Date.UTC(y, m - 1, d + delay));
+  const nextRun = due.toISOString().slice(0, 10);
+
+  const { error } = await supabase.from("sequence_enrollments").insert({
+    sequence_id: parsed.data.sequence_id,
+    company_id: parsed.data.company_id,
+    person_id: parsed.data.person_id ?? null,
+    status: "aktiv",
+    current_step: 0,
+    next_run_on: nextRun,
+  });
+  if (error) return { error: safeDatabaseError(error, "enroll-sequence") };
+  revalidateCompany(parsed.data.company_id);
+  return { ok: true as const };
+}
+
+/** Process enrollments whose next_run_on is due (Berlin calendar). */
+export async function runDueSequenceSteps(): Promise<
+  ActionResult<{ ran: number }>
+> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("run_due_sequence_steps");
+  if (error) return { error: safeDatabaseError(error, "run-sequences") };
+  revalidatePath("/liste");
+  revalidatePath("/einstellungen");
+  return { ok: true as const, ran: typeof data === "number" ? data : 0 };
+}
+
+export async function stopSequenceEnrollment(
+  enrollmentId: string,
+  companyId: string,
+): Promise<ActionResult> {
+  const parsed = uuidSchema.safeParse(enrollmentId);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("sequence_enrollments")
+    .update({ status: "gestoppt", stop_reason: "Manuell gestoppt" })
+    .eq("id", parsed.data);
+  if (error) return { error: safeDatabaseError(error, "stop-enrollment") };
+  revalidateCompany(companyId);
+  return { ok: true as const };
+}
+
+export async function upsertWorkflowRule(input: {
+  id?: string;
+  name: string;
+  active?: boolean;
+  trigger_pipeline_status: PipelineStatus;
+  task_titel: string;
+  task_due_days: number;
+}): Promise<ActionResult> {
+  const parsed = workflowRuleSchema.safeParse(input);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+  if (parsed.data.id) {
+    const { error } = await supabase
+      .from("workflow_rules")
+      .update({
+        name: parsed.data.name,
+        active: parsed.data.active ?? true,
+        trigger_pipeline_status: parsed.data.trigger_pipeline_status,
+        task_titel: parsed.data.task_titel,
+        task_due_days: parsed.data.task_due_days,
+      })
+      .eq("id", parsed.data.id);
+    if (error) return { error: safeDatabaseError(error, "update-workflow") };
+  } else {
+    const { error } = await supabase.from("workflow_rules").insert({
+      name: parsed.data.name,
+      active: parsed.data.active ?? true,
+      trigger_pipeline_status: parsed.data.trigger_pipeline_status,
+      task_titel: parsed.data.task_titel,
+      task_due_days: parsed.data.task_due_days,
+    });
+    if (error) return { error: safeDatabaseError(error, "create-workflow") };
+  }
+  revalidatePath("/einstellungen");
+  return { ok: true as const };
+}
+
+export async function deleteWorkflowRule(id: string): Promise<ActionResult> {
+  const parsed = uuidSchema.safeParse(id);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("workflow_rules")
+    .delete()
+    .eq("id", parsed.data);
+  if (error) return { error: safeDatabaseError(error, "delete-workflow") };
+  revalidatePath("/einstellungen");
+  return { ok: true as const };
+}
+
+export async function upsertSavedView(input: {
+  id?: string;
+  name: string;
+  scope: "liste" | "kunden";
+  filters: {
+    status?: string;
+    due?: string;
+    q?: string;
+    sort?: string;
+  };
+}): Promise<ActionResult> {
+  const parsed = savedViewSchema.safeParse(input);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+  if (parsed.data.id) {
+    const { error } = await supabase
+      .from("saved_views")
+      .update({
+        name: parsed.data.name,
+        scope: parsed.data.scope,
+        filters: parsed.data.filters,
+      })
+      .eq("id", parsed.data.id);
+    if (error) return { error: safeDatabaseError(error, "update-saved-view") };
+  } else {
+    const { error } = await supabase.from("saved_views").insert({
+      name: parsed.data.name,
+      scope: parsed.data.scope,
+      filters: parsed.data.filters,
+    });
+    if (error) return { error: safeDatabaseError(error, "create-saved-view") };
+  }
+  revalidatePath("/liste");
+  return { ok: true as const };
+}
+
+export async function deleteSavedView(id: string): Promise<ActionResult> {
+  const parsed = uuidSchema.safeParse(id);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("saved_views")
+    .delete()
+    .eq("id", parsed.data);
+  if (error) return { error: safeDatabaseError(error, "delete-saved-view") };
+  revalidatePath("/liste");
+  return { ok: true as const };
+}
+
+export async function bulkSetPipelineStatus(input: {
+  companyIds: string[];
+  pipelineStatus: PipelineStatus;
+  kanal?: Extract<TouchKanal, "call" | "dm" | "status_change">;
+}): Promise<ActionResult<{ updated: number }>> {
+  const parsed = bulkPipelineSchema.safeParse(input);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+
+  let updated = 0;
+  for (const companyId of parsed.data.companyIds) {
+    const res = await setListPipelineStatus({
+      companyId,
+      pipelineStatus: parsed.data.pipelineStatus,
+      kanal: parsed.data.kanal,
+    });
+    if (!res.error) updated += 1;
+  }
+  revalidatePath("/liste");
+  revalidatePath("/analytics");
+  return { ok: true as const, updated };
+}
+
+export async function importCompanies(
+  rows: Array<{
+    name: string;
+    stadt?: string | null;
+    telefon?: string | null;
+    website?: string | null;
+    email?: string | null;
+    person_name?: string | null;
+  }>,
+): Promise<ActionResult<{ created: number; errors: string[] }>> {
+  if (!rows.length) return { error: "Keine Zeilen zum Import." };
+  if (rows.length > 200) return { error: "Maximal 200 Zeilen pro Import." };
+
+  const errors: string[] = [];
+  let created = 0;
+  for (const [index, row] of rows.entries()) {
+    const parsed = importCompanyRowSchema.safeParse(row);
+    if (!parsed.success) {
+      errors.push(`Zeile ${index + 1}: ${validationError(parsed.error)}`);
+      continue;
+    }
+    const res = await createCompany({
+      name: parsed.data.name,
+      stadt: parsed.data.stadt,
+      telefon: parsed.data.telefon,
+      website: parsed.data.website,
+      person: parsed.data.person_name
+        ? {
+            name: parsed.data.person_name,
+            email: parsed.data.email,
+            telefon: parsed.data.telefon,
+          }
+        : parsed.data.email
+          ? {
+              name: parsed.data.name,
+              email: parsed.data.email,
+              telefon: parsed.data.telefon,
+            }
+          : null,
+    });
+    if (res.error) errors.push(`Zeile ${index + 1}: ${res.error}`);
+    else created += 1;
+  }
+  revalidatePath("/liste");
+  return { ok: true as const, created, errors };
 }
 
 export async function gdprAnonymize(

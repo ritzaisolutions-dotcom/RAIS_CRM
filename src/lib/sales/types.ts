@@ -16,7 +16,10 @@ export type TouchKanal =
   | "email"
   | "meeting"
   | "engagement"
-  | "status_change";
+  | "status_change"
+  | "sms"
+  | "note"
+  | "task";
 
 export type TouchErgebnis =
   | "nicht_erreicht"
@@ -49,6 +52,85 @@ export type Abbruchgrund =
 
 export type OppVariante = "system_3k" | "system_crm_6k";
 export type OppStage = "offen" | "angebot_raus" | "gewonnen" | "verloren";
+
+export type TaskStatus = "offen" | "erledigt" | "storniert";
+
+export type SalesTask = {
+  id: string;
+  company_id: string;
+  person_id: string | null;
+  titel: string;
+  notiz: string | null;
+  due_on: string;
+  status: TaskStatus;
+  created_at: string;
+  completed_at: string | null;
+  firma?: string | null;
+};
+
+export type EmailTemplate = {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  created_at: string;
+};
+
+export type SequenceKanal = "email" | "call" | "sms" | "task";
+
+export type Sequence = {
+  id: string;
+  name: string;
+  active: boolean;
+  created_at: string;
+};
+
+export type SequenceStep = {
+  id: string;
+  sequence_id: string;
+  step_order: number;
+  kanal: SequenceKanal;
+  delay_days: number;
+  subject: string | null;
+  body: string | null;
+  task_titel: string | null;
+};
+
+export type SequenceEnrollment = {
+  id: string;
+  sequence_id: string;
+  company_id: string;
+  person_id: string | null;
+  status: "aktiv" | "pausiert" | "gestoppt" | "fertig";
+  current_step: number;
+  next_run_on: string | null;
+  stop_reason: string | null;
+  created_at: string;
+};
+
+export type WorkflowRule = {
+  id: string;
+  name: string;
+  active: boolean;
+  trigger_pipeline_status: PipelineStatus;
+  action_type: "create_task";
+  task_titel: string;
+  task_due_days: number;
+  created_at: string;
+};
+
+export type SavedView = {
+  id: string;
+  name: string;
+  scope: "liste" | "kunden";
+  filters: {
+    status?: string;
+    due?: string;
+    q?: string;
+    sort?: string;
+  };
+  created_at: string;
+};
 
 export type CallListeRow = {
   company_id: string;
@@ -260,6 +342,8 @@ export type Opportunity = {
   close_grund: string | null;
   created_at: string;
   closed_at: string | null;
+  titel: string | null;
+  erwarteter_umsatz: number | null;
 };
 
 export const MITARBEITER_OPTIONS: MitarbeiterKlasse[] = [
@@ -289,9 +373,24 @@ export const KANAL_OPTIONS: TouchKanal[] = [
   "call",
   "dm",
   "email",
+  "sms",
+  "note",
+  "task",
   "meeting",
   "engagement",
   "status_change",
+];
+
+/** Channels shown in the shared company timeline composer. */
+export const TIMELINE_KANAL_OPTIONS: TouchKanal[] = [
+  "call",
+  "dm",
+  "email",
+  "sms",
+  "note",
+  "task",
+  "meeting",
+  "engagement",
 ];
 
 export const ERGEBNIS_OPTIONS: TouchErgebnis[] = [
@@ -316,6 +415,9 @@ export const KANAL_LABELS: Record<TouchKanal, string> = {
   call: "Call",
   dm: "DM (LinkedIn)",
   email: "E-Mail",
+  sms: "SMS",
+  note: "Notiz",
+  task: "Aufgabe",
   meeting: "Meeting",
   engagement: "Engagement",
   status_change: "Statusänderung",

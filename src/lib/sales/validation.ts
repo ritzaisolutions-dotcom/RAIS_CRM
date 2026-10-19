@@ -93,6 +93,9 @@ export const touchChannelSchema = z.enum([
   "meeting",
   "engagement",
   "status_change",
+  "sms",
+  "note",
+  "task",
 ]);
 export const outreachChannelSchema = z.enum(["call", "dm", "status_change"]);
 export const touchResultSchema = z.enum([
@@ -226,6 +229,102 @@ export const opportunitySchema = z.object({
   retainer_monatlich: z.number().min(0).max(10000000).nullable(),
   stage: opportunityStageSchema,
   close_grund: nullableText(1000),
+  titel: nullableText(200),
+  erwarteter_umsatz: z.number().min(0).max(100000000).nullable().optional(),
+});
+
+export const taskSchema = z.object({
+  company_id: uuidSchema,
+  person_id: uuidSchema.nullable().optional(),
+  titel: z.string().trim().min(1, "Titel ist Pflicht").max(200),
+  notiz: nullableText(5000),
+  due_on: dateSchema,
+});
+
+export const emailTemplateSchema = z.object({
+  id: uuidSchema.optional(),
+  name: z.string().trim().min(1).max(120),
+  subject: z.string().trim().min(1).max(300),
+  body: z.string().trim().min(1).max(20000),
+});
+
+export const sendEmailSchema = z.object({
+  company_id: uuidSchema,
+  person_id: uuidSchema.nullable().optional(),
+  to_email: z.string().trim().email("Ungültige E-Mail"),
+  subject: z.string().trim().min(1).max(300),
+  body: z.string().trim().min(1).max(20000),
+  template_id: uuidSchema.nullable().optional(),
+});
+
+export const sendSmsSchema = z.object({
+  company_id: uuidSchema,
+  person_id: uuidSchema.nullable().optional(),
+  to_phone: z
+    .string()
+    .trim()
+    .min(5)
+    .max(50)
+    .regex(/^[+\d\s()./-]+$/, "Ungültige Telefonnummer"),
+  body: z.string().trim().min(1).max(1000),
+});
+
+export const sequenceSchema = z.object({
+  id: uuidSchema.optional(),
+  name: z.string().trim().min(1).max(120),
+  active: z.boolean().optional(),
+});
+
+export const sequenceStepSchema = z.object({
+  sequence_id: uuidSchema,
+  step_order: z.number().int().min(1).max(50),
+  kanal: z.enum(["email", "call", "sms", "task"]),
+  delay_days: z.number().int().min(0).max(365),
+  subject: nullableText(300),
+  body: nullableText(20000),
+  task_titel: nullableText(200),
+});
+
+export const enrollSequenceSchema = z.object({
+  sequence_id: uuidSchema,
+  company_id: uuidSchema,
+  person_id: uuidSchema.nullable().optional(),
+});
+
+export const workflowRuleSchema = z.object({
+  id: uuidSchema.optional(),
+  name: z.string().trim().min(1).max(120),
+  active: z.boolean().optional(),
+  trigger_pipeline_status: pipelineStatusSchema,
+  task_titel: z.string().trim().min(1).max(200),
+  task_due_days: z.number().int().min(0).max(90),
+});
+
+export const savedViewSchema = z.object({
+  id: uuidSchema.optional(),
+  name: z.string().trim().min(1).max(80),
+  scope: z.enum(["liste", "kunden"]),
+  filters: z.object({
+    status: z.string().optional(),
+    due: z.string().optional(),
+    q: z.string().optional(),
+    sort: z.string().optional(),
+  }),
+});
+
+export const bulkPipelineSchema = z.object({
+  companyIds: z.array(uuidSchema).min(1).max(100),
+  pipelineStatus: pipelineStatusSchema,
+  kanal: outreachChannelSchema.optional(),
+});
+
+export const importCompanyRowSchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  stadt: nullableText(120),
+  telefon: nullablePhone,
+  website: nullableUrl,
+  email: nullableEmail,
+  person_name: nullableText(200),
 });
 
 export const pipelineChangeSchema = z.object({

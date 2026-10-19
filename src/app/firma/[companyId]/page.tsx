@@ -4,8 +4,12 @@ import { CompanyDetail } from "@/components/CompanyDetail";
 import { EfferdShell } from "@/components/EfferdShell";
 import {
   fetchCompany,
+  fetchCompanyEnrollments,
+  fetchCompanyTasks,
+  fetchEmailTemplates,
   fetchOpportunities,
   fetchPeople,
+  fetchSequences,
   fetchTouchpoints,
   fetchWorkspaceStats,
 } from "@/lib/sales/queries";
@@ -18,16 +22,27 @@ export default async function FirmaPage({
   params: Promise<{ companyId: string }>;
 }) {
   const { companyId } = await params;
-  // Alle fünf Queries hängen nur an `companyId` — vorher liefen sie in zwei
-  // aufeinanderfolgenden Wellen und kosteten eine vermeidbare Roundtrip-Runde.
-  const [company, stats, people, touchpoints, opportunities] =
-    await Promise.all([
-      fetchCompany(companyId),
-      fetchWorkspaceStats(),
-      fetchPeople(companyId),
-      fetchTouchpoints(companyId),
-      fetchOpportunities(companyId),
-    ]);
+  const [
+    company,
+    stats,
+    people,
+    touchpoints,
+    opportunities,
+    tasks,
+    templates,
+    sequences,
+    enrollments,
+  ] = await Promise.all([
+    fetchCompany(companyId),
+    fetchWorkspaceStats(),
+    fetchPeople(companyId),
+    fetchTouchpoints(companyId),
+    fetchOpportunities(companyId),
+    fetchCompanyTasks(companyId),
+    fetchEmailTemplates(),
+    fetchSequences(),
+    fetchCompanyEnrollments(companyId),
+  ]);
   if (!company) notFound();
 
   const back = company.relationship === "Kunde" ? "/kunden" : "/liste";
@@ -49,6 +64,10 @@ export default async function FirmaPage({
         touchpoints={touchpoints.rows}
         touchpointsTotal={touchpoints.total}
         opportunities={opportunities}
+        tasks={tasks}
+        templates={templates}
+        sequences={sequences}
+        enrollments={enrollments}
       />
     </EfferdShell>
   );

@@ -1,6 +1,11 @@
-import { CallListeTable } from "@/components/CallListeTable";
 import { EfferdShell } from "@/components/EfferdShell";
-import { fetchCallListe, fetchWorkspaceStats } from "@/lib/sales/queries";
+import { ListeWorkspace } from "@/components/ListeWorkspace";
+import {
+  fetchCallListe,
+  fetchOpenTasksDue,
+  fetchSavedViews,
+  fetchWorkspaceStats,
+} from "@/lib/sales/queries";
 import type {
   ListeDueFilter,
   ListeSort,
@@ -49,9 +54,11 @@ export default async function ListePage({
   const page = parsePage(params.page);
   const q = params.q?.trim() ?? "";
 
-  const [liste, stats] = await Promise.all([
+  const [liste, stats, tasks, savedViews] = await Promise.all([
     fetchCallListe({ status, due, sort, page, q }),
     fetchWorkspaceStats(),
+    fetchOpenTasksDue("all"),
+    fetchSavedViews("liste"),
   ]);
 
   const filterNote = [
@@ -83,7 +90,7 @@ export default async function ListePage({
       activity={stats.activity}
       degraded={stats.degraded}
     >
-      <CallListeTable
+      <ListeWorkspace
         rows={liste.rows}
         title="Prospects"
         subtitle={`${rangeNote}${filterNote ? ` · ${filterNote}` : ""} · ${sortNote}`}
@@ -95,6 +102,8 @@ export default async function ListePage({
         page={liste.page}
         pageSize={liste.pageSize}
         total={liste.total}
+        tasks={tasks}
+        savedViews={savedViews}
       />
     </EfferdShell>
   );
