@@ -15,6 +15,13 @@ const sourceSerif = Source_Serif_4({
 export const metadata: Metadata = {
   title: "RAIS CRM",
   description: "Kaltakquise — Liste, Kunden, Detail",
+  applicationName: "RAIS CRM",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    title: "RAIS CRM",
+    capable: true,
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({
