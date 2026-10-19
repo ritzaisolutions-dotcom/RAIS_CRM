@@ -185,24 +185,26 @@ export function ListeWorkspace({
         desk={desk}
       />
 
-      <div className="form-actions wrap">
-        <button
-          type="button"
-          className="btn"
-          onClick={() => setSelected(rows.map((r) => r.company_id))}
-        >
-          Seite markieren
-        </button>
-        {selected.length > 0 ? (
+      {rows.length > 0 ? (
+        <div className="form-actions wrap">
           <button
             type="button"
             className="btn"
-            onClick={() => setSelected([])}
+            onClick={() => setSelected(rows.map((r) => r.company_id))}
           >
-            Markierung aufheben
+            Seite markieren
           </button>
-        ) : null}
-      </div>
+          {selected.length > 0 ? (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setSelected([])}
+            >
+              Markierung aufheben
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       {desk === "dialen" || desk === "termine" ? (
         <details className="dense-panel" open={toolsOpenDefault}>

@@ -357,22 +357,22 @@ export async function fetchWorkspaceStats() {
       {
         label: "Prospects",
         value: kpiValue(prospectsRes.count, prospectsRes.error),
-        hint: "in Call-Liste",
+        hint: "auf Dialen",
       },
       {
         label: "Kunden",
         value: kpiValue(kundenRes.count, kundenRes.error),
-        hint: "aktive Accounts",
+        hint: "aktive Kunden",
       },
       {
         label: "Fällig heute",
         value: kpiValue(dueRes.count, dueRes.error),
-        hint: "naechster_touch ≤ heute",
+        hint: "nächster Touch ≤ heute",
       },
       {
         label: "Ausgeschlossen",
         value: kpiValue(ausgeschlossenRes.count, ausgeschlossenRes.error),
-        hint: "nicht in Liste",
+        hint: "nicht anrufbar",
       },
     ],
     activity,

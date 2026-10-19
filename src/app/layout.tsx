@@ -13,7 +13,10 @@ const sourceSerif = Source_Serif_4({
 });
 
 export const metadata: Metadata = {
-  title: "RAIS CRM",
+  title: {
+    default: "RAIS CRM",
+    template: "%s · RAIS CRM",
+  },
   description: "Kaltakquise — Liste, Kunden, Detail",
   applicationName: "RAIS CRM",
   manifest: "/manifest.webmanifest",

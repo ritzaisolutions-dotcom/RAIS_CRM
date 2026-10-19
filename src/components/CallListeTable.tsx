@@ -536,15 +536,28 @@ export function CallListeTable({
               {displayCols.map((col) => (
                 <TableHead
                   key={col}
-                  draggable
-                  onDragStart={() => setHeaderDrag(col)}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={() => reorderTo(col, headerDrag)}
-                  title="Ziehen zum Umsortieren"
-                  className="cursor-grab"
+                  draggable={editMode}
+                  onDragStart={
+                    editMode ? () => setHeaderDrag(col) : undefined
+                  }
+                  onDragOver={
+                    editMode ? (e) => e.preventDefault() : undefined
+                  }
+                  onDrop={
+                    editMode
+                      ? () => reorderTo(col, headerDrag)
+                      : undefined
+                  }
+                  title={editMode ? "Ziehen zum Umsortieren" : undefined}
+                  className={editMode ? "cursor-grab" : undefined}
                 >
                   <span className="inline-flex items-center gap-1">
-                    <GripVertical className="h-3 w-3 text-rais-stone" />
+                    {editMode ? (
+                      <GripVertical
+                        className="h-3 w-3 text-rais-stone"
+                        aria-hidden="true"
+                      />
+                    ) : null}
                     {columnLabel(col, customDefs)}
                   </span>
                 </TableHead>
@@ -560,7 +573,11 @@ export function CallListeTable({
                   }
                   className="py-10 text-center text-rais-stone"
                 >
-                  Keine Einträge für diese Filter.
+                  {hasFilters
+                    ? "Keine Einträge für diese Filter."
+                    : total === 0
+                      ? "Noch keine Einträge."
+                      : "Keine Einträge auf dieser Seite."}
                 </TableCell>
               </TableRow>
             ) : (
