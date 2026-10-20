@@ -17,6 +17,7 @@ import {
   logClickToCall,
   upsertSavedView,
 } from "@/lib/sales/actions";
+import { parseCompanyImportCsv } from "@/lib/sales/csvImport";
 import { placeCallHref } from "@/lib/sales/placeCall";
 import {
   PIPELINE_STATUS_LABELS,
@@ -24,6 +25,7 @@ import {
 } from "@/lib/sales/types";
 import type {
   CallListeRow,
+  LeadList,
   PipelineStatus,
   SalesTask,
   Sequence,
@@ -455,75 +457,157 @@ export function SavedViewsBar({
   );
 }
 
-export function ImportCompaniesPanel() {
+export function ImportCompaniesPanel({
+  lists = [],
+  defaultListId = "",
+  onDone,
+}: {
+  lists?: LeadList[];
+  /** Preselect membership list (e.g. current Dialen list filter). */
+  defaultListId?: string;
+  onDone?: () => void;
+}) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [raw, setRaw] = useState(
     "name,stadt,telefon,website,email,person_name\n",
   );
+  const [listId, setListId] = useState(defaultListId);
+  const [listName, setListName] = useState("");
   const [result, setResult] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+
+  function runImport(csvText: string) {
+    start(async () => {
+      const parsed = parseCompanyImportCsv(csvText);
+      if (parsed.error) {
+        setResult(parsed.error);
+        return;
+      }
+      if (parsed.rows.length > 200) {
+        setResult("Maximal 200 Zeilen pro Import.");
+        return;
+      }
+      const res = await importCompanies({
+        rows: parsed.rows,
+        listId: listId || null,
+        listName: !listId && listName.trim() ? listName.trim() : null,
+      });
+      if (!res.ok) {
+        setResult(res.error);
+        return;
+      }
+      const listHint = res.listId
+        ? " · in Mitgliedschaftsliste übernommen"
+        : "";
+      setResult(
+        `${res.created} angelegt${listHint}` +
+          (res.errors.length
+            ? ` · ${res.errors.length} Fehler: ${res.errors.slice(0, 3).join("; ")}`
+            : ""),
+      );
+      router.refresh();
+    });
+  }
 
   return (
-    <section className="dense-panel">
-      <h2 className="section-h">Import (CSV)</h2>
+    <section className="dense-panel" id="csv-import">
+      <h2 className="section-h">CSV-Import (Lead-Batch)</h2>
       <p className="muted">
-        Spalten: name, stadt, telefon, website, email, person_name. Max. 200
-        Zeilen. Läuft über create_company.
+        Header: name/Firma, stadt, telefon/Telefon, website, email/E-Mail,
+        person_name/Entscheider. Komma oder Semikolon. Max. 200 Zeilen.
+        Optional in eine Mitgliedschaftsliste legen.
       </p>
+
+      <div className="form-actions wrap items-end gap-3">
+        <label className="stack gap-1">
+          <span className="text-xs font-medium">CSV-Datei</span>
+          <input
+            type="file"
+            accept=".csv,text/csv,text/plain"
+            className="text-sm"
+            disabled={pending}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setFileName(file.name);
+              const reader = new FileReader();
+              reader.onload = () => {
+                const text = String(reader.result ?? "");
+                setRaw(text);
+              };
+              reader.readAsText(file, "UTF-8");
+              e.target.value = "";
+            }}
+          />
+          {fileName ? (
+            <span className="muted text-xs">{fileName}</span>
+          ) : null}
+        </label>
+
+        <label className="stack gap-1">
+          <span className="text-xs font-medium">Bestehende Liste</span>
+          <select
+            value={listId}
+            onChange={(e) => {
+              setListId(e.target.value);
+              if (e.target.value) setListName("");
+            }}
+            className="h-9 min-w-[12rem] rounded-md border border-rais-border bg-white px-2 text-sm"
+            disabled={pending}
+          >
+            <option value="">— keine —</option>
+            {lists.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+                {typeof l.member_count === "number"
+                  ? ` (${l.member_count})`
+                  : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="stack gap-1">
+          <span className="text-xs font-medium">oder neue Batch-Liste</span>
+          <input
+            type="text"
+            value={listName}
+            onChange={(e) => {
+              setListName(e.target.value);
+              if (e.target.value.trim()) setListId("");
+            }}
+            placeholder="z. B. ImmoScout KW42"
+            className="h-9 min-w-[12rem] rounded-md border border-rais-border bg-white px-2 text-sm"
+            disabled={pending || Boolean(listId)}
+            maxLength={80}
+          />
+        </label>
+      </div>
+
       <textarea
         rows={8}
         value={raw}
         onChange={(e) => setRaw(e.target.value)}
-        className="w-full font-mono text-sm"
+        className="mt-3 w-full font-mono text-sm"
+        aria-label="CSV-Inhalt"
       />
-      <button
-        type="button"
-        className="btn btn-primary"
-        disabled={pending}
-        onClick={() =>
-          start(async () => {
-            const lines = raw
-              .split(/\r?\n/)
-              .map((l) => l.trim())
-              .filter(Boolean);
-            if (lines.length < 2) {
-              setResult("Header + mindestens eine Zeile nötig.");
-              return;
-            }
-            const headers = lines[0].split(",").map((h) => h.trim());
-            const rows = lines.slice(1).map((line) => {
-              const cols = line.split(",").map((c) => c.trim());
-              const obj: Record<string, string> = {};
-              headers.forEach((h, i) => {
-                obj[h] = cols[i] ?? "";
-              });
-              return {
-                name: obj.name ?? "",
-                stadt: obj.stadt || null,
-                telefon: obj.telefon || null,
-                website: obj.website || null,
-                email: obj.email || null,
-                person_name: obj.person_name || null,
-              };
-            });
-            const res = await importCompanies(rows);
-            if (!res.ok) {
-              setResult(res.error);
-              return;
-            }
-            setResult(
-              `${res.created} angelegt` +
-                (res.errors.length
-                  ? ` · ${res.errors.length} Fehler: ${res.errors.slice(0, 3).join("; ")}`
-                  : ""),
-            );
-            router.refresh();
-          })
-        }
-      >
-        Import starten
-      </button>
-      {result ? <p className="muted">{result}</p> : null}
+      <div className="form-actions wrap mt-2">
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={pending}
+          onClick={() => runImport(raw)}
+        >
+          {pending ? "Import läuft…" : "Import starten"}
+        </button>
+        {onDone ? (
+          <button type="button" className="btn" onClick={onDone}>
+            Schließen
+          </button>
+        ) : null}
+      </div>
+      {result ? <p className="muted mt-2">{result}</p> : null}
     </section>
   );
 }

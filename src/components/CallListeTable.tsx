@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { Columns3, Download, GripVertical, Pencil, Plus } from "lucide-react";
+import {
+  Columns3,
+  Download,
+  GripVertical,
+  Pencil,
+  Plus,
+  Upload,
+} from "lucide-react";
 import {
   Table,
   TableBody,
@@ -230,6 +237,7 @@ export function CallListeTable({
   onToggleSelect,
   pathnameOverride,
   desk = "dialen",
+  onOpenImport,
 }: {
   rows: CallListeRow[];
   title: string;
@@ -250,6 +258,7 @@ export function CallListeTable({
   onToggleSelect?: (companyId: string) => void;
   pathnameOverride?: string;
   desk?: "dialen" | "termine" | "kunden";
+  onOpenImport?: () => void;
 }) {
   const [prefs, setPrefs] = useState<ColumnPrefs>(() =>
     defaultPrefs(customDefs, desk),
@@ -447,6 +456,19 @@ export function CallListeTable({
               Filter löschen
             </Button>
           ) : null}
+          {onOpenImport ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-rais-border"
+              onClick={onOpenImport}
+              title="Lead-Batch per CSV importieren"
+            >
+              <Upload className="h-3.5 w-3.5" />
+              Import
+            </Button>
+          ) : null}
           <a
             href={`/api/export?${new URLSearchParams({
               ...(desk === "kunden"
@@ -462,7 +484,7 @@ export function CallListeTable({
             title="Exportiert alle Treffer der aktuellen Filter, nicht nur diese Seite."
           >
             <Download className="h-3.5 w-3.5" />
-            CSV
+            Export
           </a>
           {showCreate ? (
             <Button

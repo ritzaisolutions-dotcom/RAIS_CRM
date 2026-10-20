@@ -1244,7 +1244,7 @@ export async function resolveInboundQuarantine(input: {
   return { ok: true as const };
 }
 
-export async function importCompanies(
+export async function importCompanies(input: {
   rows: Array<{
     name: string;
     stadt?: string | null;
@@ -1252,13 +1252,36 @@ export async function importCompanies(
     website?: string | null;
     email?: string | null;
     person_name?: string | null;
-  }>,
-): Promise<ActionResult<{ created: number; errors: string[] }>> {
+  }>;
+  /** Optional: add all created firms to this membership list. */
+  listId?: string | null;
+  /** Optional: create/use a list by name (batch label), e.g. „ImmoScout Ring3“. */
+  listName?: string | null;
+}): Promise<
+  ActionResult<{
+    created: number;
+    errors: string[];
+    companyIds: string[];
+    listId: string | null;
+  }>
+> {
+  const rows = input.rows;
   if (!rows.length) return { error: "Keine Zeilen zum Import." };
   if (rows.length > 200) return { error: "Maximal 200 Zeilen pro Import." };
 
+  let targetListId: string | null = null;
+  if (input.listId) {
+    const id = uuidSchema.safeParse(input.listId);
+    if (!id.success) return { error: validationError(id.error) };
+    targetListId = id.data;
+  } else if (input.listName?.trim()) {
+    const listRes = await upsertLeadList({ name: input.listName.trim() });
+    if (!listRes.ok) return { error: listRes.error };
+    targetListId = listRes.listId;
+  }
+
   const errors: string[] = [];
-  let created = 0;
+  const companyIds: string[] = [];
   for (const [index, row] of rows.entries()) {
     const parsed = importCompanyRowSchema.safeParse(row);
     if (!parsed.success) {
@@ -1285,10 +1308,32 @@ export async function importCompanies(
           : null,
     });
     if (res.error) errors.push(`Zeile ${index + 1}: ${res.error}`);
-    else created += 1;
+    else if (res.ok) companyIds.push(res.companyId);
   }
+
+  if (targetListId && companyIds.length) {
+    for (let i = 0; i < companyIds.length; i += 100) {
+      const chunk = companyIds.slice(i, i + 100);
+      const addRes = await addCompaniesToList({
+        listId: targetListId,
+        companyIds: chunk,
+      });
+      if (addRes.error) {
+        errors.push(`Liste: ${addRes.error}`);
+        break;
+      }
+    }
+  }
+
   revalidatePath("/liste");
-  return { ok: true as const, created, errors };
+  revalidatePath("/termine");
+  return {
+    ok: true as const,
+    created: companyIds.length,
+    errors,
+    companyIds,
+    listId: targetListId,
+  };
 }
 
 export async function gdprAnonymize(
