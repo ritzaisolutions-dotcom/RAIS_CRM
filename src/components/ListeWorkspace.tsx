@@ -7,7 +7,6 @@ import { CallListeTable } from "@/components/CallListeTable";
 import { LeadListsBar } from "@/components/LeadListsBar";
 import {
   BulkPipelineBar,
-  ImportCompaniesPanel,
   OpenTasksStrip,
   SavedViewsBar,
 } from "@/components/ListeExtras";
@@ -73,7 +72,6 @@ export function ListeWorkspace({
   const router = useRouter();
   const [selected, setSelected] = useState<string[]>([]);
   const [focusIdx, setFocusIdx] = useState(0);
-  const [importOpen, setImportOpen] = useState(false);
   const basePath =
     desk === "termine" ? "/termine" : desk === "kunden" ? "/kunden" : "/liste";
 
@@ -178,18 +176,9 @@ export function ListeWorkspace({
         onToggleSelect={toggleSelect}
         pathnameOverride={basePath}
         desk={desk}
-        onOpenImport={
-          desk === "dialen" ? () => setImportOpen(true) : undefined
-        }
+        leadLists={leadLists}
+        defaultListId={initialListId}
       />
-
-      {desk === "dialen" && importOpen ? (
-        <ImportCompaniesPanel
-          lists={leadLists}
-          defaultListId={initialListId}
-          onDone={() => setImportOpen(false)}
-        />
-      ) : null}
 
       <BulkPipelineBar
         selectedIds={selected}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addBusinessDays,
@@ -476,6 +476,11 @@ export function ImportCompaniesPanel({
   const [listName, setListName] = useState("");
   const [result, setResult] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
+  const panelRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    panelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, []);
 
   function runImport(csvText: string) {
     start(async () => {
@@ -511,7 +516,11 @@ export function ImportCompaniesPanel({
   }
 
   return (
-    <section className="dense-panel" id="csv-import">
+    <section
+      ref={panelRef}
+      className="dense-panel border border-rais-border bg-white p-4"
+      id="csv-import"
+    >
       <h2 className="section-h">CSV-Import (Lead-Batch)</h2>
       <p className="muted">
         Header: name/Firma, stadt, telefon/Telefon, website, email/E-Mail,

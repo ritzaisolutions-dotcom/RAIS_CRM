@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { ImportCompaniesPanel } from "@/components/ListeExtras";
 import {
   setListPipelineStatus,
   updateListFields,
@@ -31,6 +32,7 @@ import type {
   CrmSystem,
   CustomFieldDef,
   CustomFieldValue,
+  LeadList,
   ListeColumnId,
   ListeDueFilter,
   ListeSort,
@@ -237,7 +239,8 @@ export function CallListeTable({
   onToggleSelect,
   pathnameOverride,
   desk = "dialen",
-  onOpenImport,
+  leadLists = [],
+  defaultListId = "",
 }: {
   rows: CallListeRow[];
   title: string;
@@ -258,13 +261,15 @@ export function CallListeTable({
   onToggleSelect?: (companyId: string) => void;
   pathnameOverride?: string;
   desk?: "dialen" | "termine" | "kunden";
-  onOpenImport?: () => void;
+  leadLists?: LeadList[];
+  defaultListId?: string;
 }) {
   const [prefs, setPrefs] = useState<ColumnPrefs>(() =>
     defaultPrefs(customDefs, desk),
   );
   const [editMode, setEditMode] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [q, setQ] = useState(initialQuery);
   const [dragId, setDragId] = useState<ColumnKey | null>(null);
   const [navPending, startNav] = useTransition();
@@ -456,13 +461,15 @@ export function CallListeTable({
               Filter löschen
             </Button>
           ) : null}
-          {onOpenImport ? (
+          {desk === "dialen" ? (
             <Button
               type="button"
-              variant="outline"
+              variant={importOpen ? "default" : "outline"}
               size="sm"
               className="gap-1.5 border-rais-border"
-              onClick={onOpenImport}
+              onClick={() => setImportOpen((v) => !v)}
+              aria-expanded={importOpen}
+              aria-controls="csv-import"
               title="Lead-Batch per CSV importieren"
             >
               <Upload className="h-3.5 w-3.5" />
@@ -507,6 +514,14 @@ export function CallListeTable({
           </Button>
         </div>
       </div>
+
+      {importOpen && desk === "dialen" ? (
+        <ImportCompaniesPanel
+          lists={leadLists}
+          defaultListId={defaultListId}
+          onDone={() => setImportOpen(false)}
+        />
+      ) : null}
 
       {editMode ? (
         <div className="rounded-md border border-dashed border-rais-border bg-white/50 p-3">
