@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Activity,
   BarChart3,
   Building2,
   CalendarCheck,
@@ -57,6 +58,7 @@ export function EfferdShell({
     { href: "/liste", label: "Dialen", icon: PhoneCall },
     { href: "/termine", label: "Termine", icon: CalendarCheck },
     { href: "/kunden", label: "Kunden", icon: Users },
+    { href: "/kundensysteme", label: "Kundensysteme", icon: Activity },
   ];
   const toolNav: NavItem[] = [
     {

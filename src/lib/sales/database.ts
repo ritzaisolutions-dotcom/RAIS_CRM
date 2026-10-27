@@ -7,6 +7,7 @@ import type {
   CustomFieldValue,
   EmailTemplate,
   MitarbeiterKlasse,
+  MonitoredSystem,
   Opportunity,
   OppStage,
   OppVariante,
@@ -18,6 +19,9 @@ import type {
   SequenceEnrollment,
   SequenceKanal,
   SequenceStep,
+  SystemCheck,
+  SystemKind,
+  SystemStatusRow,
   TouchErgebnis,
   TouchKanal,
   Touchpoint,
@@ -429,6 +433,45 @@ export type Database = {
         },
         Record<string, never>
       >;
+      systems: TableDef<
+        MonitoredSystem,
+        {
+          code: string;
+          name: string;
+          company_id: string;
+          kind: SystemKind;
+          project_url?: string | null;
+          vercel_project_id?: string | null;
+          github_repo?: string | null;
+          n8n_workflow_ids?: string[];
+          supabase_ref?: string | null;
+          active?: boolean;
+        },
+        {
+          name?: string;
+          company_id?: string;
+          kind?: SystemKind;
+          project_url?: string | null;
+          vercel_project_id?: string | null;
+          github_repo?: string | null;
+          n8n_workflow_ids?: string[];
+          supabase_ref?: string | null;
+          active?: boolean;
+        }
+      >;
+      system_checks: TableDef<
+        SystemCheck,
+        {
+          system_code: string;
+          check_kind: string;
+          checked_at?: string;
+          result: SystemCheck["result"];
+          duration_ms?: number | null;
+          message?: string | null;
+          action?: string | null;
+        },
+        never
+      >;
     };
     Views: {
       v_call_liste: {
@@ -453,6 +496,10 @@ export type Database = {
       };
       v_open_tasks: {
         Row: SalesTask;
+        Relationships: [];
+      };
+      v_system_status: {
+        Row: SystemStatusRow;
         Relationships: [];
       };
     };
