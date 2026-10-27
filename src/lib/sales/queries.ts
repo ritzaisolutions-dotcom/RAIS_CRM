@@ -19,6 +19,9 @@ import type {
   Sequence,
   SequenceEnrollment,
   SequenceStep,
+  SystemCheck,
+  SystemStatus,
+  SystemStatusRow,
   TouchErgebnis,
   Touchpoint,
   WorkflowRule,
@@ -811,4 +814,63 @@ export async function searchGlobal(
     });
   }
   return hits;
+}
+
+const STATUS_SORT: Record<SystemStatus, number> = {
+  fehler: 0,
+  warnung: 1,
+  nicht_geprueft: 2,
+  ok: 3,
+};
+
+/** Aktive Kundensysteme, schlechtester Status zuerst. */
+export async function fetchSystemStatusList(): Promise<SystemStatusRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("v_system_status")
+    .select(
+      "code,name,company_id,company_name,kind,project_url,vercel_project_id,github_repo,n8n_workflow_ids,supabase_ref,active,created_at,last_checked_at,status,action,message",
+    );
+  if (error) throw error;
+  const rows = (data ?? []) as SystemStatusRow[];
+  return rows.sort((a, b) => {
+    const byStatus =
+      (STATUS_SORT[a.status] ?? 9) - (STATUS_SORT[b.status] ?? 9);
+    if (byStatus !== 0) return byStatus;
+    return a.code.localeCompare(b.code, "de");
+  });
+}
+
+export async function fetchSystemStatus(
+  code: string,
+): Promise<SystemStatusRow | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("v_system_status")
+    .select(
+      "code,name,company_id,company_name,kind,project_url,vercel_project_id,github_repo,n8n_workflow_ids,supabase_ref,active,created_at,last_checked_at,status,action,message",
+    )
+    .eq("code", code)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as SystemStatusRow | null) ?? null;
+}
+
+/** Prüfungen der letzten 7 Tage für ein System, neueste zuerst. */
+export async function fetchSystemChecks(
+  code: string,
+  days = 7,
+): Promise<SystemCheck[]> {
+  const supabase = await createClient();
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("system_checks")
+    .select(
+      "id,system_code,check_kind,checked_at,result,duration_ms,message,action",
+    )
+    .eq("system_code", code)
+    .gte("checked_at", since)
+    .order("checked_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as SystemCheck[];
 }

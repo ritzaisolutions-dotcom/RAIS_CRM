@@ -99,6 +99,75 @@ export type CustomFieldValue = {
   value_json: string[] | null;
 };
 
+/** Art eines überwachten Kundensystems (Monitor). */
+export type SystemKind =
+  | "Plattform"
+  | "Buchungs-App"
+  | "Kalender"
+  | "Postfach"
+  | "Automatisierung"
+  | "Datenbank";
+
+export type SystemCheckResult = "ok" | "warnung" | "fehler";
+
+/** Aggregierter Ampelstatus inkl. „noch nie geprüft“. */
+export type SystemStatus =
+  | "ok"
+  | "warnung"
+  | "fehler"
+  | "nicht_geprueft";
+
+export type MonitoredSystem = {
+  code: string;
+  name: string;
+  company_id: string;
+  kind: SystemKind;
+  project_url: string | null;
+  vercel_project_id: string | null;
+  github_repo: string | null;
+  n8n_workflow_ids: string[];
+  supabase_ref: string | null;
+  active: boolean;
+  created_at: string;
+};
+
+export type SystemCheck = {
+  id: number;
+  system_code: string;
+  check_kind: string;
+  checked_at: string;
+  result: SystemCheckResult;
+  duration_ms: number | null;
+  message: string | null;
+  action: string | null;
+};
+
+export type SystemStatusRow = {
+  code: string;
+  name: string;
+  company_id: string;
+  company_name: string;
+  kind: SystemKind;
+  project_url: string | null;
+  vercel_project_id: string | null;
+  github_repo: string | null;
+  n8n_workflow_ids: string[];
+  supabase_ref: string | null;
+  active: boolean;
+  created_at: string;
+  last_checked_at: string | null;
+  status: SystemStatus;
+  action: string | null;
+  message: string | null;
+};
+
+export const SYSTEM_STATUS_LABELS: Record<SystemStatus, string> = {
+  ok: "In Ordnung",
+  warnung: "Warnung",
+  fehler: "Fehler",
+  nicht_geprueft: "Nicht geprüft",
+};
+
 export type EmailTemplate = {
   id: string;
   name: string;

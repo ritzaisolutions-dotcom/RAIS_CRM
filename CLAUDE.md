@@ -19,6 +19,7 @@ Next.js App Router + TypeScript + Tailwind. Data lives in Supabase schema **`sal
 - `/liste` — Prospects (`v_call_liste`, serverseitig gefiltert/paginiert)
 - `/todos` — offene Follow-ups / E-Mail-Todos (`v_open_tasks`)
 - `/kunden` — Kunden (`v_kunden_liste`)
+- `/kundensysteme` — Kunden-Monitor (`v_system_status`: Status je System, Detail mit Prüfhistorie)
 - `/firma/[id]` — Detail (qualification edits, people CRUD, append-only touches, opportunities, KI-Brief)
 - `/einstellungen` — Vorlagen, freie Felder, Sequenzen, Workflows
 - `/analytics` — Akquise-Dashboard (`analytics_dashboard`)

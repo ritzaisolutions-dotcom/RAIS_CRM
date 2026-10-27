@@ -89,6 +89,20 @@ SELECT pg_temp.assert_true(
   'opportunities must not be deletable'
 );
 SELECT pg_temp.assert_true(
+  has_table_privilege('authenticated', 'sales.systems', 'SELECT')
+    AND NOT has_table_privilege('authenticated', 'sales.systems', 'INSERT')
+    AND NOT has_table_privilege('authenticated', 'sales.systems', 'UPDATE')
+    AND NOT has_table_privilege('authenticated', 'sales.systems', 'DELETE'),
+  'systems must be read-only for authenticated'
+);
+SELECT pg_temp.assert_true(
+  has_table_privilege('authenticated', 'sales.system_checks', 'SELECT')
+    AND NOT has_table_privilege('authenticated', 'sales.system_checks', 'INSERT')
+    AND NOT has_table_privilege('authenticated', 'sales.system_checks', 'UPDATE')
+    AND NOT has_table_privilege('authenticated', 'sales.system_checks', 'DELETE'),
+  'system_checks must be read-only for authenticated'
+);
+SELECT pg_temp.assert_true(
   NOT has_table_privilege('authenticated', 'sales.app_users', 'INSERT')
     AND NOT has_table_privilege('authenticated', 'sales.app_users', 'UPDATE')
     AND NOT has_table_privilege('authenticated', 'sales.app_users', 'DELETE'),
@@ -170,6 +184,12 @@ SET LOCAL ROLE authenticated;
 SELECT pg_temp.assert_true(
   (SELECT count(*) FROM sales.companies) = 0,
   'non-allowlisted users must see zero companies'
+);
+SELECT pg_temp.assert_true(
+  (SELECT count(*) FROM sales.systems) = 0
+    AND (SELECT count(*) FROM sales.system_checks) = 0
+    AND (SELECT count(*) FROM sales.v_system_status) = 0,
+  'non-allowlisted users must see zero monitor rows'
 );
 DO $$
 BEGIN
