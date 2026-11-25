@@ -3,249 +3,303 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
-  Activity,
-  BarChart3,
-  Building2,
-  CalendarCheck,
-  CheckSquare,
-  Headphones,
+  BellRing,
+  FileUp,
   LogOut,
-  PhoneCall,
+  Mail,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Search,
   Settings,
   Users,
 } from "lucide-react";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Kbd } from "@/components/ui/badge";
+import { TooltipProvider, Tooltip } from "@/components/ui/menu";
 import { signOut } from "@/lib/sales/actions";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-
-type Kpi = {
-  label: string;
-  value: string;
-  hint?: string;
-};
 
 type NavItem = {
   href: string;
   label: string;
-  icon: typeof PhoneCall;
+  icon: typeof Users;
   badge?: number;
-  title?: string;
-  secondary?: boolean;
+  /** Weitere Pfade, unter denen der Eintrag aktiv ist. */
+  match?: string[];
 };
 
+const COLLAPSE_KEY = "rais-sidebar-collapsed";
+
+/**
+ * App-Rahmen im Supabase-Stil: schmale Seitenleiste in voller Höhe, Inhalt
+ * ohne Rahmen-Deko. KPI-Karten, Banner und Aktivitäts-Spalte gibt es nicht
+ * mehr — die alten Props werden nur noch angenommen, damit Bestandsseiten
+ * weiter kompilieren.
+ */
 export function EfferdShell({
   children,
-  kpis = [],
-  activity = [],
-  focus = false,
-  degraded = false,
   todoBadge = 0,
+  bare = false,
+  degraded = false,
 }: {
   children: React.ReactNode;
-  kpis?: Kpi[];
+  /** @deprecated KPI-Karten entfallen im neuen Layout. */
+  kpis?: { label: string; value: string; hint?: string }[];
+  /** @deprecated Aktivitäts-Spalte entfällt im neuen Layout. */
   activity?: { title: string; when: string }[];
+  /** @deprecated */
   focus?: boolean;
-  /** Mindestens eine KPI-Query ist fehlgeschlagen — Zahlen sind unvollständig. */
   degraded?: boolean;
-  /** Offene Todos fällig heute oder überfällig. */
+  /** Fällige Wiedervorlagen (heute + überfällig). */
   todoBadge?: number;
+  /** Seite bringt eigene Kopfzeile und Abstände mit (neue Seiten). */
+  bare?: boolean;
 }) {
   const pathname = usePathname();
-  const primaryNav: NavItem[] = [
-    { href: "/liste", label: "Dialen", icon: PhoneCall },
-    { href: "/termine", label: "Termine", icon: CalendarCheck },
-    { href: "/kunden", label: "Kunden", icon: Users },
-    { href: "/kundensysteme", label: "Kundensysteme", icon: Activity },
-  ];
-  const toolNav: NavItem[] = [
-    {
-      href: "/liste/dialen",
-      label: "Power-Dialer",
-      icon: Headphones,
-      title: "Session: nacheinander anrufen (aus der Dialen-Filterung)",
-      secondary: true,
-    },
-    { href: "/todos", label: "Todos", icon: CheckSquare, badge: todoBadge },
-    { href: "/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/einstellungen", label: "Einstellungen", icon: Settings },
-  ];
+  const [collapsed, setCollapsed] = useState(false);
 
-  const showAside = !focus && activity.length > 0;
-
-  function navActive(item: NavItem) {
-    if (item.href === "/liste") {
-      return pathname === "/liste";
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
+    } catch {
+      /* ignore */
     }
-    if (item.href === "/liste/dialen") {
-      return pathname.startsWith("/liste/dialen");
-    }
-    return pathname === item.href || pathname.startsWith(`${item.href}/`);
-  }
+  }, []);
 
-  function renderNav(items: NavItem[]) {
-    return items.map((item) => {
-      const Icon = item.icon;
-      const active = navActive(item);
-      const badge = item.badge ?? 0;
-      return (
-        <Link
-          key={item.href}
-          href={item.href}
-          title={item.title}
-          className={cn(
-            "flex items-center gap-2 rounded-md px-3 py-2 text-sm text-rais-stone transition-colors hover:bg-white hover:text-rais-charcoal",
-            active &&
-              "bg-white text-rais-charcoal shadow-[inset_0_0_0_1px_var(--rais-border)]",
-            item.secondary && "text-xs",
-          )}
-        >
-          <Icon className="h-4 w-4" aria-hidden="true" />
-          <span className="flex-1">{item.label}</span>
-          {badge > 0 ? (
-            <span className="todo-badge">{badge > 99 ? "99+" : badge}</span>
-          ) : null}
-        </Link>
-      );
+  function toggleCollapsed() {
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem(COLLAPSE_KEY, c ? "0" : "1");
+      } catch {
+        /* ignore */
+      }
+      return !c;
     });
   }
 
+  const nav: NavItem[] = [
+    {
+      href: "/leads",
+      label: "Leads",
+      icon: Users,
+      match: ["/firma", "/liste", "/termine", "/kunden"],
+    },
+    {
+      href: "/wiedervorlagen",
+      label: "Wiedervorlagen",
+      icon: BellRing,
+      badge: todoBadge,
+      match: ["/todos"],
+    },
+    { href: "/import", label: "Import", icon: FileUp },
+    { href: "/vorlagen", label: "E-Mail-Vorlagen", icon: Mail },
+  ];
+
+  function isActive(item: NavItem) {
+    const paths = [item.href, ...(item.match ?? [])];
+    return paths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  }
+
+  function NavLink({ item }: { item: NavItem }) {
+    const Icon = item.icon;
+    const active = isActive(item);
+    const badge = item.badge ?? 0;
+    const link = (
+      <Link
+        href={item.href}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "group relative flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] font-medium transition-colors",
+          active
+            ? "bg-surface-2 text-fg"
+            : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+          collapsed && "justify-center px-0",
+        )}
+      >
+        <Icon
+          className={cn("size-4 shrink-0", active && "text-accent")}
+          aria-hidden="true"
+        />
+        {collapsed ? null : <span className="flex-1 truncate">{item.label}</span>}
+        {badge > 0 ? (
+          <span
+            className={cn(
+              "inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10.5px] font-semibold text-white",
+              collapsed && "absolute -right-1 -top-1",
+            )}
+          >
+            {badge > 99 ? "99+" : badge}
+          </span>
+        ) : null}
+      </Link>
+    );
+    return collapsed ? (
+      <Tooltip content={item.label} side="right">
+        {link}
+      </Tooltip>
+    ) : (
+      link
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-rais-cloud text-rais-charcoal">
-      <a href="#main-content" className="skip-link">
-        Zum Inhalt springen
-      </a>
-      <div className="mx-auto grid min-h-screen max-w-[1600px] grid-cols-1 lg:grid-cols-[220px_1fr]">
-        <aside className="border-b border-rais-border bg-rais-linen lg:border-b-0 lg:border-r">
-          <div className="px-4 py-4">
-            <Link href="/liste" className="block" aria-label="RAIS CRM">
+    <TooltipProvider>
+      <div className="flex h-dvh min-h-0 bg-bg text-fg">
+        <a href="#main-content" className="skip-link">
+          Zum Inhalt springen
+        </a>
+
+        <aside
+          className={cn(
+            "hidden shrink-0 flex-col border-r border-line bg-surface transition-[width] duration-150 md:flex",
+            collapsed ? "w-14" : "w-56",
+          )}
+        >
+          <div
+            className={cn(
+              "flex h-12 items-center gap-2 border-b border-line px-3",
+              collapsed && "justify-center px-0",
+            )}
+          >
+            <Link href="/leads" className="flex items-center gap-2" aria-label="RAIS CRM">
               <Image
-                src="/rais_logo_with_text.svg"
-                alt="RAIS — Ritz AI Solutions"
-                width={180}
-                height={48}
-                className="h-9 w-auto max-w-full"
+                src="/rais-icon.svg"
+                alt=""
+                width={22}
+                height={22}
+                className="size-[22px]"
                 priority
               />
+              {collapsed ? null : (
+                <span className="text-[13px] font-semibold tracking-tight">
+                  RAIS <span className="font-normal text-fg-muted">CRM</span>
+                </span>
+              )}
             </Link>
-            <div className="mt-1 text-xs text-rais-stone">CRM · Kaltakquise</div>
           </div>
-          <Separator />
-          <nav className="flex gap-1 p-3 lg:flex-col" aria-label="Hauptnavigation">
-            {renderNav(primaryNav)}
-            <Separator className="my-2 hidden lg:block" />
-            <p className="mb-1 hidden px-3 text-[10px] font-semibold uppercase tracking-wide text-rais-stone lg:block">
-              Werkzeuge
-            </p>
-            {renderNav(toolNav)}
-          </nav>
-          <div className="mt-auto hidden p-3 lg:block">
-            <form action={signOut}>
-              <Button
-                type="submit"
-                variant="outline"
-                className="w-full justify-start gap-2 border-rais-border bg-transparent"
-              >
-                <LogOut className="h-4 w-4" aria-hidden="true" />
-                Abmelden
-              </Button>
-            </form>
-          </div>
-        </aside>
 
-        <div className="flex min-w-0 flex-col">
-          <header className="flex items-center justify-between gap-3 border-b border-rais-border bg-rais-linen/90 px-4 py-3 backdrop-blur">
-            <div className="flex items-center gap-2 text-sm text-rais-stone">
-              <Building2 className="h-4 w-4 text-rais-orange" aria-hidden="true" />
-              {focus ? "Power-Dialer" : "Akquise-Arbeitsplatz"}
-            </div>
-            <form action={signOut} className="lg:hidden">
-              <Button type="submit" variant="outline" size="sm">
-                Abmelden
-              </Button>
-            </form>
-          </header>
+          <div className={cn("p-2", collapsed && "px-1.5")}>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("rais:open-search"))}
+              className={cn(
+                "flex h-8 w-full items-center gap-2 rounded-md border border-line bg-bg px-2 text-[13px] text-fg-subtle transition-colors hover:border-line-strong hover:text-fg-muted",
+                collapsed && "justify-center border-0 bg-transparent px-0",
+              )}
+              title="Suchen (Strg+K)"
+            >
+              <Search className="size-4 shrink-0" aria-hidden="true" />
+              {collapsed ? null : (
+                <>
+                  <span className="flex-1 text-left">Suchen…</span>
+                  <Kbd>Strg K</Kbd>
+                </>
+              )}
+            </button>
+          </div>
+
+          <nav
+            className={cn("flex flex-1 flex-col gap-0.5 px-2", collapsed && "px-1.5")}
+            aria-label="Hauptnavigation"
+          >
+            {nav.map((item) => (
+              <NavLink key={item.href} item={item} />
+            ))}
+          </nav>
 
           <div
             className={cn(
-              "grid gap-3 p-4",
-              showAside && "xl:grid-cols-[1fr_280px]",
+              "flex flex-col gap-0.5 border-t border-line p-2",
+              collapsed && "px-1.5",
             )}
           >
-            <div id="main-content" className="min-w-0 space-y-3" tabIndex={-1}>
-              {todoBadge > 0 ? (
-                <div
-                  role="status"
-                  className="rounded-md border border-rais-orange/40 bg-rais-orange/10 px-3 py-2 text-sm"
-                >
-                  <Link
-                    href="/todos"
-                    className="font-medium text-rais-orange hover:underline"
-                  >
-                    {todoBadge} Todo{todoBadge === 1 ? "" : "s"} fällig heute
-                    oder überfällig →
-                  </Link>
-                </div>
-              ) : null}
-              {degraded ? (
-                <div
-                  role="alert"
-                  className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800"
-                >
-                  Einige Kennzahlen konnten nicht geladen werden und sind als
-                  „—“ markiert. Die Liste unten ist davon nicht betroffen.
-                </div>
-              ) : null}
-              {!focus && kpis.length > 0 ? (
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  {kpis.map((kpi) => (
-                    <div
-                      key={kpi.label}
-                      className="dense-panel px-3 py-3 shadow-sm"
-                    >
-                      <div className="text-xs font-semibold uppercase tracking-wide text-rais-stone">
-                        {kpi.label}
-                      </div>
-                      <div className="mt-1 font-[family-name:var(--font-source-serif)] text-2xl font-semibold tabular-nums">
-                        {kpi.value}
-                      </div>
-                      {kpi.hint ? (
-                        <div className="mt-1 text-xs text-rais-sage">{kpi.hint}</div>
-                      ) : null}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-              {children}
-            </div>
-
-            {showAside ? (
-              <aside className="space-y-3" aria-label="Aktivität">
-                <div className="dense-panel p-3">
-                  <div className="text-sm font-semibold">Aktivität</div>
-                  <p className="mb-2 text-xs text-rais-stone">
-                    Letzte Touchpoints
-                  </p>
-                  <ul className="space-y-2">
-                    {activity.map((item, idx) => (
-                      <li
-                        key={`${item.title}-${idx}`}
-                        className="border-b border-rais-border/70 pb-2 last:border-0 last:pb-0"
-                      >
-                        <div className="text-sm">{item.title}</div>
-                        <div className="text-xs text-rais-stone">{item.when}</div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </aside>
-            ) : null}
+            <NavLink
+              item={{ href: "/einstellungen", label: "Einstellungen", icon: Settings }}
+            />
+            <ThemeToggle collapsed={collapsed} />
+            <form action={signOut}>
+              <button
+                type="submit"
+                title="Abmelden"
+                className={cn(
+                  "flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-[13px] text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg",
+                  collapsed && "justify-center px-0",
+                )}
+              >
+                <LogOut className="size-4 shrink-0" aria-hidden="true" />
+                {collapsed ? null : <span>Abmelden</span>}
+              </button>
+            </form>
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              title={collapsed ? "Seitenleiste ausklappen" : "Seitenleiste einklappen"}
+              className={cn(
+                "flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-[13px] text-fg-subtle transition-colors hover:bg-surface-2 hover:text-fg",
+                collapsed && "justify-center px-0",
+              )}
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="size-4" aria-hidden="true" />
+              ) : (
+                <>
+                  <PanelLeftClose className="size-4" aria-hidden="true" />
+                  <span>Einklappen</span>
+                </>
+              )}
+            </button>
           </div>
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* Mobile: kompakte Leiste statt Seitenleiste */}
+          <header className="flex h-12 shrink-0 items-center gap-1 overflow-x-auto border-b border-line bg-surface px-2 md:hidden">
+            <Image src="/rais-icon.svg" alt="" width={20} height={20} className="mr-1" />
+            {nav.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium",
+                    isActive(item) ? "bg-surface-2 text-fg" : "text-fg-muted",
+                  )}
+                >
+                  <Icon className="size-3.5" aria-hidden="true" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </header>
+
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className={cn(
+              "min-h-0 flex-1 overflow-y-auto outline-none",
+              !bare && "p-5",
+            )}
+          >
+            {degraded ? (
+              <div
+                role="alert"
+                className="mb-3 rounded-md bg-[var(--tone-red-bg)] px-3 py-2 text-[13px] text-[var(--tone-red-fg)]"
+              >
+                Einige Zahlen konnten nicht geladen werden.
+              </div>
+            ) : null}
+            {bare ? children : <div className="mx-auto max-w-6xl space-y-3">{children}</div>}
+          </main>
         </div>
+        <GlobalSearch />
       </div>
-      <GlobalSearch />
-    </div>
+    </TooltipProvider>
   );
 }
+
+/** Neuer Name — gleiche Komponente. */
+export const AppShell = EfferdShell;

@@ -62,9 +62,14 @@ function supabaseOrigins(): string[] {
   }
 }
 
+// `next dev` (React Refresh, Webpack-Eval-Sourcemaps) braucht `eval` — ohne
+// startet im Dev-Modus kein Client-JavaScript, und z. B. das Login-Formular
+// schickt nur noch ein natives GET. Produktion bleibt ohne `'unsafe-eval'`.
+const isDev = process.env.NODE_ENV === "development";
+
 const contentSecurityPolicy = [
   "default-src 'self'",
-  "script-src 'self' 'unsafe-inline'",
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",

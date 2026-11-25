@@ -1,74 +1,78 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CompanyDetail } from "@/components/CompanyDetail";
 import { EfferdShell } from "@/components/EfferdShell";
+import { LeadDetail } from "@/components/lead/LeadDetail";
+import type { ComposerTab } from "@/components/lead/Composer";
+import { countDueLeads } from "@/lib/sales/leadQueries";
+import { countContactAttempts } from "@/lib/sales/leadActions";
 import {
-  countOpenTasksDueToday,
   fetchCompany,
   fetchCompanyCustomValues,
-  fetchCompanyEnrollments,
   fetchCompanyTasks,
   fetchCustomFieldDefs,
   fetchEmailTemplates,
   fetchOpportunities,
   fetchPeople,
-  fetchSequences,
   fetchTouchpoints,
-  fetchWorkspaceStats,
 } from "@/lib/sales/queries";
+import { senderDisplayName } from "@/lib/sales/mail";
+import { asanaConfigured } from "@/lib/integrations/asana";
 
 export const dynamic = "force-dynamic";
 
-export default async function FirmaPage({
+export async function generateMetadata({
   params,
 }: {
   params: Promise<{ companyId: string }>;
+}): Promise<Metadata> {
+  const { companyId } = await params;
+  const company = await fetchCompany(companyId).catch(() => null);
+  return { title: company?.name ?? "Lead" };
+}
+
+const TABS: ComposerTab[] = ["note", "email", "call", "task"];
+
+export default async function FirmaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ companyId: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { companyId } = await params;
+  const { tab } = await searchParams;
   const [
     company,
-    stats,
     people,
     touchpoints,
     opportunities,
     tasks,
     templates,
-    sequences,
-    enrollments,
     customDefs,
     customValues,
-    todoBadge,
+    dueCount,
+    contactCount,
   ] = await Promise.all([
     fetchCompany(companyId),
-    fetchWorkspaceStats(),
     fetchPeople(companyId),
     fetchTouchpoints(companyId),
     fetchOpportunities(companyId),
     fetchCompanyTasks(companyId),
     fetchEmailTemplates(),
-    fetchSequences(),
-    fetchCompanyEnrollments(companyId),
     fetchCustomFieldDefs(true),
     fetchCompanyCustomValues(companyId),
-    countOpenTasksDueToday(),
+    countDueLeads(),
+    countContactAttempts(companyId),
   ]);
   if (!company) notFound();
 
-  const back = company.relationship === "Kunde" ? "/kunden" : "/liste";
+  // Wie `v_company_status`: jüngster nicht stornierter Touch mit Wiedervorlage.
+  const nextTouch =
+    touchpoints.rows.find((t) => !t.voided_at && t.naechster_touch)?.naechster_touch ?? null;
 
   return (
-    <EfferdShell
-      kpis={stats.kpis}
-      activity={stats.activity}
-      degraded={stats.degraded}
-      todoBadge={todoBadge}
-    >
-      <p className="muted mb-1">
-        <Link href={back} className="hover:text-rais-orange">
-          ← Zurück zur Liste
-        </Link>
-      </p>
-      <CompanyDetail
+    <EfferdShell bare todoBadge={dueCount}>
+      <LeadDetail
         company={company}
         people={people}
         touchpoints={touchpoints.rows}
@@ -76,10 +80,13 @@ export default async function FirmaPage({
         opportunities={opportunities}
         tasks={tasks}
         templates={templates}
-        sequences={sequences}
-        enrollments={enrollments}
         customDefs={customDefs}
         customValues={customValues}
+        senderName={senderDisplayName()}
+        nextTouch={nextTouch}
+        contactCount={contactCount}
+        asanaConfigured={asanaConfigured()}
+        initialTab={TABS.includes(tab as ComposerTab) ? (tab as ComposerTab) : "note"}
       />
     </EfferdShell>
   );

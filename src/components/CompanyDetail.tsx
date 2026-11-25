@@ -58,6 +58,7 @@ export function CompanyDetail({
   enrollments,
   customDefs = [],
   customValues = [],
+  senderName = null,
 }: {
   company: Company;
   people: Person[];
@@ -70,6 +71,7 @@ export function CompanyDetail({
   enrollments: SequenceEnrollment[];
   customDefs?: CustomFieldDef[];
   customValues?: CustomFieldValue[];
+  senderName?: string | null;
 }) {
   const router = useRouter();
   const [callPending, startCall] = useTransition();
@@ -173,6 +175,8 @@ export function CompanyDetail({
             enrollments={enrollments}
             defaultEmail={entscheider?.email ?? null}
             defaultPhone={dialNumber}
+            company={{ name: company.name, stadt: company.stadt, website: company.website }}
+            senderName={senderName}
           />
         </div>
       </div>
@@ -190,7 +194,7 @@ export function CompanyDetail({
   );
 }
 
-function LeadBriefPanel({ company }: { company: Company }) {
+export function LeadBriefPanel({ company }: { company: Company }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [summary, setSummary] = useState<string | null>(null);
@@ -641,7 +645,7 @@ function QualificationForm({ company }: { company: Company }) {
   );
 }
 
-function CustomFieldsSection({
+export function CustomFieldsSection({
   companyId,
   defs,
   values,
@@ -1316,7 +1320,7 @@ function OppStrip({ opportunities }: { opportunities: Opportunity[] }) {
   );
 }
 
-function OppSection({
+export function OppSection({
   companyId,
   opportunities,
 }: {

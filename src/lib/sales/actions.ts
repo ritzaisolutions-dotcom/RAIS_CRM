@@ -62,6 +62,8 @@ type ActionResult<T extends object = Record<never, never>> =
 
 function revalidateCompany(companyId: string) {
   revalidatePath(`/firma/${companyId}`);
+  revalidatePath("/leads");
+  revalidatePath("/wiedervorlagen");
   revalidatePath("/liste");
   revalidatePath("/termine");
   revalidatePath("/kunden");
@@ -1400,6 +1402,9 @@ export async function updateListFields(
     instagram_url?: string | null;
     facebook_url?: string | null;
     linkedin_url?: string | null;
+    xing_url?: string | null;
+    youtube_url?: string | null;
+    tiktok_url?: string | null;
     stadt?: string | null;
     mitarbeiterzahl?: MitarbeiterKlasse | null;
     inserate_aktiv?: number | null;
@@ -1418,6 +1423,9 @@ export async function updateListFields(
     instagram_url?: string | null;
     facebook_url?: string | null;
     linkedin_url?: string | null;
+    xing_url?: string | null;
+    youtube_url?: string | null;
+    tiktok_url?: string | null;
     stadt?: string | null;
     mitarbeiterzahl?: MitarbeiterKlasse | null;
     inserate_aktiv?: number | null;
@@ -1431,6 +1439,9 @@ export async function updateListFields(
   if ("instagram_url" in p) update.instagram_url = p.instagram_url ?? null;
   if ("facebook_url" in p) update.facebook_url = p.facebook_url ?? null;
   if ("linkedin_url" in p) update.linkedin_url = p.linkedin_url ?? null;
+  if ("xing_url" in p) update.xing_url = p.xing_url ?? null;
+  if ("youtube_url" in p) update.youtube_url = p.youtube_url ?? null;
+  if ("tiktok_url" in p) update.tiktok_url = p.tiktok_url ?? null;
   if ("stadt" in p) update.stadt = p.stadt ?? null;
   if ("mitarbeiterzahl" in p) update.mitarbeiterzahl = p.mitarbeiterzahl ?? null;
   if ("inserate_aktiv" in p) update.inserate_aktiv = p.inserate_aktiv ?? null;

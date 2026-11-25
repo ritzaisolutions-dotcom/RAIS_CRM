@@ -256,6 +256,51 @@ export type CallListeRow = {
   opp_stage: OppStage | null;
 };
 
+export const LEAD_QUELLEN = [
+  "IS24",
+  "Immowelt",
+  "IVD",
+  "LinkedIn",
+  "manuell",
+  "Inbound Website",
+] as const;
+export type LeadQuelle = (typeof LEAD_QUELLEN)[number];
+
+export const LEAD_QUELLE_LABELS: Record<LeadQuelle, string> = {
+  IS24: "ImmoScout24",
+  Immowelt: "Immowelt",
+  IVD: "IVD",
+  LinkedIn: "LinkedIn",
+  manuell: "Manuell",
+  "Inbound Website": "Website-Anfrage",
+};
+
+/** Zeile aus `sales.v_leads` — alle Leads über alle Beziehungen. */
+export type LeadRow = Omit<CallListeRow, "bundesland"> & {
+  person_id: string | null;
+  relationship: Relationship;
+  letzter_touch_am: string | null;
+  letzter_kanal: TouchKanal | null;
+  firma_telefon: string | null;
+  person_linkedin_url: string | null;
+  linkedin_company_url: string | null;
+  quelle: LeadQuelle | null;
+  quell_url: string | null;
+  xing_url: string | null;
+  youtube_url: string | null;
+  tiktok_url: string | null;
+  /** Echte Kontakte (Anruf, E-Mail, DM, SMS, Meeting), ohne stornierte. */
+  kontaktversuche: number;
+  created_at: string;
+};
+
+export type ImportLeadResult = {
+  index: number;
+  status: "created" | "duplicate" | "error";
+  company_id?: string;
+  message?: string;
+};
+
 /** Fälligkeits-Filter der Call-Liste — geteilt von Server-Query und Tabelle. */
 export type ListeDueFilter = "" | "today" | "overdue";
 
@@ -435,6 +480,13 @@ export type Company = {
   /** Freitext-Recherchenotizen zur Firma. */
   recherche: string | null;
   pipeline_status: PipelineStatus;
+  quelle: LeadQuelle | null;
+  quell_url: string | null;
+  /** Freitext: Wie tickt der Ansprechpartner, was ist ihm wichtig? */
+  persona: string | null;
+  xing_url: string | null;
+  youtube_url: string | null;
+  tiktok_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -590,7 +642,7 @@ export const PIPELINE_STATUS_PRIMARY: PipelineStatus[] = [
 ];
 
 export const PIPELINE_STATUS_LABELS: Record<PipelineStatus, string> = {
-  neu: "Offen",
+  neu: "Neu",
   kein_anschluss_1: "Nicht erreicht",
   kein_anschluss_2: "Nicht erreicht 2",
   kein_anschluss_3: "Nicht erreicht 3",

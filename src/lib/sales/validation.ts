@@ -392,6 +392,9 @@ export const listFieldsSchema = z.object({
       instagram_url: nullableUrl,
       facebook_url: nullableUrl,
       linkedin_url: nullableUrl,
+      xing_url: nullableUrl,
+      youtube_url: nullableUrl,
+      tiktok_url: nullableUrl,
       stadt: nullableText(120),
       mitarbeiterzahl: employeeClassSchema.nullable().optional(),
       inserate_aktiv: z

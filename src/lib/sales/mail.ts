@@ -9,6 +9,18 @@ export type SmtpConfig = {
   secure: boolean;
 };
 
+/**
+ * Name für den Platzhalter {{absender}}: MAIL_SENDER_NAME, sonst der
+ * Anzeigename aus SMTP_FROM ("Kevin Ritz <kevin@…>").
+ */
+export function senderDisplayName(): string | null {
+  const explicit = process.env.MAIL_SENDER_NAME?.trim();
+  if (explicit) return explicit;
+  const from = process.env.SMTP_FROM?.trim();
+  const match = from?.match(/^\s*"?([^"<]+?)"?\s*</);
+  return match ? match[1].trim() : null;
+}
+
 export function getSmtpConfig(): SmtpConfig | null {
   const host = process.env.SMTP_HOST?.trim();
   const user = process.env.SMTP_USER?.trim();
