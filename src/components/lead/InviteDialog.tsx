@@ -100,31 +100,47 @@ export function InviteDialog(props: Omit<InviteContext, "companyId"> & { company
 }
 
 /** Kalender-Icon in der Leads-Liste: lädt Kontakte erst beim Klick. */
-export function InviteFromList({ companyId, firma }: { companyId: string; firma: string }) {
+export function InviteFromList({
+  companyId,
+  firma,
+  variant = "icon",
+}: {
+  companyId: string;
+  firma: string;
+  /** icon: Zeilen-Aktion · button: beschrifteter Button (Auswahlleiste) */
+  variant?: "icon" | "button";
+}) {
   const [ctx, setCtx] = useState<InviteContext | null>(null);
   const [loading, start] = useTransition();
+  const openWizard = () =>
+    start(async () => {
+      const res = await fetchInviteContext(companyId);
+      if ("error" in res) {
+        alert(res.error);
+        return;
+      }
+      setCtx(res);
+    });
   return (
     <>
-      <Tooltip content="Termin einladen">
-        <button
-          type="button"
-          aria-label={`${firma}: Termin einladen`}
-          disabled={loading}
-          onClick={() =>
-            start(async () => {
-              const res = await fetchInviteContext(companyId);
-              if ("error" in res) {
-                alert(res.error);
-                return;
-              }
-              setCtx(res);
-            })
-          }
-          className="flex size-7 items-center justify-center rounded-md text-fg-muted hover:bg-surface-3 hover:text-fg"
-        >
-          {loading ? <Loader2 className="size-3.5 animate-spin" /> : <CalendarPlus className="size-3.5" />}
-        </button>
-      </Tooltip>
+      {variant === "button" ? (
+        <Button size="sm" disabled={loading} onClick={openWizard}>
+          {loading ? <Loader2 className="animate-spin" /> : <CalendarPlus />}
+          Termin einladen
+        </Button>
+      ) : (
+        <Tooltip content="Termin einladen">
+          <button
+            type="button"
+            aria-label={`${firma}: Termin einladen`}
+            disabled={loading}
+            onClick={openWizard}
+            className="flex size-7 items-center justify-center rounded-md text-fg-muted hover:bg-surface-3 hover:text-fg"
+          >
+            {loading ? <Loader2 className="size-3.5 animate-spin" /> : <CalendarPlus className="size-3.5" />}
+          </button>
+        </Tooltip>
+      )}
       {ctx ? <InviteWizard ctx={ctx} onClose={() => setCtx(null)} /> : null}
     </>
   );
