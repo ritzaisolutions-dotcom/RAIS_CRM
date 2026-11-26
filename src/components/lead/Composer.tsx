@@ -176,18 +176,34 @@ function NoteForm({ lead, people }: { lead: LeadCtx; people: Person[] }) {
 
 /* ------------------------------------------------------------------ */
 
-const CALL_OUTCOMES: {
+type Outcome = {
   key: string;
   label: string;
   ergebnis: TouchErgebnis;
   status?: PipelineStatus;
-}[] = [
+};
+
+const CALL_OUTCOMES: Outcome[] = [
   { key: "ne", label: "Nicht erreicht", ergebnis: "nicht_erreicht", status: "kein_anschluss_1" },
   { key: "rr", label: "Rückruf vereinbart", ergebnis: "erreicht_ohne_gespraech", status: "callback" },
   { key: "gg", label: "Gespräch geführt", ergebnis: "gespraech_ohne_termin" },
   { key: "tg", label: "Termin gebucht", ergebnis: "termin_gebucht", status: "set_appointment" },
   { key: "ki", label: "Kein Interesse", ergebnis: "disqualifiziert", status: "disqualified" },
 ];
+
+const DM_OUTCOMES: Outcome[] = [
+  { key: "dm_sent", label: "Nachricht gesendet", ergebnis: "kein_ergebnis" },
+  { key: "dm_reply", label: "Antwort erhalten", ergebnis: "erreicht_ohne_gespraech" },
+  { key: "gg", label: "Gespräch geführt", ergebnis: "gespraech_ohne_termin" },
+  { key: "tg", label: "Termin gebucht", ergebnis: "termin_gebucht", status: "set_appointment" },
+  { key: "ki", label: "Kein Interesse", ergebnis: "disqualifiziert", status: "disqualified" },
+];
+
+const CHANNELS = [
+  { key: "call", label: "Anruf", outcomes: CALL_OUTCOMES },
+  { key: "dm", label: "LinkedIn", outcomes: DM_OUTCOMES },
+] as const;
+type Channel = (typeof CHANNELS)[number]["key"];
 
 function CallForm({
   lead,
@@ -199,6 +215,8 @@ function CallForm({
   asanaConfigured: boolean;
 }) {
   const router = useRouter();
+  const [channel, setChannel] = useState<Channel>("call");
+  const outcomes = CHANNELS.find((c) => c.key === channel)!.outcomes;
   const [outcome, setOutcome] = useState(CALL_OUTCOMES[0].key);
   const [text, setText] = useState("");
   const [due, setDue] = useState(FOLLOW_UP_QUICK[1].due(businessToday()));
@@ -208,7 +226,8 @@ function CallForm({
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const chosen = CALL_OUTCOMES.find((o) => o.key === outcome)!;
+  const chosen = outcomes.find((o) => o.key === outcome) ?? outcomes[0];
+  const channelLabel = channel === "dm" ? "LinkedIn-Nachricht" : "Anruf";
   const [toAsana, setToAsana] = useState(true);
 
   return (
@@ -223,7 +242,7 @@ function CallForm({
             res = await setListPipelineStatus({
               companyId: lead.companyId,
               pipelineStatus: resolveStatusChoice(chosen.status, lead.status),
-              kanal: "call",
+              kanal: channel,
               naechsterTouch: due || null,
             });
             if (!res.error && text.trim()) {
@@ -232,7 +251,7 @@ function CallForm({
                 person_id: personId || null,
                 kanal: "note",
                 ergebnis: "kein_ergebnis",
-                notiz: `Anruf: ${text.trim()}`,
+                notiz: `${channelLabel}: ${text.trim()}`,
                 naechster_touch: null,
                 abbruchgrund: null,
               });
@@ -241,7 +260,7 @@ function CallForm({
             res = await insertTouchpoint({
               company_id: lead.companyId,
               person_id: personId || null,
-              kanal: "call",
+              kanal: channel,
               ergebnis: chosen.ergebnis,
               notiz: text.trim() || null,
               naechster_touch: due || null,
@@ -263,14 +282,36 @@ function CallForm({
             asanaNote = a.error ? ` Asana: ${a.error}` : " Aufgabe in Asana angelegt.";
           }
           setError(null);
-          setMsg(`Anruf protokolliert.${asanaNote}`);
+          setMsg(`${channelLabel} protokolliert.${asanaNote}`);
           setText("");
           router.refresh();
         });
       }}
     >
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-fg-muted">Kanal</span>
+        <div className="inline-flex rounded-md border border-line-strong p-0.5">
+          {CHANNELS.map((c) => (
+            <button
+              key={c.key}
+              type="button"
+              onClick={() => {
+                setChannel(c.key);
+                setOutcome(c.outcomes[0].key);
+                setMsg(null);
+              }}
+              className={cn(
+                "h-6 rounded px-2.5 text-[13px]",
+                channel === c.key ? "bg-surface-3 font-medium text-fg" : "text-fg-muted hover:text-fg",
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="flex flex-wrap gap-1.5">
-        {CALL_OUTCOMES.map((o) => (
+        {outcomes.map((o) => (
           <button
             key={o.key}
             type="button"
@@ -301,7 +342,7 @@ function CallForm({
           setText(e.target.value);
           setMsg(null);
         }}
-        placeholder="Was wurde besprochen? (optional)"
+        placeholder={channel === "dm" ? "Was hast du geschrieben / was kam zurück? (optional)" : "Was wurde besprochen? (optional)"}
         rows={2}
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -310,7 +351,7 @@ function CallForm({
           <DueChips value={due} onChange={setDue} />
         </div>
         <Button type="submit" size="sm" disabled={pending}>
-          Anruf speichern
+          {channel === "dm" ? "Nachricht speichern" : "Anruf speichern"}
         </Button>
       </div>
       {chosen.key === "tg" && asanaConfigured ? (
@@ -704,7 +745,7 @@ export function Composer({
         </TabsTrigger>
         <TabsTrigger value="call">
           <PhoneCall />
-          Anruf loggen
+          Kontakt loggen
         </TabsTrigger>
         <TabsTrigger value="task">
           <CheckSquare />

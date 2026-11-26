@@ -630,6 +630,7 @@ export type Database = {
           p_telefon?: string | null;
           p_linkedin_url?: string | null;
           p_ist_entscheider?: boolean;
+          p_kontext?: string | null;
         };
         Returns: string;
       };

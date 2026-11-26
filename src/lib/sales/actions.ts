@@ -255,11 +255,22 @@ export async function upsertPerson(input: {
   telefon: string | null;
   linkedin_url: string | null;
   ist_entscheider: boolean;
+  kontext?: string | null;
 }): Promise<ActionResult> {
   const parsed = personSchema.safeParse(input);
   if (!parsed.success) return { error: validationError(parsed.error) };
 
   const supabase = await createClient();
+  // Formulare ohne Kontext-Feld dürfen einen gespeicherten Kontext nicht löschen.
+  let kontext = parsed.data.kontext;
+  if (kontext === undefined && parsed.data.id) {
+    const { data: existing } = await supabase
+      .from("people")
+      .select("kontext")
+      .eq("id", parsed.data.id)
+      .maybeSingle();
+    kontext = (existing as { kontext: string | null } | null)?.kontext ?? null;
+  }
   const { error } = await supabase.rpc("upsert_person_atomic", {
     p_person_id: parsed.data.id ?? null,
     p_company_id: parsed.data.company_id,
@@ -269,6 +280,7 @@ export async function upsertPerson(input: {
     p_telefon: parsed.data.telefon || null,
     p_linkedin_url: parsed.data.linkedin_url || null,
     p_ist_entscheider: parsed.data.ist_entscheider,
+    p_kontext: kontext || null,
   });
   if (error) return { error: safeDatabaseError(error, "upsert-person") };
   revalidateCompany(parsed.data.company_id);

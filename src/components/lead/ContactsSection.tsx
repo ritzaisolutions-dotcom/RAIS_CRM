@@ -2,11 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Copy, Ellipsis, Mail, Phone, Plus, Star } from "lucide-react";
+import { Copy, Ellipsis, Mail, Pencil, Phone, Plus, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
-import { Field, Input } from "@/components/ui/input";
+import { Field, Input, Textarea } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +30,7 @@ type Draft = {
   telefon: string;
   linkedin_url: string;
   ist_entscheider: boolean;
+  kontext: string;
 };
 
 const EMPTY: Draft = {
@@ -39,6 +40,7 @@ const EMPTY: Draft = {
   telefon: "",
   linkedin_url: "",
   ist_entscheider: false,
+  kontext: "",
 };
 
 export function ContactsSection({
@@ -68,6 +70,7 @@ export function ContactsSection({
             telefon: p.telefon ?? "",
             linkedin_url: p.linkedin_url ?? "",
             ist_entscheider: p.ist_entscheider,
+            kontext: p.kontext ?? "",
           }
         : { ...EMPTY, ist_entscheider: people.length === 0 },
     );
@@ -85,6 +88,7 @@ export function ContactsSection({
         telefon: draft.telefon || null,
         linkedin_url: draft.linkedin_url || null,
         ist_entscheider: draft.ist_entscheider,
+        kontext: draft.kontext.trim() || null,
       });
       if (res.error) {
         setError(res.error);
@@ -131,9 +135,14 @@ export function ContactsSection({
           {people.map((p) => (
             <li key={p.id} className="rounded-md border border-line bg-surface px-3 py-2">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
+                <button
+                  type="button"
+                  onClick={() => open(p)}
+                  className="min-w-0 text-left"
+                  title="Kontakt bearbeiten"
+                >
                   <div className="flex items-center gap-1.5">
-                    <span className="truncate text-[13px] font-medium">{p.name}</span>
+                    <span className="truncate text-[13px] font-medium hover:underline">{p.name}</span>
                     {p.ist_entscheider ? (
                       <Tooltip content="Entscheider">
                         <Star className="size-3 shrink-0 fill-accent text-accent" />
@@ -141,7 +150,18 @@ export function ContactsSection({
                     ) : null}
                   </div>
                   {p.rolle ? <div className="truncate text-xs text-fg-subtle">{p.rolle}</div> : null}
-                </div>
+                </button>
+                <div className="flex shrink-0 items-center gap-0.5">
+                <Tooltip content="Bearbeiten">
+                  <button
+                    type="button"
+                    onClick={() => open(p)}
+                    className="rounded p-0.5 text-fg-subtle hover:bg-surface-2 hover:text-fg"
+                    aria-label={`${p.name} bearbeiten`}
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                </Tooltip>
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     className="rounded p-0.5 text-fg-subtle hover:bg-surface-2 hover:text-fg"
@@ -167,6 +187,7 @@ export function ContactsSection({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                </div>
               </div>
               <div className="mt-1.5 grid gap-1 text-[13px]">
                 {p.telefon ? (
@@ -216,6 +237,16 @@ export function ContactsSection({
                     <LinkedinIcon className="size-3.5 text-fg-subtle" />
                     <span className="truncate">LinkedIn-Profil</span>
                   </a>
+                ) : null}
+                {p.kontext ? (
+                  <button
+                    type="button"
+                    onClick={() => open(p)}
+                    title="Kontext bearbeiten"
+                    className="mt-0.5 line-clamp-3 whitespace-pre-wrap border-l-2 border-line-strong pl-2 text-left text-xs leading-relaxed text-fg-muted hover:text-fg"
+                  >
+                    {p.kontext}
+                  </button>
                 ) : null}
                 {!p.telefon && !p.email && !p.linkedin_url ? (
                   <button
@@ -283,6 +314,16 @@ export function ContactsSection({
                   value={draft.linkedin_url}
                   placeholder="linkedin.com/in/…"
                   onChange={(e) => setDraft({ ...draft, linkedin_url: e.target.value })}
+                />
+              </Field>
+              <Field label="Kontext" htmlFor="ct-kontext">
+                <Textarea
+                  id="ct-kontext"
+                  rows={3}
+                  maxLength={4000}
+                  value={draft.kontext}
+                  placeholder="z. B. Inhaber, 50+, skeptisch bei Technik, lieber Telefon als Mail"
+                  onChange={(e) => setDraft({ ...draft, kontext: e.target.value })}
                 />
               </Field>
               <label className="flex items-center gap-2 text-[13px]">

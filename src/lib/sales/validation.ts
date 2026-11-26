@@ -198,6 +198,7 @@ export const personSchema = z.object({
   telefon: nullablePhone,
   linkedin_url: nullableUrl,
   ist_entscheider: z.boolean(),
+  kontext: nullableText(4000).optional(),
 });
 
 export const touchpointSchema = z

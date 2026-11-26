@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { CalendarClock, ChevronDown, Globe, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,8 +45,10 @@ import {
   statusTone,
 } from "@/lib/sales/leads";
 import {
+  CRM_OPTIONS,
   LEAD_QUELLEN,
   LEAD_QUELLE_LABELS,
+  type CrmSystem,
   type LeadQuelle,
   type PipelineStatus,
 } from "@/lib/sales/types";
@@ -318,6 +320,132 @@ export function QuelleMenu({
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Maklersoftware (CRM des Leads)                                      */
+/* ------------------------------------------------------------------ */
+
+/** Markenzeichen der Maklersoftware. Logo-Dateien liegen unter /public/crm-logos. */
+const CRM_BRANDS: Record<CrmSystem, { mark: string; bg: string; fg: string; logo?: string }> = {
+  onOffice: { mark: "oO", bg: "#e30613", fg: "#fff", logo: "/crm-logos/onoffice.png" },
+  Propstack: { mark: "P", bg: "#1f2a44", fg: "#fff", logo: "/crm-logos/propstack.png" },
+  FlowFact: { mark: "FF", bg: "#0067b1", fg: "#fff", logo: "/crm-logos/flowfact.png" },
+  "FIO Webmakler": { mark: "FIO", bg: "#5b6770", fg: "#fff", logo: "/crm-logos/fio.png" },
+  "kein CRM": { mark: "–", bg: "var(--surface-3)", fg: "var(--fg-muted)" },
+  unbekannt: { mark: "?", bg: "var(--surface-3)", fg: "var(--fg-muted)" },
+};
+
+export function CrmLogo({ crm, className }: { crm: CrmSystem; className?: string }) {
+  const brand = CRM_BRANDS[crm];
+  // Logo erst zeigen, wenn die Datei wirklich lädt; sonst bleibt das Kürzel (kein kaputtes Bild-Icon).
+  const [loaded, setLoaded] = useState<string | null>(null);
+  useEffect(() => {
+    if (!brand.logo) return;
+    const img = new Image();
+    img.onload = () => setLoaded(brand.logo!);
+    img.src = brand.logo;
+  }, [brand.logo]);
+  if (brand.logo && loaded === brand.logo) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- winzige lokale Logos, kein Bild-Optimizer nötig
+      <img
+        src={brand.logo}
+        alt=""
+        className={cn("size-4 shrink-0 rounded-[3px] bg-white object-contain p-px ring-1 ring-line", className)}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex size-4 shrink-0 items-center justify-center rounded-[3px] text-[7.5px] font-bold leading-none tracking-tight",
+        className,
+      )}
+      style={{ background: brand.bg, color: brand.fg }}
+    >
+      {brand.mark}
+    </span>
+  );
+}
+
+export function CrmText({ crm }: { crm: CrmSystem | null }) {
+  if (!crm) return <span className="text-fg-subtle">—</span>;
+  return (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <CrmLogo crm={crm} />
+      <span className={cn("truncate", crm === "unbekannt" || crm === "kein CRM" ? "text-fg-muted" : "text-fg")}>
+        {crm}
+      </span>
+    </span>
+  );
+}
+
+export function CrmMenu({
+  companyId,
+  crm,
+  variant = "field",
+}: {
+  companyId: string;
+  crm: CrmSystem | null;
+  /** field: volle Breite mit Rahmen (Lead-Detail) · inline: kompakt in der Tabelle */
+  variant?: "field" | "inline";
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [optimistic, setOptimistic] = useState<CrmSystem | null>(crm);
+  const [error, setError] = useState<string | null>(null);
+  const current = pending ? optimistic : crm;
+
+  function choose(value: string) {
+    const next = (value || null) as CrmSystem | null;
+    if (next === current) return;
+    setOptimistic(next);
+    start(async () => {
+      const res = await updateListFields(companyId, { crm_system: next });
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      setError(null);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label="Maklersoftware wählen"
+          className={cn(
+            "flex items-center justify-between gap-2 text-[13px]",
+            variant === "field"
+              ? "h-8 w-full rounded-md border border-line-strong bg-surface px-2.5 hover:bg-surface-2"
+              : "h-7 max-w-[150px] rounded-md px-1.5 hover:bg-surface-3",
+            pending && "opacity-60",
+          )}
+        >
+          <CrmText crm={current} />
+          <ChevronDown className="size-3.5 shrink-0 text-fg-muted" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuLabel>Maklersoftware</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={current ?? ""} onValueChange={choose}>
+            {CRM_OPTIONS.map((c) => (
+              <DropdownMenuRadioItem key={c} value={c}>
+                <CrmText crm={c} />
+              </DropdownMenuRadioItem>
+            ))}
+            <DropdownMenuRadioItem value="">
+              <span className="text-fg-muted">Nicht gesetzt</span>
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {error ? <p className="mt-1 text-xs text-[var(--tone-red-fg)]">{error}</p> : null}
+    </div>
   );
 }
 

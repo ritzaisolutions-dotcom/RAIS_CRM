@@ -34,6 +34,7 @@ import { CreateLeadDialog } from "@/components/leads/CreateLeadDialog";
 import {
   FollowUpPicker,
   QuelleText,
+  CrmMenu,
   SocialIcons,
   StatusMenu,
 } from "@/components/leads/LeadBits";
@@ -329,7 +330,7 @@ export function LeadsWorkspace({
             }
           />
         ) : (
-          <table className="w-full min-w-[880px] border-collapse text-[13px]">
+          <table className="w-full min-w-[1320px] border-collapse text-[13px]">
             <thead>
               <tr className="text-left">
                 <th className="sticky top-0 z-10 w-10 border-b border-line bg-surface-2 py-0 pl-4 pr-1">
@@ -341,7 +342,7 @@ export function LeadsWorkspace({
                     }
                   />
                 </th>
-                {["Lead", "Status", "Wiedervorlage", "Kontakte · Kontaktweg", "Ansprechpartner", "Quelle", "Letzter Kontakt", "Links", ""].map(
+                {["Lead", "Status", "Wiedervorlage", "Kontakte · Kontaktweg", "Ansprechpartner", "Quelle", "CRM", "Letzter Kontakt", "Links", ""].map(
                   (h, i) => (
                     <th
                       key={i}
@@ -432,6 +433,9 @@ export function LeadsWorkspace({
                     </td>
                     <td className="px-3 py-1">
                       <QuelleText quelle={r.quelle} />
+                    </td>
+                    <td className="px-2 py-1">
+                      <CrmMenu companyId={r.company_id} crm={r.crm} variant="inline" />
                     </td>
                     {/* Echte Kontakte (Anruf/E-Mail/DM/…), keine Status- oder Notiz-Einträge.
                         Relative Zeit weicht zwischen Server und Browser ab → Hydration-Warnung unterdrücken. */}

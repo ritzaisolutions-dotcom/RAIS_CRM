@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/menu";
 import { Panel, PanelHeader, SectionLabel } from "@/components/ui/panel";
 import {
+  CrmMenu,
   KategorieMenu,
   QuelleMenu,
   SocialButtons,
@@ -44,10 +45,8 @@ import {
 import { relativeDueLabel } from "@/lib/sales/leads";
 import { placeCallHref } from "@/lib/sales/placeCall";
 import {
-  CRM_OPTIONS,
   MITARBEITER_OPTIONS,
   type Company,
-  type CrmSystem,
   type CustomFieldDef,
   type CustomFieldValue,
   type EmailTemplate,
@@ -250,6 +249,9 @@ export function LeadDetail({
             <FieldRow label="Quelle">
               <QuelleMenu companyId={company.id} quelle={company.quelle} />
             </FieldRow>
+            <FieldRow label="CRM">
+              <CrmMenu companyId={company.id} crm={company.crm_system} />
+            </FieldRow>
           </section>
 
           <section className="space-y-2">
@@ -293,13 +295,6 @@ export function LeadDetail({
               type="number"
               value={company.inserate_aktiv != null ? String(company.inserate_aktiv) : null}
               onSave={(v) => saveList({ inserate_aktiv: v ? Math.max(0, Math.floor(Number(v))) : null })}
-            />
-            <InlineField
-              label="Maklersoftware"
-              type="select"
-              value={company.crm_system}
-              options={CRM_OPTIONS.map((c) => ({ value: c, label: c }))}
-              onSave={(v) => saveList({ crm_system: (v as CrmSystem) || null })}
             />
             <InlineField
               label="Mitarbeiter"

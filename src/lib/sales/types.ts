@@ -515,6 +515,8 @@ export type Person = {
   telefon: string | null;
   linkedin_url: string | null;
   ist_entscheider: boolean;
+  /** Freitext: Haltung, Alter, was ihm wichtig ist … */
+  kontext: string | null;
   created_at: string;
 };
 
