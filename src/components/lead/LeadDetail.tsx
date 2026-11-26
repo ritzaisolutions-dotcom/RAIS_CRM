@@ -26,6 +26,7 @@ import { ContactsSection } from "@/components/lead/ContactsSection";
 import { FieldRow, InlineField } from "@/components/lead/InlineField";
 import { LeadSummary } from "@/components/lead/LeadSummary";
 import { AsanaTaskButton } from "@/components/lead/AsanaTaskButton";
+import { InviteDialog } from "@/components/lead/InviteDialog";
 import {
   CustomFieldsSection,
   LeadBriefPanel,
@@ -181,6 +182,15 @@ export function LeadDetail({
             <Mail />
             E-Mail
           </Button>
+          <InviteDialog
+            companyId={company.id}
+            companyName={company.name}
+            stadt={company.stadt}
+            website={company.website}
+            people={people}
+            senderName={senderName}
+            asanaConfigured={asanaConfigured}
+          />
           <AsanaTaskButton
             companyId={company.id}
             companyName={company.name}

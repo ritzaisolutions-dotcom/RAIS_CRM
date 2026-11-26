@@ -18,6 +18,8 @@ export const TEMPLATE_VARIABLES = [
     label: "Terminvorschläge",
     example: "• Donnerstag 27.11. 10:00 Uhr – https://crm…/termin/…",
   },
+  { key: "termin", label: "Termin (Einladung)", example: "Donnerstag, 03. Dezember um 10:00 Uhr" },
+  { key: "meetlink", label: "Google-Meet-Link", example: "https://meet.google.com/abc-defg-hij" },
 ] as const;
 
 export type TemplateVarKey = (typeof TEMPLATE_VARIABLES)[number]["key"];

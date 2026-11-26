@@ -147,6 +147,10 @@ export async function draftEmailWithAI(input: {
   currentBody?: string;
   withSlots?: boolean;
   senderName?: string | null;
+  /** Zusätzliche Pflicht-Platzhalter, z. B. für die Termin-Einladung. */
+  requiredPlaceholders?: ("termin" | "meetlink")[];
+  /** Zusätzlicher Kontext für den Auftrag (z. B. Termin, Dauer). */
+  extraContext?: string;
 }): Promise<Result<{ subject: string; body: string }>> {
   const parsed = z
     .object({
@@ -157,6 +161,8 @@ export async function draftEmailWithAI(input: {
       currentBody: z.string().max(10000).optional(),
       withSlots: z.boolean().optional(),
       senderName: z.string().max(120).nullable().optional(),
+      requiredPlaceholders: z.array(z.enum(["termin", "meetlink"])).max(2).optional(),
+      extraContext: z.string().max(1000).optional(),
     })
     .safeParse(input);
   if (!parsed.success) return { error: validationError(parsed.error) };
@@ -208,9 +214,15 @@ Regeln:
 - Beziehe dich, wo vorhanden, auf das letzte Gespräch oder die Notizen.
 - Anrede: „Hallo {{vorname|zusammen}},“ wenn ein Vorname wahrscheinlich ist, sonst „Guten Tag,“. Signatur: „Viele Grüße\\n{{absender}}“.
 - Erlaubte Platzhalter: {{vorname}}, {{nachname}}, {{name}}, {{firma}}, {{stadt}}, {{website}}, {{absender}}${parsed.data.withSlots ? ", {{terminvorschlaege}} (MUSS genau einmal als eigene Zeile vorkommen; dort stehen die Terminlinks)" : ""}. Keine anderen geschweiften Klammern.
+${(parsed.data.requiredPlaceholders ?? [])
+  .map(
+    (p) =>
+      `- {{${p}}} MUSS im Text vorkommen (${p === "termin" ? "Datum und Uhrzeit des Termins" : "Google-Meet-Link, als eigene Zeile"}).`,
+  )
+  .join("\n")}
 - Antworte ausschließlich als JSON: {"subject": "...", "body": "..."}`;
 
-  const user = `Kontext zum Lead:\n${context}${current}\n\nAuftrag: ${parsed.data.instruction || "Schreibe die passende nächste E-Mail für diesen Lead."}`;
+  const user = `Kontext zum Lead:\n${context}${parsed.data.extraContext ? `\n\n${parsed.data.extraContext}` : ""}${current}\n\nAuftrag: ${parsed.data.instruction || "Schreibe die passende nächste E-Mail für diesen Lead."}`;
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -244,6 +256,15 @@ Regeln:
     if (parsed.data.withSlots && !draftBody.includes("{{terminvorschlaege}}")) {
       draftBody = draftBody.replace(/(\n\s*Viele Grüße[\s\S]*)$/, "\n\n{{terminvorschlaege}}$1");
       if (!draftBody.includes("{{terminvorschlaege}}")) draftBody += "\n\n{{terminvorschlaege}}";
+    }
+    for (const p of parsed.data.requiredPlaceholders ?? []) {
+      const token = `{{${p}}}`;
+      if (draftBody.includes(token)) continue;
+      const i = draftBody.lastIndexOf("Viele Grüße");
+      draftBody =
+        i > 0
+          ? `${draftBody.slice(0, i).trimEnd()}\n\n${token}\n\n${draftBody.slice(i)}`
+          : `${draftBody}\n\n${token}`;
     }
     return { ok: true as const, subject: out.data.subject.trim(), body: draftBody };
   } catch {

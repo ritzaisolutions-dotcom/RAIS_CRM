@@ -27,6 +27,9 @@ export function AiDraftButton({
   withSlots,
   senderName,
   onDraft,
+  requiredPlaceholders,
+  extraContext,
+  quick,
 }: {
   companyId: string;
   personId: string | null;
@@ -35,6 +38,10 @@ export function AiDraftButton({
   withSlots: boolean;
   senderName: string | null;
   onDraft: (d: { subject: string; body: string }) => void;
+  requiredPlaceholders?: ("termin" | "meetlink")[];
+  extraContext?: string;
+  /** Eigene Schnell-Prompts statt der Standardliste. */
+  quick?: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [instruction, setInstruction] = useState("");
@@ -52,6 +59,8 @@ export function AiDraftButton({
         currentBody: body,
         withSlots,
         senderName,
+        requiredPlaceholders,
+        extraContext,
       });
       if (res.error) {
         setError(res.error);
@@ -98,7 +107,7 @@ export function AiDraftButton({
           />
           {!revising ? (
             <div className="flex flex-wrap gap-1">
-              {QUICK.map((q) => (
+              {(quick ?? QUICK).map((q) => (
                 <button
                   key={q}
                   type="button"
