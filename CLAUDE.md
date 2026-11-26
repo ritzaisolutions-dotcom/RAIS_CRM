@@ -12,18 +12,30 @@ npm run build
 
 ## Architecture
 
-Next.js App Router + TypeScript + Tailwind. Data lives in Supabase schema **`sales`**. Browser client uses anon key + user JWT (`db.schema: 'sales'`). RLS requires `sales.is_app_user()` — angemeldet **und** in `sales.app_users` freigeschaltet. Ein bloß angemeldeter Auth-Nutzer sieht nichts.
+Next.js App Router + TypeScript + Tailwind. Data lives in Supabase schema **`sales`**. Browser client uses anon key + user JWT (`db.schema: 'sales'`). RLS requires `sales.is_app_user()` — seit 2026-11-25 heißt das nur noch „angemeldet“ (Freigabeliste `sales.app_users` abgeschaltet, Tabelle bleibt für den Rückweg; siehe Migration `20261125130000_drop_app_user_allowlist.sql`). Jedes Konto im Supabase-Auth-Projekt sieht damit alle CRM-Daten.
 
 ### Surface
 
-- `/liste` — Prospects (`v_call_liste`, serverseitig gefiltert/paginiert)
-- `/todos` — offene Follow-ups / E-Mail-Todos (`v_open_tasks`)
-- `/kunden` — Kunden (`v_kunden_liste`)
-- `/firma/[id]` — Detail (qualification edits, people CRUD, append-only touches, opportunities, KI-Brief)
-- `/einstellungen` — Vorlagen, freie Felder, Sequenzen, Workflows
-- `/analytics` — Akquise-Dashboard (`analytics_dashboard`)
+In der Navigation (Close-Stil, `EfferdShell` = `AppShell`):
+
+- `/leads` — eine Lead-Liste mit Ansichten (`v_leads`; Logik in `src/lib/sales/leads.ts`, Queries in `leadQueries.ts`)
+- `/wiedervorlagen` — fällige Wiedervorlagen + offene Aufgaben
+- `/plan` — Wochenansicht: Google-Termine (Edge Function `calendar-invite`, action `events`, Meet-Button, Zuordnung zum Lead über Teilnehmer-E-Mail) + Wiedervorlagen + Aufgaben je Tag
+- `/import` — CSV-Assistent (Mapping, Bereinigung, `sales.import_leads`)
+- `/vorlagen` — E-Mail-Vorlagen mit Variablen (`src/lib/sales/templateVars.ts`)
+- `/firma/[id]` — Lead-Detail, drei Spalten (Steckbrief · Composer + Aktivität · Aufgaben/Recherche/Opportunity)
+- `/einstellungen` — freie Felder, Sequenzen, Workflows, Verbindungen
 - `/login` — Supabase Auth
 - `/kein-zugriff` — angemeldet, aber nicht freigeschaltet
+
+Nicht in der Navigation, Code bleibt: `/kundensysteme`, `/analytics`, `/liste/dialen`, `/buchung/*`.
+`/liste`, `/termine`, `/kunden`, `/todos` leiten auf die neuen Seiten um.
+
+### UI
+
+Tokens in `src/app/globals.css` (neutral, Hell/Dunkel über `.dark`, Akzent `--accent`).
+Bausteine in `src/components/ui/` (Button, Input/Field, Badge, Menu/Popover/Tooltip,
+Dialog, Tabs/Checkbox, Panel). Neue Seiten nutzen diese statt der alten `.btn`/`.field`-Klassen.
 
 ### Zeit
 

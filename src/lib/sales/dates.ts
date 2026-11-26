@@ -53,6 +53,12 @@ function businessMidnightUtc(y: number, m: number, d: number): Date {
   return new Date(Date.UTC(y, m - 1, d) - offset);
 }
 
+/** Mitternacht (Berlin) eines `YYYY-MM-DD` als UTC-Zeitpunkt. */
+export function businessDayStart(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return businessMidnightUtc(y, m, d);
+}
+
 /**
  * Halboffenes Intervall [from, to) für den gewählten Analytics-Zeitraum,
  * als UTC-ISO-Instants — Grenzen liegen auf Mitternacht Berliner Zeit.
@@ -192,4 +198,45 @@ export function dueFromFollowUpPreset(
       return _exhaustive;
     }
   }
+}
+
+/**
+ * Relative Zeitangabe auf Deutsch („vor 3 Stunden“).
+ * `staleAfterHours` steuert, ob der Aufrufer die Prüfung als veraltet markiert.
+ */
+export function formatCheckedAgo(
+  iso: string | null | undefined,
+  now: Date = new Date(),
+): { label: string; stale: boolean } {
+  if (!iso) {
+    return { label: "nie", stale: true };
+  }
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) {
+    return { label: "unbekannt", stale: true };
+  }
+  const diffMs = now.getTime() - then.getTime();
+  const stale = diffMs > 12 * 60 * 60 * 1000;
+  if (diffMs < 60_000) {
+    return { label: "gerade eben", stale: false };
+  }
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 60) {
+    return {
+      label: minutes === 1 ? "vor 1 Minute" : `vor ${minutes} Minuten`,
+      stale: false,
+    };
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) {
+    return {
+      label: hours === 1 ? "vor 1 Stunde" : `vor ${hours} Stunden`,
+      stale,
+    };
+  }
+  const days = Math.floor(hours / 24);
+  return {
+    label: days === 1 ? "vor 1 Tag" : `vor ${days} Tagen`,
+    stale,
+  };
 }

@@ -6,7 +6,11 @@ import type {
   CustomFieldDef,
   CustomFieldValue,
   EmailTemplate,
+  ImportLeadResult,
+  LeadQuelle,
+  LeadRow,
   MitarbeiterKlasse,
+  MonitoredSystem,
   Opportunity,
   OppStage,
   OppVariante,
@@ -18,6 +22,9 @@ import type {
   SequenceEnrollment,
   SequenceKanal,
   SequenceStep,
+  SystemCheck,
+  SystemKind,
+  SystemStatusRow,
   TouchErgebnis,
   TouchKanal,
   Touchpoint,
@@ -102,6 +109,13 @@ export type Database = {
           instagram_url?: string | null;
           facebook_url?: string | null;
           linkedin_url?: string | null;
+          xing_url?: string | null;
+          youtube_url?: string | null;
+          tiktok_url?: string | null;
+          persona?: string | null;
+          kategorie?: "lead" | "kontakt";
+          quelle?: LeadQuelle | null;
+          quell_url?: string | null;
           inserate_aktiv?: number | null;
           meta_ads?: boolean | null;
         }
@@ -257,6 +271,30 @@ export type Database = {
           subject?: string | null;
           body?: string | null;
         }
+      >;
+      booking_invites: TableDef<
+        {
+          id: string;
+          token: string;
+          company_id: string;
+          person_id: string | null;
+          event_slug: string;
+          slots: Json;
+          created_by: string | null;
+          created_at: string;
+          expires_at: string;
+          booked_at: string | null;
+          booked_starts_at: string | null;
+          booking_id: string | null;
+        },
+        {
+          company_id: string;
+          person_id?: string | null;
+          event_slug?: string;
+          slots: Json;
+          expires_at: string;
+        },
+        never
       >;
       email_templates: TableDef<
         EmailTemplate,
@@ -429,6 +467,45 @@ export type Database = {
         },
         Record<string, never>
       >;
+      systems: TableDef<
+        MonitoredSystem,
+        {
+          code: string;
+          name: string;
+          company_id: string;
+          kind: SystemKind;
+          project_url?: string | null;
+          vercel_project_id?: string | null;
+          github_repo?: string | null;
+          n8n_workflow_ids?: string[];
+          supabase_ref?: string | null;
+          active?: boolean;
+        },
+        {
+          name?: string;
+          company_id?: string;
+          kind?: SystemKind;
+          project_url?: string | null;
+          vercel_project_id?: string | null;
+          github_repo?: string | null;
+          n8n_workflow_ids?: string[];
+          supabase_ref?: string | null;
+          active?: boolean;
+        }
+      >;
+      system_checks: TableDef<
+        SystemCheck,
+        {
+          system_code: string;
+          check_kind: string;
+          checked_at?: string;
+          result: SystemCheck["result"];
+          duration_ms?: number | null;
+          message?: string | null;
+          action?: string | null;
+        },
+        never
+      >;
     };
     Views: {
       v_call_liste: {
@@ -451,8 +528,20 @@ export type Database = {
         Row: CallListeRow & { list_id: string };
         Relationships: [];
       };
+      v_leads: {
+        Row: LeadRow;
+        Relationships: [];
+      };
+      v_leads_by_list: {
+        Row: LeadRow & { list_id: string };
+        Relationships: [];
+      };
       v_open_tasks: {
         Row: SalesTask;
+        Relationships: [];
+      };
+      v_system_status: {
+        Row: SystemStatusRow;
         Relationships: [];
       };
     };
@@ -500,8 +589,20 @@ export type Database = {
           p_person_email?: string | null;
           p_person_telefon?: string | null;
           p_person_linkedin_url?: string | null;
+          p_quelle?: LeadQuelle | null;
+          p_quell_url?: string | null;
+          p_linkedin_url?: string | null;
         };
         Returns: string;
+      };
+      import_leads: {
+        Args: {
+          p_rows: Json;
+          p_skip_duplicates?: boolean;
+          p_list_id?: string | null;
+          p_default_quelle?: LeadQuelle;
+        };
+        Returns: ImportLeadResult[];
       };
       set_pipeline_status: {
         Args: {
@@ -529,6 +630,7 @@ export type Database = {
           p_telefon?: string | null;
           p_linkedin_url?: string | null;
           p_ist_entscheider?: boolean;
+          p_kontext?: string | null;
         };
         Returns: string;
       };

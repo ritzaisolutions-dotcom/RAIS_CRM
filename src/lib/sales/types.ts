@@ -38,6 +38,7 @@ export type PipelineStatus =
   | "kein_anschluss_4"
   | "kein_anschluss_5"
   | "callback"
+  | "later"
   | "disqualified"
   | "set_appointment"
   | "closed"
@@ -97,6 +98,75 @@ export type CustomFieldValue = {
   value_text: string | null;
   value_number: number | null;
   value_json: string[] | null;
+};
+
+/** Art eines überwachten Kundensystems (Monitor). */
+export type SystemKind =
+  | "Plattform"
+  | "Buchungs-App"
+  | "Kalender"
+  | "Postfach"
+  | "Automatisierung"
+  | "Datenbank";
+
+export type SystemCheckResult = "ok" | "warnung" | "fehler";
+
+/** Aggregierter Ampelstatus inkl. „noch nie geprüft“. */
+export type SystemStatus =
+  | "ok"
+  | "warnung"
+  | "fehler"
+  | "nicht_geprueft";
+
+export type MonitoredSystem = {
+  code: string;
+  name: string;
+  company_id: string;
+  kind: SystemKind;
+  project_url: string | null;
+  vercel_project_id: string | null;
+  github_repo: string | null;
+  n8n_workflow_ids: string[];
+  supabase_ref: string | null;
+  active: boolean;
+  created_at: string;
+};
+
+export type SystemCheck = {
+  id: number;
+  system_code: string;
+  check_kind: string;
+  checked_at: string;
+  result: SystemCheckResult;
+  duration_ms: number | null;
+  message: string | null;
+  action: string | null;
+};
+
+export type SystemStatusRow = {
+  code: string;
+  name: string;
+  company_id: string;
+  company_name: string;
+  kind: SystemKind;
+  project_url: string | null;
+  vercel_project_id: string | null;
+  github_repo: string | null;
+  n8n_workflow_ids: string[];
+  supabase_ref: string | null;
+  active: boolean;
+  created_at: string;
+  last_checked_at: string | null;
+  status: SystemStatus;
+  action: string | null;
+  message: string | null;
+};
+
+export const SYSTEM_STATUS_LABELS: Record<SystemStatus, string> = {
+  ok: "In Ordnung",
+  warnung: "Warnung",
+  fehler: "Fehler",
+  nicht_geprueft: "Nicht geprüft",
 };
 
 export type EmailTemplate = {
@@ -185,6 +255,59 @@ export type CallListeRow = {
   facebook_url: string | null;
   /** Open opportunity stage (offen / angebot_raus), if any. */
   opp_stage: OppStage | null;
+};
+
+/** Lead = Zielgruppe in Akquise, Kontakt = Netzwerk. „Kunde“ folgt aus relationship. */
+export type LeadKategorie = "lead" | "kontakt";
+
+export const LEAD_QUELLEN = [
+  "IS24",
+  "Immowelt",
+  "IVD",
+  "LinkedIn",
+  "manuell",
+  "Inbound Website",
+] as const;
+export type LeadQuelle = (typeof LEAD_QUELLEN)[number];
+
+export const LEAD_QUELLE_LABELS: Record<LeadQuelle, string> = {
+  IS24: "ImmoScout24",
+  Immowelt: "Immowelt",
+  IVD: "IVD",
+  LinkedIn: "LinkedIn",
+  manuell: "Manuell",
+  "Inbound Website": "Website-Anfrage",
+};
+
+/** Zeile aus `sales.v_leads` — alle Leads über alle Beziehungen. */
+export type LeadRow = Omit<CallListeRow, "bundesland"> & {
+  person_id: string | null;
+  relationship: Relationship;
+  letzter_touch_am: string | null;
+  letzter_kanal: TouchKanal | null;
+  firma_telefon: string | null;
+  person_linkedin_url: string | null;
+  linkedin_company_url: string | null;
+  quelle: LeadQuelle | null;
+  quell_url: string | null;
+  xing_url: string | null;
+  youtube_url: string | null;
+  tiktok_url: string | null;
+  /** Echte Kontakte (Anruf, E-Mail, DM, SMS, Meeting), ohne stornierte. */
+  kontaktversuche: number;
+  kategorie: LeadKategorie;
+  /** Kanal des letzten / vorletzten echten Kontakts (Kontaktweg). */
+  letzter_kontakt_kanal: TouchKanal | null;
+  letzter_kontakt_am: string | null;
+  vorheriger_kontakt_kanal: TouchKanal | null;
+  created_at: string;
+};
+
+export type ImportLeadResult = {
+  index: number;
+  status: "created" | "duplicate" | "error";
+  company_id?: string;
+  message?: string;
 };
 
 /** Fälligkeits-Filter der Call-Liste — geteilt von Server-Query und Tabelle. */
@@ -366,6 +489,14 @@ export type Company = {
   /** Freitext-Recherchenotizen zur Firma. */
   recherche: string | null;
   pipeline_status: PipelineStatus;
+  quelle: LeadQuelle | null;
+  quell_url: string | null;
+  /** Freitext: Wie tickt der Ansprechpartner, was ist ihm wichtig? */
+  persona: string | null;
+  kategorie: LeadKategorie;
+  xing_url: string | null;
+  youtube_url: string | null;
+  tiktok_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -384,6 +515,8 @@ export type Person = {
   telefon: string | null;
   linkedin_url: string | null;
   ist_entscheider: boolean;
+  /** Freitext: Haltung, Alter, was ihm wichtig ist … */
+  kontext: string | null;
   created_at: string;
 };
 
@@ -505,6 +638,7 @@ export const PIPELINE_STATUS_OPTIONS: PipelineStatus[] = [
   "kein_anschluss_4",
   "kein_anschluss_5",
   "callback",
+  "later",
   "disqualified",
   "set_appointment",
   "closed",
@@ -521,13 +655,14 @@ export const PIPELINE_STATUS_PRIMARY: PipelineStatus[] = [
 ];
 
 export const PIPELINE_STATUS_LABELS: Record<PipelineStatus, string> = {
-  neu: "Offen",
+  neu: "Neu",
   kein_anschluss_1: "Nicht erreicht",
   kein_anschluss_2: "Nicht erreicht 2",
   kein_anschluss_3: "Nicht erreicht 3",
   kein_anschluss_4: "Nicht erreicht 4",
   kein_anschluss_5: "Nicht erreicht 5",
   callback: "Rückruf",
+  later: "Später",
   disqualified: "Kein Interesse",
   set_appointment: "Termin gebucht",
   closed: "Closing",
@@ -622,6 +757,8 @@ export function pipelineTone(
       return "gelb";
     case "callback":
       return "orange";
+    case "later":
+      return "grau";
     case "disqualified":
       return "rot";
     case "neu":

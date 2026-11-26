@@ -20,8 +20,15 @@ export function GlobalSearch() {
       }
       if (e.key === "Escape") setOpen(false);
     }
+    function onOpen() {
+      setOpen(true);
+    }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("rais:open-search", onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("rais:open-search", onOpen);
+    };
   }, []);
 
   useEffect(() => {

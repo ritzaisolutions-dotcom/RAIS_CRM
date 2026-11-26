@@ -14,6 +14,13 @@ const NO_ACCESS_PATH = "/kein-zugriff";
 const PASSWORD_RESET_PATH = "/passwort-neu";
 
 /**
+ * Öffentliche Buchungsseite für Terminvorschläge (`/termin/<token>`): Leads
+ * öffnen sie ohne Konto. Die Seite liest und bucht nur über die Edge Function
+ * `booking-invite` mit dem Token aus dem Link, nie mit Nutzerrechten.
+ */
+const PUBLIC_BOOKING_PREFIX = "/termin/";
+
+/**
  * Überträgt die von Supabase rotierten Auth-Cookies auf eine andere Antwort.
  *
  * `supabaseResponse` ist das einzige Objekt, das die frisch erneuerten Tokens
@@ -29,6 +36,9 @@ function withAuthCookies(target: NextResponse, source: NextResponse) {
 }
 
 export async function updateSession(request: NextRequest) {
+  if (request.nextUrl.pathname.startsWith(PUBLIC_BOOKING_PREFIX)) {
+    return NextResponse.next({ request });
+  }
   let supabaseResponse = NextResponse.next({ request });
   const path = request.nextUrl.pathname;
   const isLogin = path === "/login";

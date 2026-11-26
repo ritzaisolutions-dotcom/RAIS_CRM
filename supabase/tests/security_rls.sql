@@ -89,6 +89,20 @@ SELECT pg_temp.assert_true(
   'opportunities must not be deletable'
 );
 SELECT pg_temp.assert_true(
+  has_table_privilege('authenticated', 'sales.systems', 'SELECT')
+    AND NOT has_table_privilege('authenticated', 'sales.systems', 'INSERT')
+    AND NOT has_table_privilege('authenticated', 'sales.systems', 'UPDATE')
+    AND NOT has_table_privilege('authenticated', 'sales.systems', 'DELETE'),
+  'systems must be read-only for authenticated'
+);
+SELECT pg_temp.assert_true(
+  has_table_privilege('authenticated', 'sales.system_checks', 'SELECT')
+    AND NOT has_table_privilege('authenticated', 'sales.system_checks', 'INSERT')
+    AND NOT has_table_privilege('authenticated', 'sales.system_checks', 'UPDATE')
+    AND NOT has_table_privilege('authenticated', 'sales.system_checks', 'DELETE'),
+  'system_checks must be read-only for authenticated'
+);
+SELECT pg_temp.assert_true(
   NOT has_table_privilege('authenticated', 'sales.app_users', 'INSERT')
     AND NOT has_table_privilege('authenticated', 'sales.app_users', 'UPDATE')
     AND NOT has_table_privilege('authenticated', 'sales.app_users', 'DELETE'),
@@ -159,7 +173,42 @@ END;
 $$;
 RESET ROLE;
 
--- A valid JWT that is not in app_users sees no rows and cannot call writes.
+-- Seit 2026-11-25 ist die Freigabeliste abgeschaltet
+-- (20261125130000_drop_app_user_allowlist.sql): jeder angemeldete Nutzer ist
+-- App-Nutzer. Was weiterhin gelten muss:
+
+-- (a) Rolle `authenticated` OHNE Nutzer-ID (kein `sub`) sieht nichts und darf
+--     nichts schreiben — RLS hängt an auth.uid(), nicht an der Rolle allein.
+SELECT set_config('request.jwt.claim.sub', '', true);
+SELECT set_config('request.jwt.claim.role', 'authenticated', true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.assert_true(
+  NOT sales.is_app_user(),
+  'authenticated role without a user id must not be an app user'
+);
+SELECT pg_temp.assert_true(
+  (SELECT count(*) FROM sales.companies) = 0,
+  'requests without a user id must see zero companies'
+);
+SELECT pg_temp.assert_true(
+  (SELECT count(*) FROM sales.systems) = 0
+    AND (SELECT count(*) FROM sales.system_checks) = 0
+    AND (SELECT count(*) FROM sales.v_system_status) = 0,
+  'requests without a user id must see zero monitor rows'
+);
+DO $$
+BEGIN
+  BEGIN
+    PERFORM sales.create_company(p_name => 'SECURITY-NO-UID');
+    RAISE EXCEPTION 'request without user id unexpectedly called create_company';
+  EXCEPTION
+    WHEN insufficient_privilege THEN NULL;
+  END;
+END;
+$$;
+RESET ROLE;
+
+-- (b) Ein angemeldeter Nutzer ohne Eintrag in app_users ist jetzt App-Nutzer.
 SELECT set_config(
   'request.jwt.claim.sub',
   current_setting('test.non_app_user'),
@@ -168,19 +217,9 @@ SELECT set_config(
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.assert_true(
-  (SELECT count(*) FROM sales.companies) = 0,
-  'non-allowlisted users must see zero companies'
+  sales.is_app_user(),
+  'signed-in users are app users since the allowlist was removed'
 );
-DO $$
-BEGIN
-  BEGIN
-    PERFORM sales.create_company(p_name => 'SECURITY-NON-APP');
-    RAISE EXCEPTION 'non-allowlisted user unexpectedly called create_company';
-  EXCEPTION
-    WHEN insufficient_privilege THEN NULL;
-  END;
-END;
-$$;
 RESET ROLE;
 
 -- Run mutation and transaction tests as an allowlisted user.

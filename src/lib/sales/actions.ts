@@ -62,6 +62,8 @@ type ActionResult<T extends object = Record<never, never>> =
 
 function revalidateCompany(companyId: string) {
   revalidatePath(`/firma/${companyId}`);
+  revalidatePath("/leads");
+  revalidatePath("/wiedervorlagen");
   revalidatePath("/liste");
   revalidatePath("/termine");
   revalidatePath("/kunden");
@@ -253,11 +255,22 @@ export async function upsertPerson(input: {
   telefon: string | null;
   linkedin_url: string | null;
   ist_entscheider: boolean;
+  kontext?: string | null;
 }): Promise<ActionResult> {
   const parsed = personSchema.safeParse(input);
   if (!parsed.success) return { error: validationError(parsed.error) };
 
   const supabase = await createClient();
+  // Formulare ohne Kontext-Feld dürfen einen gespeicherten Kontext nicht löschen.
+  let kontext = parsed.data.kontext;
+  if (kontext === undefined && parsed.data.id) {
+    const { data: existing } = await supabase
+      .from("people")
+      .select("kontext")
+      .eq("id", parsed.data.id)
+      .maybeSingle();
+    kontext = (existing as { kontext: string | null } | null)?.kontext ?? null;
+  }
   const { error } = await supabase.rpc("upsert_person_atomic", {
     p_person_id: parsed.data.id ?? null,
     p_company_id: parsed.data.company_id,
@@ -267,6 +280,7 @@ export async function upsertPerson(input: {
     p_telefon: parsed.data.telefon || null,
     p_linkedin_url: parsed.data.linkedin_url || null,
     p_ist_entscheider: parsed.data.ist_entscheider,
+    p_kontext: kontext || null,
   });
   if (error) return { error: safeDatabaseError(error, "upsert-person") };
   revalidateCompany(parsed.data.company_id);
@@ -1400,6 +1414,9 @@ export async function updateListFields(
     instagram_url?: string | null;
     facebook_url?: string | null;
     linkedin_url?: string | null;
+    xing_url?: string | null;
+    youtube_url?: string | null;
+    tiktok_url?: string | null;
     stadt?: string | null;
     mitarbeiterzahl?: MitarbeiterKlasse | null;
     inserate_aktiv?: number | null;
@@ -1418,6 +1435,9 @@ export async function updateListFields(
     instagram_url?: string | null;
     facebook_url?: string | null;
     linkedin_url?: string | null;
+    xing_url?: string | null;
+    youtube_url?: string | null;
+    tiktok_url?: string | null;
     stadt?: string | null;
     mitarbeiterzahl?: MitarbeiterKlasse | null;
     inserate_aktiv?: number | null;
@@ -1431,6 +1451,9 @@ export async function updateListFields(
   if ("instagram_url" in p) update.instagram_url = p.instagram_url ?? null;
   if ("facebook_url" in p) update.facebook_url = p.facebook_url ?? null;
   if ("linkedin_url" in p) update.linkedin_url = p.linkedin_url ?? null;
+  if ("xing_url" in p) update.xing_url = p.xing_url ?? null;
+  if ("youtube_url" in p) update.youtube_url = p.youtube_url ?? null;
+  if ("tiktok_url" in p) update.tiktok_url = p.tiktok_url ?? null;
   if ("stadt" in p) update.stadt = p.stadt ?? null;
   if ("mitarbeiterzahl" in p) update.mitarbeiterzahl = p.mitarbeiterzahl ?? null;
   if ("inserate_aktiv" in p) update.inserate_aktiv = p.inserate_aktiv ?? null;

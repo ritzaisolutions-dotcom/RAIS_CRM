@@ -81,6 +81,7 @@ export const pipelineStatusSchema = z.enum([
   "kein_anschluss_4",
   "kein_anschluss_5",
   "callback",
+  "later",
   "disqualified",
   "set_appointment",
   "closed",
@@ -197,6 +198,7 @@ export const personSchema = z.object({
   telefon: nullablePhone,
   linkedin_url: nullableUrl,
   ist_entscheider: z.boolean(),
+  kontext: nullableText(4000).optional(),
 });
 
 export const touchpointSchema = z
@@ -392,6 +394,9 @@ export const listFieldsSchema = z.object({
       instagram_url: nullableUrl,
       facebook_url: nullableUrl,
       linkedin_url: nullableUrl,
+      xing_url: nullableUrl,
+      youtube_url: nullableUrl,
+      tiktok_url: nullableUrl,
       stadt: nullableText(120),
       mitarbeiterzahl: employeeClassSchema.nullable().optional(),
       inserate_aktiv: z

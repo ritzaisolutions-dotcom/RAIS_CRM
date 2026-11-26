@@ -1,39 +1,120 @@
 @import "tailwindcss";
 
-:root {
-  --rais-orange: #ec6a37;
-  --rais-orange-hover: #f37a48;
-  --rais-cloud: #f5f2ec;
-  --rais-linen: #fbf8f3;
-  --rais-sage: #789464;
-  --rais-green: #004225;
-  --rais-charcoal: #2f2a24;
-  --rais-stone: #7b746b;
-  --rais-border: #d9d1c7;
+@custom-variant dark (&:where(.dark, .dark *));
 
-  --background: var(--rais-cloud);
-  --foreground: var(--rais-charcoal);
-  --card: var(--rais-linen);
-  --card-foreground: var(--rais-charcoal);
-  --popover: var(--rais-linen);
-  --popover-foreground: var(--rais-charcoal);
-  --primary: var(--rais-orange);
+/*
+ * Design-Tokens — Supabase-Struktur, RAIS-Akzent.
+ * Neutrale Graustufen tragen die Oberfläche, Orange markiert nur primäre
+ * Aktionen und aktive Zustände. Hell/Dunkel über die Klasse `.dark` auf <html>.
+ */
+:root {
+  --bg: #f7f7f7;
+  --surface: #ffffff;
+  --surface-2: #f3f3f3;
+  --surface-3: #ebebeb;
+  --line: #e5e5e5;
+  --line-strong: #d4d4d4;
+  --fg: #1c1c1c;
+  --fg-muted: #6b6b6b;
+  --fg-subtle: #959595;
+  --accent: #ec6a37;
+  --accent-hover: #f37a48;
+  --accent-soft: #fdeee7;
+  --accent-fg: #b4481f;
+  --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.04);
+
+  --tone-gray-bg: #f0f0f0;
+  --tone-gray-fg: #5c5c5c;
+  --tone-orange-bg: #fdeee7;
+  --tone-orange-fg: #b4481f;
+  --tone-yellow-bg: #fbf3d9;
+  --tone-yellow-fg: #7a5d0c;
+  --tone-green-bg: #e3f3e7;
+  --tone-green-fg: #1d6b3a;
+  --tone-red-bg: #fbe5e2;
+  --tone-red-fg: #a3291c;
+  --tone-blue-bg: #e5effc;
+  --tone-blue-fg: #1f5aa6;
+  --tone-violet-bg: #efeafc;
+  --tone-violet-fg: #5b3fb0;
+
+  /* Alte Namen → neue Tokens, damit Bestandskomponenten mitziehen. */
+  --rais-orange: var(--accent);
+  --rais-orange-hover: var(--accent-hover);
+  --rais-cloud: var(--bg);
+  --rais-linen: var(--surface);
+  --rais-sage: var(--tone-green-fg);
+  --rais-green: var(--tone-green-fg);
+  --rais-charcoal: var(--fg);
+  --rais-stone: var(--fg-muted);
+  --rais-border: var(--line);
+
+  --background: var(--bg);
+  --foreground: var(--fg);
+  --card: var(--surface);
+  --card-foreground: var(--fg);
+  --popover: var(--surface);
+  --popover-foreground: var(--fg);
+  --primary: var(--accent);
   --primary-foreground: #ffffff;
-  --secondary: #efece6;
-  --secondary-foreground: var(--rais-charcoal);
-  --muted: #efece6;
-  --muted-foreground: var(--rais-stone);
-  --accent: #efece6;
-  --accent-foreground: var(--rais-charcoal);
-  --destructive: #8b2e24;
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--fg);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--fg-muted);
+  --destructive: var(--tone-red-fg);
   --destructive-foreground: #ffffff;
-  --border: var(--rais-border);
-  --input: var(--rais-border);
-  --ring: var(--rais-orange);
-  --radius: 0.45rem;
+  --border: var(--line);
+  --input: var(--line-strong);
+  --ring: var(--accent);
+  --radius: 6px;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #121212;
+  --surface: #1b1b1b;
+  --surface-2: #232323;
+  --surface-3: #2c2c2c;
+  --line: #2e2e2e;
+  --line-strong: #3d3d3d;
+  --fg: #ededed;
+  --fg-muted: #a3a3a3;
+  --fg-subtle: #737373;
+  --accent-soft: rgba(236, 106, 55, 0.14);
+  --accent-fg: #f59a73;
+  --shadow-pop: 0 8px 28px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+
+  --tone-gray-bg: rgba(255, 255, 255, 0.08);
+  --tone-gray-fg: #bdbdbd;
+  --tone-orange-bg: rgba(236, 106, 55, 0.16);
+  --tone-orange-fg: #f59a73;
+  --tone-yellow-bg: rgba(234, 179, 8, 0.15);
+  --tone-yellow-fg: #e8c35a;
+  --tone-green-bg: rgba(62, 207, 142, 0.14);
+  --tone-green-fg: #5fd39a;
+  --tone-red-bg: rgba(239, 68, 68, 0.15);
+  --tone-red-fg: #f08a80;
+  --tone-blue-bg: rgba(59, 130, 246, 0.16);
+  --tone-blue-fg: #7fb0f2;
+  --tone-violet-bg: rgba(139, 92, 246, 0.16);
+  --tone-violet-fg: #b39cf5;
+  color-scheme: dark;
 }
 
 @theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -46,8 +127,6 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-border: var(--border);
   --color-input: var(--input);
@@ -62,15 +141,18 @@
   --color-rais-stone: var(--rais-stone);
   --color-rais-border: var(--rais-border);
   --font-sans: var(--font-manrope);
-  --font-display: var(--font-source-serif);
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
+  --font-display: var(--font-manrope);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
 }
 
-* {
-  box-sizing: border-box;
-  border-color: var(--border);
+/* Im Base-Layer, damit Tailwind-Klassen wie `border-accent` gewinnen. */
+@layer base {
+  * {
+    box-sizing: border-box;
+    border-color: var(--border);
+  }
 }
 
 html,
@@ -80,31 +162,13 @@ body {
 
 body {
   margin: 0;
-  background: var(--rais-cloud);
-  color: var(--rais-charcoal);
+  background: var(--bg);
+  color: var(--fg);
   font-family: var(--font-manrope), "Segoe UI", sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
 }
 
-.skip-link {
-  position: absolute;
-  left: 0.75rem;
-  top: 0.75rem;
-  z-index: 100;
-  transform: translateY(-120%);
-  border-radius: var(--radius);
-  background: var(--rais-charcoal);
-  color: #fff;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.skip-link:focus {
-  transform: translateY(0);
-  outline: 2px solid var(--rais-orange);
-  outline-offset: 2px;
-}
 
 a {
   color: inherit;
@@ -122,52 +186,53 @@ textarea {
   display: inline-flex;
   align-items: center;
   padding: 0.12rem 0.4rem;
-  border-radius: 0.3rem;
+  border-radius: 4px;
   font-size: 0.72rem;
   font-weight: 600;
-  border: 1px solid var(--rais-border);
+  border: 0;
+  white-space: nowrap;
 }
 
 .badge-tone[data-tone="grau"] {
-  background: #efece6;
-  color: var(--rais-stone);
+  background: var(--tone-gray-bg);
+  color: var(--tone-gray-fg);
 }
 .badge-tone[data-tone="orange"] {
-  background: #fde8df;
-  color: #b4481f;
+  background: var(--tone-orange-bg);
+  color: var(--tone-orange-fg);
 }
 .badge-tone[data-tone="gelb"] {
-  background: #f7efd2;
-  color: #7a6418;
+  background: var(--tone-yellow-bg);
+  color: var(--tone-yellow-fg);
 }
 .badge-tone[data-tone="gruen"] {
-  background: #e4efe3;
-  color: var(--rais-green);
+  background: var(--tone-green-bg);
+  color: var(--tone-green-fg);
 }
 .badge-tone[data-tone="rot"] {
-  background: #f6e2df;
-  color: #8b2e24;
+  background: var(--tone-red-bg);
+  color: var(--tone-red-fg);
 }
 
 .pipeline-select[data-tone="grau"] {
-  background: #efece6;
-  color: var(--rais-stone);
+  background: var(--tone-gray-bg);
+  color: var(--tone-gray-fg);
 }
 .pipeline-select[data-tone="orange"] {
-  background: #fde8df;
-  color: #b4481f;
+  background: var(--tone-orange-bg);
+  color: var(--tone-orange-fg);
 }
 .pipeline-select[data-tone="gelb"] {
-  background: #f7efd2;
-  color: #7a6418;
+  background: var(--tone-yellow-bg);
+  color: var(--tone-yellow-fg);
 }
 .pipeline-select[data-tone="gruen"] {
-  background: #e4efe3;
-  color: var(--rais-green);
+  background: var(--tone-green-bg);
+  color: var(--tone-green-fg);
 }
 .pipeline-select[data-tone="rot"] {
-  background: #f6e2df;
-  color: #8b2e24;
+  background: var(--tone-red-bg);
+  color: var(--tone-red-fg);
 }
 
 .dense-panel {
@@ -251,7 +316,7 @@ textarea {
   overflow-x: auto;
   border: 1px solid var(--rais-border);
   border-radius: 0.5rem;
-  background: #fff;
+  background: var(--surface-2);
 }
 
 table.data {
@@ -316,9 +381,9 @@ table.data td.empty {
   border-radius: 0.35rem;
   background: linear-gradient(
     90deg,
-    #efece6 0%,
-    #f7f3ec 45%,
-    #efece6 100%
+    var(--surface-2) 0%,
+    var(--surface-3) 45%,
+    var(--surface-2) 100%
   );
   background-size: 200% 100%;
   animation: rais-shimmer 1.2s ease-in-out infinite;
@@ -367,8 +432,8 @@ table.data td.empty {
 .field input,
 .field select,
 .field textarea {
-  border: 1px solid var(--rais-border);
-  background: white;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
   border-radius: 0.35rem;
   padding: 0.4rem 0.55rem;
   color: var(--rais-charcoal);
@@ -403,7 +468,7 @@ table.data td.empty {
 }
 
 .error {
-  color: #8b2e24;
+  color: var(--tone-red-fg);
   font-size: 0.875rem;
 }
 
@@ -415,14 +480,22 @@ table.data td.empty {
   border: 1px solid var(--rais-border);
   background: var(--rais-linen);
   color: var(--rais-charcoal);
-  border-radius: 0.35rem;
-  padding: 0.4rem 0.7rem;
+  border-radius: var(--radius);
+  height: 2rem;
+  padding: 0 0.7rem;
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .btn:hover {
-  background: white;
+  background: var(--surface-2);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .btn-primary {
@@ -437,9 +510,9 @@ table.data td.empty {
 }
 
 .btn-danger {
-  background: #f6e2df;
-  border-color: #e3b6ae;
-  color: #8b2e24;
+  background: var(--tone-red-bg);
+  border-color: transparent;
+  color: var(--tone-red-fg);
 }
 
 .btn-ghost {
@@ -452,7 +525,6 @@ table.data td.empty {
   place-items: center;
   padding: 1.5rem;
   background:
-    radial-gradient(900px 500px at 10% -10%, #fff8ef 0%, transparent 55%),
     var(--rais-cloud);
 }
 
@@ -465,7 +537,7 @@ table.data td.empty {
 }
 
 .login-panel h1 {
-  font-family: var(--font-source-serif), Georgia, serif;
+  font-weight: 600;
   margin: 0 0 0.35rem;
 }
 
@@ -492,7 +564,7 @@ table.data td.empty {
   padding: 0.55rem 0.65rem;
   border: 1px solid var(--rais-border);
   border-radius: var(--radius);
-  background: white;
+  background: var(--surface);
 }
 
 .liste-workspace-grid {
@@ -542,7 +614,7 @@ table.data td.empty {
   background: var(--rais-linen);
   border: 1px solid var(--rais-border);
   border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(28, 25, 23, 0.12);
+  box-shadow: var(--shadow-pop);
 }
 
 .context-menu-title {
@@ -575,7 +647,7 @@ table.data td.empty {
 }
 
 .context-menu button:hover:not(:disabled) {
-  background: #fff;
+  background: var(--surface-2);
 }
 
 .context-menu button:disabled {
@@ -586,7 +658,7 @@ table.data td.empty {
 .context-menu-error {
   margin: 0.25rem 0.5rem 0.35rem;
   font-size: 0.75rem;
-  color: #8b2e24;
+  color: var(--tone-red-fg);
 }
 
 .modal-backdrop {
@@ -596,7 +668,7 @@ table.data td.empty {
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgba(28, 25, 23, 0.35);
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .modal-panel {
@@ -655,11 +727,29 @@ table.data td.empty {
   align-items: flex-start;
   justify-content: center;
   padding: 12vh 1rem 1rem;
-  background: rgba(28, 25, 23, 0.35);
+  background: rgba(0, 0, 0, 0.45);
 }
 
 .global-search-panel {
   width: min(32rem, 100%);
   max-height: 70vh;
   overflow: auto;
+}
+
+.field input:focus-visible,
+.field select:focus-visible,
+.field textarea:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+::selection {
+  background: var(--accent-soft);
+}
+
+/* Schmale, ruhige Scrollbars wie im Supabase-Dashboard. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }

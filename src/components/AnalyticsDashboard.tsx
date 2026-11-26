@@ -415,7 +415,7 @@ export function AnalyticsDashboard({
             icon={CalendarClock}
           />
           <ActionCard
-            href="/liste"
+            href="/leads"
             label="Heute kontaktiert"
             value={data.actions.contacted_today}
             hint="Firmen erreicht oder versucht"
@@ -565,7 +565,7 @@ export function AnalyticsDashboard({
               </p>
             </div>
             <Link
-              href="/liste"
+              href="/leads"
               className="text-xs font-medium text-rais-orange hover:text-rais-orange-hover"
             >
               Liste öffnen →

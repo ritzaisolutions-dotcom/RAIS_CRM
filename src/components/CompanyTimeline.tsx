@@ -16,6 +16,11 @@ import {
 } from "@/lib/sales/actions";
 import { BUSINESS_TZ } from "@/lib/sales/dates";
 import {
+  buildTemplateContext,
+  renderTemplate,
+  TEMPLATE_VARIABLES,
+} from "@/lib/sales/templateVars";
+import {
   ABBRUCH_OPTIONS,
   abbruchAllowed,
   ERGEBNIS_LABELS,
@@ -49,6 +54,8 @@ export function CompanyTimeline({
   enrollments,
   defaultEmail,
   defaultPhone,
+  company = null,
+  senderName = null,
 }: {
   companyId: string;
   people: Person[];
@@ -60,6 +67,8 @@ export function CompanyTimeline({
   enrollments: SequenceEnrollment[];
   defaultEmail: string | null;
   defaultPhone: string | null;
+  company?: { name: string; stadt: string | null; website: string | null } | null;
+  senderName?: string | null;
 }) {
   const [tab, setTab] = useState<Tab>("timeline");
 
@@ -110,6 +119,8 @@ export function CompanyTimeline({
           people={people}
           templates={templates}
           defaultEmail={defaultEmail}
+          company={company}
+          senderName={senderName}
         />
       ) : null}
       {tab === "sms" ? (
@@ -399,11 +410,15 @@ function EmailComposer({
   people,
   templates,
   defaultEmail,
+  company,
+  senderName,
 }: {
   companyId: string;
   people: Person[];
   templates: EmailTemplate[];
   defaultEmail: string | null;
+  company: { name: string; stadt: string | null; website: string | null } | null;
+  senderName: string | null;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -416,19 +431,38 @@ function EmailComposer({
   const [body, setBody] = useState("");
   const [templateId, setTemplateId] = useState("");
 
+  const person = people.find((p) => p.id === personId) ?? null;
+  const ctx = buildTemplateContext({
+    personName: person?.name,
+    firma: company?.name,
+    stadt: company?.stadt,
+    website: company?.website,
+    absender: senderName,
+  });
+  const renderedSubject = renderTemplate(subject, ctx);
+  const renderedBody = renderTemplate(body, ctx);
+  const missing = [
+    ...new Set([...renderedSubject.missing, ...renderedBody.missing]),
+  ];
+  const unknown = [
+    ...new Set([...renderedSubject.unknown, ...renderedBody.unknown]),
+  ];
+  const blocked = missing.length > 0 || unknown.length > 0;
+
   return (
     <form
       className="stack"
       style={{ marginTop: "0.85rem" }}
       onSubmit={(e) => {
         e.preventDefault();
+        if (blocked) return;
         start(async () => {
           const res = await sendCompanyEmail({
             company_id: companyId,
             person_id: personId || null,
             to_email: to,
-            subject,
-            body,
+            subject: renderedSubject.text,
+            body: renderedBody.text,
             template_id: templateId || null,
           });
           if (res.error) {
@@ -522,10 +556,39 @@ function EmailComposer({
           onChange={(e) => setBody(e.target.value)}
         />
       </div>
+      <p className="muted text-xs">
+        Variablen:{" "}
+        {TEMPLATE_VARIABLES.map((v) => `{{${v.key}}}`).join(" · ")} — Fallback
+        mit {"{{vorname|zusammen}}"}
+      </p>
+      {missing.length > 0 ? (
+        <p className="error">
+          Fehlende Werte: {missing.map((m) => `{{${m}}}`).join(", ")}. Ergänze
+          sie beim Lead, setze einen Fallback oder entferne den Platzhalter.
+        </p>
+      ) : null}
+      {unknown.length > 0 ? (
+        <p className="error">
+          Unbekannte Platzhalter: {unknown.map((m) => `{{${m}}}`).join(", ")}
+        </p>
+      ) : null}
+      {(subject || body) && !blocked && (subject.includes("{{") || body.includes("{{")) ? (
+        <details>
+          <summary className="muted">Vorschau</summary>
+          <div className="dense-panel whitespace-pre-wrap text-sm">
+            <strong className="mb-2 block">{renderedSubject.text}</strong>
+            {renderedBody.text}
+          </div>
+        </details>
+      ) : null}
       {error ? <p className="error">{error}</p> : null}
       {msg ? <p className="muted">{msg}</p> : null}
-      <button className="btn btn-primary" type="submit" disabled={pending}>
-        E-Mail speichern / senden
+      <button
+        className="btn btn-primary"
+        type="submit"
+        disabled={pending || blocked}
+      >
+        E-Mail senden
       </button>
     </form>
   );
