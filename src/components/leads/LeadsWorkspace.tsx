@@ -12,6 +12,7 @@ import {
   ListFilter,
   Mail,
   Phone,
+  Pencil,
   Search,
   Users,
   X,
@@ -537,6 +538,23 @@ export function LeadsWorkspace({
                 <span className="pr-1 text-[13px] font-medium tabular-nums">
                   {selected.size} ausgewählt
                 </span>
+                {selected.size === 1
+                  ? (() => {
+                      const id = [...selected][0];
+                      const row = rows.find((r) => r.company_id === id);
+                      return (
+                        <>
+                          <Button variant="secondary" size="sm" asChild>
+                            <Link href={`/firma/${id}`}>
+                              <Pencil />
+                              Bearbeiten
+                            </Link>
+                          </Button>
+                          <InviteFromList companyId={id} firma={row?.firma ?? "Lead"} variant="button" />
+                        </>
+                      );
+                    })()
+                  : null}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="secondary" size="sm" disabled={bulkPending}>
