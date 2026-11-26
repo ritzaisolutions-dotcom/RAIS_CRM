@@ -53,6 +53,8 @@ function applyView<Q extends { eq: any; neq: any; in: any; lte: any; not: any }>
       return query.eq("relationship", "Prospect").in("status", NICHT_ERREICHT);
     case "rueckruf":
       return query.eq("relationship", "Prospect").eq("status", "callback");
+    case "spaeter":
+      return query.eq("relationship", "Prospect").eq("status", "later");
     case "termin":
       return query.eq("relationship", "Prospect").eq("status", "set_appointment");
     case "closing":

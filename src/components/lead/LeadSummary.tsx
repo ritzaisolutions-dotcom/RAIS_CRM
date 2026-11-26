@@ -152,7 +152,9 @@ export function LeadSummary({
           ) : null}
         </StatBox>
         <StatBox label="Letzter Kontakt">
-          <span className="text-[13px] font-medium">{relativePast(lastContactAt)}</span>
+          <span className="text-[13px] font-medium" suppressHydrationWarning>
+            {relativePast(lastContactAt)}
+          </span>
           {lastContactAt ? (
             <span className="ml-1.5 text-xs text-fg-subtle">
               {stamp.format(new Date(lastContactAt))}

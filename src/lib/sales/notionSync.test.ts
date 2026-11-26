@@ -53,7 +53,8 @@ const opts = { lastSync: "2026-11-26T18:00:00.000Z", today: "2026-11-26" };
 describe("mapping", () => {
   it("maps statuses, unknown → neu", () => {
     expect(mapStatus("nicht erreicht 2")).toBe("kein_anschluss_2");
-    expect(mapStatus("buying window FU")).toBe("callback");
+    expect(mapStatus("buying window FU")).toBe("later");
+    expect(mapStatus("urgent")).toBe("callback");
     expect(mapStatus("Kein Interesse")).toBe("disqualified");
     expect(mapStatus("irgendwas")).toBe("neu");
     expect(mapStatus(null)).toBe("neu");
@@ -108,6 +109,12 @@ describe("planSync", () => {
     const plan = planSync([mapNotionPage(page(base))], [], opts);
     expect(plan.create).toHaveLength(1);
     expect(plan.create[0].wv).toBe("2026-11-30"); // 2 Werktage nach Do → Mo
+  });
+
+  it("parks „buying window FU“ as Später with a follow-up in ~3 months", () => {
+    const plan = planSync([mapNotionPage(page({ ...base, "Call-Status": sel("buying window FU") }))], [], opts);
+    expect(plan.create[0].lead.status).toBe("later");
+    expect(plan.create[0].wv).toBe("2027-02-25");
   });
 
   it("skips non-JA, prefiltered and nameless rows", () => {

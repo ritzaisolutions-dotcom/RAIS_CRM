@@ -13,7 +13,7 @@
  * - Notizen sind idempotent (source_key = Seite + Inhalts-Hash).
  */
 
-import { addBusinessDays } from "./dates";
+import { addBusinessDays, addCalendarWeeksSkipWeekend } from "./dates";
 
 // ---------------------------------------------------------------------------
 // Typen
@@ -45,6 +45,7 @@ export type SyncStatus =
   | "kein_anschluss_2"
   | "kein_anschluss_3"
   | "callback"
+  | "later"
   | "set_appointment"
   | "disqualified";
 
@@ -182,7 +183,7 @@ const STATUS_MAP: Record<string, SyncStatus> = {
   "nicht erreicht 2": "kein_anschluss_2",
   "nicht erreicht 3": "kein_anschluss_3",
   rückruf: "callback",
-  "buying window fu": "callback",
+  "buying window fu": "later",
   urgent: "callback",
   urlaub: "callback",
   "gespräch geführt": "callback",
@@ -429,7 +430,11 @@ export function planSync(
     if (!match) {
       const wv =
         lead.wv ??
-        (NEEDS_WV.includes(lead.status) ? addBusinessDays(opts.today, 2 + (spread++ % 5)) : null);
+        (lead.status === "later"
+          ? addCalendarWeeksSkipWeekend(opts.today, 13)
+          : NEEDS_WV.includes(lead.status)
+            ? addBusinessDays(opts.today, 2 + (spread++ % 5))
+            : null);
       plan.create.push({ lead, wv, sourceKey });
       continue;
     }

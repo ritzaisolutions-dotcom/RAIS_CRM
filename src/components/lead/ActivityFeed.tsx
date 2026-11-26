@@ -126,6 +126,7 @@ function Entry({
               dateTime={t.occurred_at}
               title={timeFmt.format(new Date(t.occurred_at))}
               className="text-xs text-fg-subtle"
+              suppressHydrationWarning
             >
               {relativePast(t.occurred_at)}
             </time>

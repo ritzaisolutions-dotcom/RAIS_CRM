@@ -81,6 +81,7 @@ export const pipelineStatusSchema = z.enum([
   "kein_anschluss_4",
   "kein_anschluss_5",
   "callback",
+  "later",
   "disqualified",
   "set_appointment",
   "closed",

@@ -31,6 +31,7 @@ import { setLeadKategorie, setLeadQuelle, setWiedervorlage } from "@/lib/sales/l
 import { businessToday, skipWeekend } from "@/lib/sales/dates";
 import {
   FOLLOW_UP_QUICK,
+  LATER_QUICK,
   STATUS_MENU,
   displayKategorie,
   dueTone,
@@ -221,7 +222,7 @@ export function FollowUpPicker({
           Wiedervorlage
         </p>
         <div className="grid">
-          {FOLLOW_UP_QUICK.map((p) => {
+          {[...FOLLOW_UP_QUICK, ...LATER_QUICK].map((p, i) => {
             const due = p.due(today);
             return (
               <button
@@ -229,7 +230,10 @@ export function FollowUpPicker({
                 type="button"
                 disabled={pending}
                 onClick={() => save(due)}
-                className="flex h-8 items-center justify-between rounded-md px-2 text-[13px] hover:bg-surface-2"
+                className={cn(
+                  "flex h-8 items-center justify-between rounded-md px-2 text-[13px] hover:bg-surface-2",
+                  i === FOLLOW_UP_QUICK.length && "mt-1 border-t border-line pt-1",
+                )}
               >
                 <span>{p.label}</span>
                 <span className="text-xs text-fg-subtle">{formatDateDe(due)}</span>

@@ -20,6 +20,7 @@ export const LEAD_VIEWS = [
   { key: "neu", label: "Neu" },
   { key: "nicht_erreicht", label: "Nicht erreicht" },
   { key: "rueckruf", label: "Rückruf" },
+  { key: "spaeter", label: "Später" },
   { key: "termin", label: "Termin gebucht" },
   { key: "closing", label: "Closing" },
   { key: "kunden", label: "Kunden" },
@@ -61,6 +62,7 @@ export const STATUS_MENU: { value: PipelineStatus; label: string }[] = [
   { value: "neu", label: "Neu" },
   { value: "kein_anschluss_1", label: "Nicht erreicht" },
   { value: "callback", label: "Rückruf" },
+  { value: "later", label: "Später" },
   { value: "set_appointment", label: "Termin gebucht" },
   { value: "closed", label: "Closing" },
   { value: "kunde", label: "Kunde" },
@@ -99,6 +101,8 @@ export function statusTone(status: PipelineStatus | null | undefined): Tone {
       return "blue";
     case "callback":
       return "orange";
+    case "later":
+      return "gray";
     case "set_appointment":
       return "violet";
     case "closed":
@@ -129,6 +133,13 @@ export const FOLLOW_UP_QUICK: { key: string; label: string; due: (from: string) 
   { key: "w2", label: "In 2 Wochen", due: (f) => addCalendarWeeksSkipWeekend(f, 2) },
   { key: "w6", label: "In 6 Wochen", due: (f) => addCalendarWeeksSkipWeekend(f, 6) },
   { key: "w12", label: "In 12 Wochen", due: (f) => addCalendarWeeksSkipWeekend(f, 12) },
+];
+
+/** Für „Später“: grobe Zeiträume, Wochenende rollt auf Montag. */
+export const LATER_QUICK: { key: string; label: string; due: (from: string) => string }[] = [
+  { key: "m3", label: "In 3 Monaten", due: (f) => addCalendarWeeksSkipWeekend(f, 13) },
+  { key: "m6", label: "In 6 Monaten", due: (f) => addCalendarWeeksSkipWeekend(f, 26) },
+  { key: "m12", label: "In 12 Monaten", due: (f) => addCalendarWeeksSkipWeekend(f, 52) },
 ];
 
 function ymdToUtc(ymd: string) {

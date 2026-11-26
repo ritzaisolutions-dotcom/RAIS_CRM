@@ -38,6 +38,7 @@ export type PipelineStatus =
   | "kein_anschluss_4"
   | "kein_anschluss_5"
   | "callback"
+  | "later"
   | "disqualified"
   | "set_appointment"
   | "closed"
@@ -635,6 +636,7 @@ export const PIPELINE_STATUS_OPTIONS: PipelineStatus[] = [
   "kein_anschluss_4",
   "kein_anschluss_5",
   "callback",
+  "later",
   "disqualified",
   "set_appointment",
   "closed",
@@ -658,6 +660,7 @@ export const PIPELINE_STATUS_LABELS: Record<PipelineStatus, string> = {
   kein_anschluss_4: "Nicht erreicht 4",
   kein_anschluss_5: "Nicht erreicht 5",
   callback: "Rückruf",
+  later: "Später",
   disqualified: "Kein Interesse",
   set_appointment: "Termin gebucht",
   closed: "Closing",
@@ -752,6 +755,8 @@ export function pipelineTone(
       return "gelb";
     case "callback":
       return "orange";
+    case "later":
+      return "grau";
     case "disqualified":
       return "rot";
     case "neu":

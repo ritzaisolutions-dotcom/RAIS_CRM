@@ -433,8 +433,10 @@ export function LeadsWorkspace({
                     <td className="px-3 py-1">
                       <QuelleText quelle={r.quelle} />
                     </td>
-                    <td className="whitespace-nowrap px-3 py-1 text-fg-muted">
-                      {relativePast(r.letzter_touch_am)}
+                    {/* Echte Kontakte (Anruf/E-Mail/DM/…), keine Status- oder Notiz-Einträge.
+                        Relative Zeit weicht zwischen Server und Browser ab → Hydration-Warnung unterdrücken. */}
+                    <td className="whitespace-nowrap px-3 py-1 text-fg-muted" suppressHydrationWarning>
+                      {relativePast(r.letzter_kontakt_am)}
                     </td>
                     <td className="px-3 py-1">
                       <SocialIcons
