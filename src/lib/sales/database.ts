@@ -113,6 +113,7 @@ export type Database = {
           youtube_url?: string | null;
           tiktok_url?: string | null;
           persona?: string | null;
+          kategorie?: "lead" | "kontakt";
           quelle?: LeadQuelle | null;
           quell_url?: string | null;
           inserate_aktiv?: number | null;

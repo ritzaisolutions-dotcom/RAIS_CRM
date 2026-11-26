@@ -42,6 +42,7 @@ export default async function LeadsPage({
     view?: string;
     q?: string;
     quelle?: string;
+    kat?: string;
     sort?: string;
     page?: string;
     list?: string;
@@ -62,7 +63,12 @@ export default async function LeadsPage({
     countDueLeads(),
   ]);
   const listId = lists.some((l) => l.id === params.list) ? params.list : undefined;
-  const result = await fetchLeads({ view, q, quelle, sort, page, listId });
+  const kategorie = (["lead", "kontakt", "kunde"].includes(params.kat ?? "") ? params.kat : "") as
+    | "lead"
+    | "kontakt"
+    | "kunde"
+    | "";
+  const result = await fetchLeads({ view, q, quelle, kategorie, sort, page, listId });
 
   const viewLabel = LEAD_VIEWS.find((v) => v.key === view)?.label ?? "Leads";
   const activeList = lists.find((l) => l.id === listId);
@@ -177,6 +183,7 @@ export default async function LeadsPage({
               pageSize={result.pageSize}
               q={q}
               quelle={quelle}
+              kategorie={kategorie}
               sort={sort}
               lists={lists}
               viewLabel={viewLabel}

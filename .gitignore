@@ -50,3 +50,6 @@ scripts/extract-ruixen.js
 
 # Schema-Export-Artefakte (Baseline wird versioniert, nicht der Dump)
 supabase/.schema-dump/
+
+# Persönliche Daten-Exporte (nie committen)
+Basic_LinkedInDataExport_*

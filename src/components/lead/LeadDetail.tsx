@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/menu";
 import { Panel, PanelHeader, SectionLabel } from "@/components/ui/panel";
 import {
+  KategorieMenu,
   QuelleMenu,
   SocialButtons,
   StatusMenu,
@@ -243,6 +244,9 @@ export function LeadDetail({
         <aside className="space-y-5 border-line bg-surface px-4 py-4 lg:overflow-y-auto lg:border-r">
           <section className="space-y-0.5">
             <SectionLabel className="mb-1">Akquise</SectionLabel>
+            <FieldRow label="Kategorie">
+              <KategorieMenu companyId={company.id} kategorie={company.kategorie} relationship={company.relationship} />
+            </FieldRow>
             <FieldRow label="Quelle">
               <QuelleMenu companyId={company.id} quelle={company.quelle} />
             </FieldRow>

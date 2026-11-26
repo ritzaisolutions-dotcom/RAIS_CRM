@@ -42,7 +42,11 @@ import { setWiedervorlage } from "@/lib/sales/leadActions";
 import { businessToday } from "@/lib/sales/dates";
 import {
   FOLLOW_UP_QUICK,
+  KATEGORIEN,
   LEAD_SORTS,
+  displayKategorie,
+  kategorieTone,
+  kontaktwegLabel,
   STATUS_MENU,
   relativePast,
   statusTone,
@@ -65,6 +69,7 @@ export function LeadsWorkspace({
   pageSize,
   q,
   quelle,
+  kategorie,
   sort,
   lists,
   viewLabel,
@@ -75,6 +80,7 @@ export function LeadsWorkspace({
   pageSize: number;
   q: string;
   quelle: LeadQuelle | "";
+  kategorie: "lead" | "kontakt" | "kunde" | "";
   sort: LeadSortKey;
   lists: LeadList[];
   viewLabel: string;
@@ -162,7 +168,7 @@ export function LeadsWorkspace({
   const pages = Math.max(1, Math.ceil(total / pageSize));
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
-  const filtersActive = Boolean(q || quelle);
+  const filtersActive = Boolean(q || quelle || kategorie);
   const sortLabel = useMemo(
     () => LEAD_SORTS.find((s) => s.key === sort)?.label ?? "Wiedervorlage",
     [sort],
@@ -206,6 +212,26 @@ export function LeadsWorkspace({
             <Kbd className="absolute right-2 top-1/2 -translate-y-1/2">/</Kbd>
           )}
         </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant={kategorie ? "secondary" : "outline"} size="sm">
+              <ListFilter />
+              {kategorie ? KATEGORIEN.find((k) => k.key === kategorie)?.label : "Kategorie"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuLabel>Kategorie</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={kategorie} onValueChange={(v) => setParam({ kat: v || null })}>
+              <DropdownMenuRadioItem value="">Alle</DropdownMenuRadioItem>
+              {KATEGORIEN.map((k) => (
+                <DropdownMenuRadioItem key={k.key} value={k.key}>
+                  {k.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -258,7 +284,7 @@ export function LeadsWorkspace({
             size="sm"
             onClick={() => {
               setSearch("");
-              setParam({ q: null, quelle: null });
+              setParam({ q: null, quelle: null, kat: null });
             }}
           >
             Filter zurücksetzen
@@ -314,7 +340,7 @@ export function LeadsWorkspace({
                     }
                   />
                 </th>
-                {["Lead", "Status", "Wiedervorlage", "Kontakte", "Ansprechpartner", "Quelle", "Letzter Kontakt", "Links", ""].map(
+                {["Lead", "Status", "Wiedervorlage", "Kontakte · Kontaktweg", "Ansprechpartner", "Quelle", "Letzter Kontakt", "Links", ""].map(
                   (h, i) => (
                     <th
                       key={i}
@@ -357,9 +383,16 @@ export function LeadsWorkspace({
                       >
                         {r.firma}
                       </Link>
-                      <div className="truncate text-xs text-fg-subtle">
-                        {r.stadt ?? "—"}
-                        {r.relationship === "Kunde" ? " · Kunde" : ""}
+                      <div className="flex items-center gap-1.5 truncate text-xs text-fg-subtle">
+                        {(() => {
+                          const k = displayKategorie(r.kategorie, r.relationship);
+                          return k === "lead" ? null : (
+                            <Badge tone={kategorieTone(k)} className="h-4 px-1 text-[10px]">
+                              {KATEGORIEN.find((x) => x.key === k)?.label}
+                            </Badge>
+                          );
+                        })()}
+                        <span className="truncate">{r.stadt ?? "—"}</span>
                       </div>
                     </td>
                     <td className="px-3 py-1">
@@ -372,8 +405,21 @@ export function LeadsWorkspace({
                         personId={r.person_id}
                       />
                     </td>
-                    <td className="px-3 py-1 tabular-nums text-fg-muted">
-                      {r.kontaktversuche > 0 ? `${r.kontaktversuche}×` : "—"}
+                    <td className="whitespace-nowrap px-3 py-1 text-fg-muted">
+                      {(() => {
+                        const way = kontaktwegLabel(r.letzter_kontakt_kanal, r.vorheriger_kontakt_kanal);
+                        if (r.kontaktversuche === 0 && !way) return <span className="text-fg-subtle">—</span>;
+                        return (
+                          <span className="flex items-center gap-1.5">
+                            <span className="tabular-nums">{r.kontaktversuche}×</span>
+                            {way ? (
+                              <span className={cn("text-xs", way.changed ? "font-medium text-accent-fg" : "text-fg-subtle")} title={way.changed ? "Kontaktweg hat gewechselt" : "Letzter Kontaktweg"}>
+                                {way.label}
+                              </span>
+                            ) : null}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="max-w-[200px] px-3 py-1">
                       <div className="truncate text-fg">{r.entscheider ?? <span className="text-fg-subtle">—</span>}</div>

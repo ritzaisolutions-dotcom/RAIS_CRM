@@ -11,12 +11,14 @@ import type { LeadQuelle, LeadRow } from "@/lib/sales/types";
 export const LEADS_PAGE_SIZE = 50;
 
 const LEAD_COLUMNS =
-  "company_id,firma,person_id,entscheider,stadt,crm,\"anfragen/woche\",naechster_touch,status,relationship,tage_seit_touch,letzter_touch_am,letzter_kanal,tel,firma_telefon,email,person_linkedin_url,linkedin_company_url,linkedin_url,inserate_aktiv,mitarbeiterzahl,meta_ads,website,instagram_url,facebook_url,xing_url,youtube_url,tiktok_url,quelle,quell_url,created_at,kontaktversuche,opp_stage";
+  "company_id,firma,person_id,entscheider,stadt,crm,\"anfragen/woche\",naechster_touch,status,relationship,tage_seit_touch,letzter_touch_am,letzter_kanal,tel,firma_telefon,email,person_linkedin_url,linkedin_company_url,linkedin_url,inserate_aktiv,mitarbeiterzahl,meta_ads,website,instagram_url,facebook_url,xing_url,youtube_url,tiktok_url,quelle,quell_url,created_at,kontaktversuche,kategorie,letzter_kontakt_kanal,letzter_kontakt_am,vorheriger_kontakt_kanal,opp_stage";
 
 export type LeadFilters = {
   view: LeadViewKey;
   q?: string;
   quelle?: LeadQuelle | "";
+  /** Kategorie-Filter: Lead, Kontakt (Netzwerk) oder Kunde. */
+  kategorie?: "lead" | "kontakt" | "kunde" | "";
   sort?: LeadSortKey;
   page?: number;
   listId?: string;
@@ -85,6 +87,9 @@ export async function fetchLeads(filters: LeadFilters): Promise<LeadsResult> {
   query = applyView(query, filters.view, today);
 
   if (filters.quelle) query = query.eq("quelle", filters.quelle);
+  if (filters.kategorie === "kunde") query = query.eq("relationship", "Kunde");
+  else if (filters.kategorie === "lead") query = query.eq("kategorie", "lead").neq("relationship", "Kunde");
+  else if (filters.kategorie === "kontakt") query = query.eq("kategorie", "kontakt");
 
   const term = filters.q?.trim();
   if (term) {

@@ -242,3 +242,25 @@ export async function countContactAttempts(companyId: string): Promise<number> {
   if (error) return 0;
   return count ?? 0;
 }
+
+/** Kategorie setzen: Lead (Zielgruppe) oder Kontakt (Netzwerk). */
+export async function setLeadKategorie(input: {
+  companyId: string;
+  kategorie: "lead" | "kontakt";
+}): Promise<ActionResult> {
+  const parsed = z
+    .object({ companyId: uuid, kategorie: z.enum(["lead", "kontakt"]) })
+    .safeParse(input);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("companies")
+    .update({ kategorie: parsed.data.kategorie })
+    .eq("id", parsed.data.companyId)
+    .select("id")
+    .maybeSingle();
+  if (error) return { error: safeDatabaseError(error, "set-kategorie") };
+  if (!data) return { error: "Lead nicht gefunden oder keine Berechtigung." };
+  revalidateLead(parsed.data.companyId);
+  return { ok: true as const };
+}

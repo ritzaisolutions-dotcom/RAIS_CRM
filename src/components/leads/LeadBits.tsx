@@ -27,12 +27,14 @@ import {
   YoutubeIcon,
 } from "@/components/leads/BrandIcons";
 import { setListPipelineStatus, updateListFields } from "@/lib/sales/actions";
-import { setLeadQuelle, setWiedervorlage } from "@/lib/sales/leadActions";
+import { setLeadKategorie, setLeadQuelle, setWiedervorlage } from "@/lib/sales/leadActions";
 import { businessToday, skipWeekend } from "@/lib/sales/dates";
 import {
   FOLLOW_UP_QUICK,
   STATUS_MENU,
+  displayKategorie,
   dueTone,
+  kategorieTone,
   formatDateDe,
   nichtErreichtCount,
   normalizeUrl,
@@ -509,5 +511,57 @@ export function SocialButtons({
         })}
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Kategorie                                                           */
+/* ------------------------------------------------------------------ */
+
+export function KategorieMenu({
+  companyId,
+  kategorie,
+  relationship,
+}: {
+  companyId: string;
+  kategorie: "lead" | "kontakt";
+  relationship: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const shown = displayKategorie(kategorie, relationship);
+  if (shown === "kunde") {
+    return (
+      <span title="Kunde ergibt sich aus dem Status „Kunde“">
+        <Badge tone="green">Kunde</Badge>
+      </span>
+    );
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className={cn(
+          "flex h-8 w-full items-center justify-between rounded-md border border-line-strong bg-surface px-2.5 text-[13px] hover:bg-surface-2",
+          pending && "opacity-60",
+        )}
+      >
+        <Badge tone={kategorieTone(shown)}>{shown === "kontakt" ? "Kontakt (Netzwerk)" : "Lead"}</Badge>
+        <ChevronDown className="size-3.5 text-fg-muted" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent>
+        <DropdownMenuRadioGroup
+          value={kategorie}
+          onValueChange={(v) =>
+            start(async () => {
+              await setLeadKategorie({ companyId, kategorie: v as "lead" | "kontakt" });
+              router.refresh();
+            })
+          }
+        >
+          <DropdownMenuRadioItem value="lead">Lead (Zielgruppe)</DropdownMenuRadioItem>
+          <DropdownMenuRadioItem value="kontakt">Kontakt (Netzwerk)</DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

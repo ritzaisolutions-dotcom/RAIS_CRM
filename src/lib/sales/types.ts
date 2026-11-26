@@ -256,6 +256,9 @@ export type CallListeRow = {
   opp_stage: OppStage | null;
 };
 
+/** Lead = Zielgruppe in Akquise, Kontakt = Netzwerk. „Kunde“ folgt aus relationship. */
+export type LeadKategorie = "lead" | "kontakt";
+
 export const LEAD_QUELLEN = [
   "IS24",
   "Immowelt",
@@ -291,6 +294,11 @@ export type LeadRow = Omit<CallListeRow, "bundesland"> & {
   tiktok_url: string | null;
   /** Echte Kontakte (Anruf, E-Mail, DM, SMS, Meeting), ohne stornierte. */
   kontaktversuche: number;
+  kategorie: LeadKategorie;
+  /** Kanal des letzten / vorletzten echten Kontakts (Kontaktweg). */
+  letzter_kontakt_kanal: TouchKanal | null;
+  letzter_kontakt_am: string | null;
+  vorheriger_kontakt_kanal: TouchKanal | null;
   created_at: string;
 };
 
@@ -484,6 +492,7 @@ export type Company = {
   quell_url: string | null;
   /** Freitext: Wie tickt der Ansprechpartner, was ist ihm wichtig? */
   persona: string | null;
+  kategorie: LeadKategorie;
   xing_url: string | null;
   youtube_url: string | null;
   tiktok_url: string | null;

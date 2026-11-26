@@ -185,6 +185,48 @@ export function relativePast(iso: string | null, now: Date = new Date()): string
 }
 
 /* ------------------------------------------------------------------ */
+/* Kategorie + Kontaktweg                                              */
+/* ------------------------------------------------------------------ */
+
+export const KATEGORIEN = [
+  { key: "lead", label: "Lead" },
+  { key: "kontakt", label: "Kontakt" },
+  { key: "kunde", label: "Kunde" },
+] as const;
+export type KategorieKey = (typeof KATEGORIEN)[number]["key"];
+
+/** Anzeige-Kategorie: Kunde kommt aus der Beziehung, sonst das Feld. */
+export function displayKategorie(kategorie: string | null | undefined, relationship: string | null | undefined): KategorieKey {
+  if (relationship === "Kunde") return "kunde";
+  return kategorie === "kontakt" ? "kontakt" : "lead";
+}
+
+export function kategorieTone(k: KategorieKey): Tone {
+  return k === "kunde" ? "green" : k === "kontakt" ? "violet" : "gray";
+}
+
+export const KANAL_KURZ: Record<string, string> = {
+  call: "Telefon",
+  email: "E-Mail",
+  dm: "LinkedIn",
+  sms: "SMS",
+  meeting: "Meeting",
+};
+
+/** „Telefon“ oder bei Wechsel „LinkedIn → Telefon“. */
+export function kontaktwegLabel(last: string | null | undefined, previous: string | null | undefined): {
+  label: string;
+  changed: boolean;
+} | null {
+  if (!last) return null;
+  const l = KANAL_KURZ[last] ?? last;
+  if (previous && previous !== last) {
+    return { label: `${KANAL_KURZ[previous] ?? previous} → ${l}`, changed: true };
+  }
+  return { label: l, changed: false };
+}
+
+/* ------------------------------------------------------------------ */
 /* Links                                                               */
 /* ------------------------------------------------------------------ */
 

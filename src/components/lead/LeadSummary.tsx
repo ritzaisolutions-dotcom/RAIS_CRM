@@ -11,6 +11,7 @@ import { insertTouchpoint, setListPipelineStatus } from "@/lib/sales/actions";
 import { setLeadPersona } from "@/lib/sales/leadActions";
 import { BUSINESS_TZ } from "@/lib/sales/dates";
 import {
+  kontaktwegLabel,
   nichtErreichtCount,
   relativePast,
   resolveStatusChoice,
@@ -86,6 +87,10 @@ export function LeadSummary({
   const [showAll, setShowAll] = useState(false);
   const visibleNotes = showAll ? notes : notes.slice(0, 4);
   const misses = nichtErreichtCount(status);
+  const contactTouches = touchpoints.filter(
+    (t) => !t.voided_at && ["call", "email", "dm", "sms", "meeting"].includes(t.kanal),
+  );
+  const way = kontaktwegLabel(contactTouches[0]?.kanal, contactTouches[1]?.kanal);
 
   function bumpNotReached() {
     setCount((c) => c + 1);
@@ -134,6 +139,12 @@ export function LeadSummary({
               </Button>
             </Tooltip>
           </div>
+          {way ? (
+            <p className={cn("mt-1.5 text-xs", way.changed ? "font-medium text-accent-fg" : "text-fg-muted")}>
+              Kontaktweg: {way.label}
+              {way.changed ? " (gewechselt)" : ""}
+            </p>
+          ) : null}
           {bumpError ? (
             <p className="mt-1 text-xs text-[var(--tone-red-fg)]">{bumpError}</p>
           ) : null}
