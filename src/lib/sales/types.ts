@@ -265,6 +265,7 @@ export const LEAD_QUELLEN = [
   "Immowelt",
   "IVD",
   "LinkedIn",
+  "Meta",
   "manuell",
   "Inbound Website",
 ] as const;
@@ -275,6 +276,7 @@ export const LEAD_QUELLE_LABELS: Record<LeadQuelle, string> = {
   Immowelt: "Immowelt",
   IVD: "IVD",
   LinkedIn: "LinkedIn",
+  Meta: "Meta (Facebook/Instagram)",
   manuell: "Manuell",
   "Inbound Website": "Website-Anfrage",
 };

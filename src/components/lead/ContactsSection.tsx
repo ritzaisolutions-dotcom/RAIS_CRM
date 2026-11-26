@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { Copy, Ellipsis, Mail, Pencil, Phone, Plus, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,10 +56,20 @@ export function ContactsSection({
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [focusField, setFocusField] = useState("ct-name");
+
+  // Beim Öffnen gezielt ins fehlende Feld springen (z. B. „+ Telefon“).
+  const dialogOpen = draft !== null;
+  useEffect(() => {
+    if (!dialogOpen) return;
+    const t = setTimeout(() => document.getElementById(focusField)?.focus(), 50);
+    return () => clearTimeout(t);
+  }, [dialogOpen, focusField]);
   const [pending, start] = useTransition();
 
-  function open(p?: Person) {
+  function open(p?: Person, focusId?: string) {
     setError(null);
+    setFocusField(focusId ?? "ct-name");
     setDraft(
       p
         ? {
@@ -119,7 +129,7 @@ export function ContactsSection({
           </Button>
         }
       >
-        Kontakte
+        Ansprechpartner
       </SectionLabel>
 
       {people.length === 0 ? (
@@ -248,14 +258,26 @@ export function ContactsSection({
                     {p.kontext}
                   </button>
                 ) : null}
-                {!p.telefon && !p.email && !p.linkedin_url ? (
-                  <button
-                    type="button"
-                    onClick={() => open(p)}
-                    className="text-left text-xs text-fg-subtle hover:text-fg-muted"
-                  >
-                    Telefon oder E-Mail ergänzen
-                  </button>
+                {!p.telefon || !p.email || !p.kontext ? (
+                  <div className="mt-0.5 flex flex-wrap gap-1">
+                    {[
+                      { missing: !p.telefon, label: "Telefon", focus: "ct-tel" },
+                      { missing: !p.email, label: "E-Mail", focus: "ct-email" },
+                      { missing: !p.kontext, label: "Kontext", focus: "ct-kontext" },
+                    ]
+                      .filter((x) => x.missing)
+                      .map((x) => (
+                        <button
+                          key={x.label}
+                          type="button"
+                          onClick={() => open(p, x.focus)}
+                          className="inline-flex h-6 items-center gap-1 rounded-md border border-dashed border-line-strong px-2 text-xs text-fg-muted hover:border-fg-subtle hover:text-fg"
+                        >
+                          <Plus className="size-3" />
+                          {x.label}
+                        </button>
+                      ))}
+                  </div>
                 ) : null}
               </div>
             </li>
@@ -278,7 +300,6 @@ export function ContactsSection({
                 <Field label="Name *" htmlFor="ct-name">
                   <Input
                     id="ct-name"
-                    autoFocus
                     required
                     value={draft.name}
                     onChange={(e) => setDraft({ ...draft, name: e.target.value })}

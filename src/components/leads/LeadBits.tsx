@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { CalendarClock, ChevronDown, Globe, Plus } from "lucide-react";
+import { CalendarClock, ChevronDown, Globe, Pencil, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -277,9 +277,54 @@ export function FollowUpPicker({
 /* Quelle                                                              */
 /* ------------------------------------------------------------------ */
 
-export function QuelleText({ quelle }: { quelle: LeadQuelle | null }) {
+const QUELLE_LOGOS: Partial<Record<LeadQuelle, string>> = {
+  IS24: "/source-logos/is24.png",
+  Immowelt: "/source-logos/immowelt.png",
+  IVD: "/source-logos/ivd.png",
+  Meta: "/source-logos/meta.jpg",
+};
+
+/** Logo der Lead-Quelle; LinkedIn invertiert (weiß auf LinkedIn-Blau). */
+export function QuelleIcon({ quelle, className }: { quelle: LeadQuelle; className?: string }) {
+  const box = cn("flex size-5 shrink-0 items-center justify-center overflow-hidden rounded", className);
+  const logo = QUELLE_LOGOS[quelle];
+  if (logo) {
+    // eslint-disable-next-line @next/next/no-img-element -- winzige lokale Logos
+    return <img src={logo} alt={LEAD_QUELLE_LABELS[quelle]} className={cn(box, "bg-white object-contain")} />;
+  }
+  if (quelle === "LinkedIn") {
+    return (
+      <span className={cn(box, "bg-[#0a66c2] text-white")} aria-label="LinkedIn">
+        <LinkedinIcon className="size-3" />
+      </span>
+    );
+  }
+  const Icon = quelle === "manuell" ? Pencil : Globe;
+  return (
+    <span className={cn(box, "bg-surface-3 text-fg-muted")} aria-label={LEAD_QUELLE_LABELS[quelle]}>
+      <Icon className="size-3" />
+    </span>
+  );
+}
+
+/** In der Liste nur das Logo, Name im Tooltip. */
+export function QuelleText({ quelle, withLabel = false }: { quelle: LeadQuelle | null; withLabel?: boolean }) {
   if (!quelle) return <span className="text-fg-subtle">—</span>;
-  return <span className="text-fg-muted">{LEAD_QUELLE_LABELS[quelle]}</span>;
+  if (withLabel) {
+    return (
+      <span className="flex min-w-0 items-center gap-2">
+        <QuelleIcon quelle={quelle} />
+        <span className="truncate text-fg">{LEAD_QUELLE_LABELS[quelle]}</span>
+      </span>
+    );
+  }
+  return (
+    <Tooltip content={LEAD_QUELLE_LABELS[quelle]}>
+      <span className="inline-flex">
+        <QuelleIcon quelle={quelle} />
+      </span>
+    </Tooltip>
+  );
 }
 
 export function QuelleMenu({
@@ -299,7 +344,7 @@ export function QuelleMenu({
           pending && "opacity-60",
         )}
       >
-        <QuelleText quelle={quelle} />
+        <QuelleText quelle={quelle} withLabel />
         <ChevronDown className="size-3.5 text-fg-muted" />
       </DropdownMenuTrigger>
       <DropdownMenuContent>
@@ -314,7 +359,7 @@ export function QuelleMenu({
         >
           {LEAD_QUELLEN.map((q) => (
             <DropdownMenuRadioItem key={q} value={q}>
-              {LEAD_QUELLE_LABELS[q]}
+              <QuelleText quelle={q} withLabel />
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
