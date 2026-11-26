@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import {
   NotionError,
@@ -13,27 +14,36 @@ import {
   SKIP_LABELS,
   blocksToText,
   mapNotionPage,
+  mapRecord,
   planSync,
   type CompanyPatch,
   type ExistingCompany,
+  type NotionLead,
   type NotionPage,
   type SkipReason,
+  type SourceRecord,
   type SyncPlan,
 } from "@/lib/sales/notionSync";
 import { safeDatabaseError } from "@/lib/sales/validation";
 import type { ImportLeadResult } from "@/lib/sales/types";
 
 /**
- * „Sync aus Notion“: holt die ICP-JA-Leads aus Notion und gleicht sie mit
- * dem CRM ab. `previewNotionSync` liest nur; `applyNotionSync` rechnet den
- * Plan serverseitig neu (nichts vom Client wird übernommen) und schreibt.
+ * Notion → CRM. Zwei Quellen, ein Abgleich:
+ * - „api“: liest die Datenbank direkt (braucht NOTION_TOKEN)
+ * - „export“: Zeilen aus einem hochgeladenen Notion-Export (im Browser entpackt)
+ * Vorschau liest nur. „Übernehmen“ rechnet den Plan serverseitig neu und schreibt.
  */
 
 const SETTINGS_KEY = "notion_leads_sync";
 /** Erster Sync: alles bis zum manuellen Import vom 26.11. gilt als übernommen. */
 const BASELINE = "2026-11-26T18:00:00.000Z";
 
-export type NotionSyncState = { configured: boolean; lastSync: string | null; lastCounts: SyncCounts | null };
+export type NotionSyncState = {
+  apiConfigured: boolean;
+  lastSync: string | null;
+  lastSource: "api" | "export" | null;
+  lastCounts: SyncCounts | null;
+};
 export type SyncCounts = { create: number; update: number; conflicts: number; skipped: number };
 
 export type NotionSyncPreview = {
@@ -46,7 +56,27 @@ export type NotionSyncPreview = {
   skipped: { reason: string; count: number }[];
 };
 
+export type NotionSyncResult = {
+  ok: true;
+  created: number;
+  duplicates: number;
+  updated: number;
+  notes: number;
+  statuses: number;
+  errors: string[];
+};
+
 type Result<T> = T | { error: string };
+
+const recordSchema = z.object({
+  pageId: z.string().min(1).max(80),
+  lastEdited: z.string().max(40),
+  fields: z.record(z.string().max(60), z.string().max(20000).nullable()),
+  body: z.string().max(20000).optional(),
+});
+const recordsSchema = z.array(recordSchema).min(1).max(3000);
+
+type Source = { kind: "api" } | { kind: "export"; records: SourceRecord[] };
 
 async function requireUser() {
   const supabase = await createClient();
@@ -58,17 +88,17 @@ async function requireUser() {
 
 type Supabase = NonNullable<Awaited<ReturnType<typeof requireUser>>>;
 
-async function readState(supabase: Supabase): Promise<{ at: string | null; counts: SyncCounts | null }> {
+async function readState(supabase: Supabase) {
   const { data } = await supabase.from("app_settings").select("value").eq("key", SETTINGS_KEY).maybeSingle();
-  const v = (data?.value ?? {}) as { at?: string; counts?: SyncCounts };
-  return { at: v.at ?? null, counts: v.counts ?? null };
+  const v = (data?.value ?? {}) as { at?: string; source?: "api" | "export"; counts?: SyncCounts };
+  return { at: v.at ?? null, source: v.source ?? null, counts: v.counts ?? null };
 }
 
 export async function getNotionSyncState(): Promise<NotionSyncState> {
   const supabase = await requireUser();
-  if (!supabase) return { configured: false, lastSync: null, lastCounts: null };
+  if (!supabase) return { apiConfigured: false, lastSync: null, lastSource: null, lastCounts: null };
   const s = await readState(supabase);
-  return { configured: notionConfigured(), lastSync: s.at, lastCounts: s.counts };
+  return { apiConfigured: notionConfigured(), lastSync: s.at, lastSource: s.source, lastCounts: s.counts };
 }
 
 async function loadCompanies(supabase: Supabase): Promise<ExistingCompany[]> {
@@ -80,22 +110,45 @@ async function loadCompanies(supabase: Supabase): Promise<ExistingCompany[]> {
   return (data ?? []) as ExistingCompany[];
 }
 
-function notionMessage(e: unknown): string {
+function errorMessage(e: unknown): string {
   if (e instanceof NotionError) {
     if (e.status === 401) return "Notion-Token ungültig. Bitte NOTION_TOKEN prüfen.";
     if (e.status === 404)
       return "Datenbank nicht gefunden. Ist sie mit der Notion-Integration geteilt (⋯ → Verbindungen)?";
     return `Notion-Fehler: ${e.message}`;
   }
-  return "Notion nicht erreichbar.";
+  return "Abgleich fehlgeschlagen.";
 }
 
-async function buildPlan(supabase: Supabase) {
+async function resolveSource(
+  supabase: Supabase | null,
+  source: Source,
+): Promise<{ supabase: Supabase; source: Source } | { error: string }> {
+  if (!supabase) return { error: "Nicht angemeldet." };
+  if (source.kind === "api" && !notionConfigured()) {
+    return { error: "Notion ist nicht verbunden (NOTION_TOKEN fehlt)." };
+  }
+  if (source.kind === "export") {
+    const parsed = recordsSchema.safeParse(source.records);
+    if (!parsed.success) return { error: "Export konnte nicht gelesen werden (ungültige Zeilen)." };
+    return { supabase, source: { kind: "export", records: parsed.data } };
+  }
+  return { supabase, source };
+}
+
+async function buildPlan(supabase: Supabase, source: Source) {
   const today = businessToday();
-  const [pages, companies, state] = await Promise.all([fetchIcpLeadPages(), loadCompanies(supabase), readState(supabase)]);
-  const leads = pages.map((p) => mapNotionPage(p, "", today));
+  const [companies, state] = await Promise.all([loadCompanies(supabase), readState(supabase)]);
+  let leads: NotionLead[];
+  let pages: NotionPage[] = [];
+  if (source.kind === "api") {
+    pages = await fetchIcpLeadPages();
+    leads = pages.map((p) => mapNotionPage(p, "", today));
+  } else {
+    leads = source.records.map((r) => mapRecord(r, today));
+  }
   const plan = planSync(leads, companies, { lastSync: state.at ?? BASELINE, today });
-  return { pages, plan, today };
+  return { pages, leads, plan, today };
 }
 
 function counts(plan: SyncPlan): SyncCounts {
@@ -118,23 +171,22 @@ const FIELD_LABELS: Record<string, string> = {
   meta_ads: "Meta Ads",
 };
 
-export async function previewNotionSync(): Promise<Result<NotionSyncPreview>> {
-  const supabase = await requireUser();
-  if (!supabase) return { error: "Nicht angemeldet." };
-  if (!notionConfigured()) return { error: "Notion ist nicht verbunden (NOTION_TOKEN fehlt)." };
+async function preview(source: Source): Promise<Result<NotionSyncPreview>> {
+  const resolved = await resolveSource(await requireUser(), source);
+  if ("error" in resolved) return resolved;
   let built;
   try {
-    built = await buildPlan(supabase);
+    built = await buildPlan(resolved.supabase, resolved.source);
   } catch (e) {
-    return { error: notionMessage(e) };
+    return { error: errorMessage(e) };
   }
-  const { pages, plan } = built;
+  const { leads, plan } = built;
   const skipped = Object.entries(
     plan.skipped.reduce<Record<string, number>>((m, s) => ((m[s.reason] = (m[s.reason] ?? 0) + 1), m), {}),
   ).map(([reason, count]) => ({ reason: SKIP_LABELS[reason as SkipReason], count }));
   return {
     ok: true,
-    pages: pages.length,
+    pages: leads.length,
     counts: counts(plan),
     create: plan.create.map((c) => ({
       firma: c.lead.firma ?? "",
@@ -154,7 +206,15 @@ export async function previewNotionSync(): Promise<Result<NotionSyncPreview>> {
   };
 }
 
-/** Seiteninhalt für neue Leads (begrenzt, 3 parallel wegen Notion-Rate-Limit). */
+export async function previewNotionSync(): Promise<Result<NotionSyncPreview>> {
+  return preview({ kind: "api" });
+}
+
+export async function previewNotionExport(records: SourceRecord[]): Promise<Result<NotionSyncPreview>> {
+  return preview({ kind: "export", records });
+}
+
+/** Seiteninhalt neuer Leads über die API (begrenzt, 3 parallel wegen Rate-Limit). */
 async function fetchBodies(pageIds: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   const queue = pageIds.slice(0, 60);
@@ -171,40 +231,38 @@ async function fetchBodies(pageIds: string[]): Promise<Map<string, string>> {
   return out;
 }
 
-export type NotionSyncResult = {
-  ok: true;
-  created: number;
-  duplicates: number;
-  updated: number;
-  notes: number;
-  statuses: number;
-  errors: string[];
-};
-
-export async function applyNotionSync(): Promise<Result<NotionSyncResult>> {
-  const supabase = await requireUser();
-  if (!supabase) return { error: "Nicht angemeldet." };
-  if (!notionConfigured()) return { error: "Notion ist nicht verbunden (NOTION_TOKEN fehlt)." };
+async function apply(source: Source): Promise<Result<NotionSyncResult>> {
+  const resolved = await resolveSource(await requireUser(), source);
+  if ("error" in resolved) return resolved;
+  const { supabase } = resolved;
 
   let built;
   try {
-    built = await buildPlan(supabase);
+    built = await buildPlan(supabase, resolved.source);
   } catch (e) {
-    return { error: notionMessage(e) };
+    return { error: errorMessage(e) };
   }
-  const { pages, plan, today } = built;
-  const startedAt = new Date().toISOString();
+  const { pages, leads, plan, today } = built;
+  // Stand der Daten: beim Export die jüngste Bearbeitung darin (nicht der Upload-Zeitpunkt),
+  // sonst gingen Notion-Änderungen zwischen Export und Upload beim nächsten Mal verloren.
+  const startedAt =
+    resolved.source.kind === "export"
+      ? leads.reduce((max, l) => (l.lastEdited > max ? l.lastEdited : max), BASELINE)
+      : new Date().toISOString();
   const errors: string[] = [];
   const result: NotionSyncResult = { ok: true, created: 0, duplicates: 0, updated: 0, notes: 0, statuses: 0, errors };
 
-  // 1) Neue Leads – mit Seiteninhalt in der ersten Notiz.
-  const pageById = new Map<string, NotionPage>(pages.map((p) => [p.id, p]));
-  const bodies = await fetchBodies(plan.create.map((c) => c.lead.pageId));
-  const creates = plan.create.map((c) => {
-    const body = bodies.get(c.lead.pageId);
-    const page = pageById.get(c.lead.pageId);
-    return body && page ? { ...c, lead: { ...mapNotionPage(page, body, today), status: c.lead.status } } : c;
-  });
+  // 1) Neue Leads. Bei der API-Quelle den Seiteninhalt nachladen (der Export bringt ihn mit).
+  let creates = plan.create;
+  if (resolved.source.kind === "api") {
+    const pageById = new Map<string, NotionPage>(pages.map((p) => [p.id, p]));
+    const bodies = await fetchBodies(plan.create.map((c) => c.lead.pageId));
+    creates = plan.create.map((c) => {
+      const body = bodies.get(c.lead.pageId);
+      const page = pageById.get(c.lead.pageId);
+      return body && page ? { ...c, lead: mapNotionPage(page, body, today) } : c;
+    });
+  }
 
   for (let i = 0; i < creates.length; i += 50) {
     const chunk = creates.slice(i, i + 50);
@@ -245,7 +303,7 @@ export async function applyNotionSync(): Promise<Result<NotionSyncResult>> {
       const { lead, wv } = item;
       const qual: CompanyPatch = {};
       if (lead.crm) qual.crm_system = lead.crm;
-      if (lead.inserate !== null) qual.inserate_aktiv = lead.inserate;
+      if (lead.inserate !== null && Number.isFinite(lead.inserate)) qual.inserate_aktiv = lead.inserate;
       if (lead.meta !== null) qual.meta_ads = lead.meta;
       if (Object.keys(qual).length) await supabase.from("companies").update(qual).eq("id", r.company_id);
       if (lead.status !== "neu") {
@@ -298,7 +356,12 @@ export async function applyNotionSync(): Promise<Result<NotionSyncResult>> {
 
   await supabase.from("app_settings").upsert({
     key: SETTINGS_KEY,
-    value: { at: startedAt, counts: counts(plan), result: { ...result, errors: errors.slice(0, 20) } },
+    value: {
+      at: startedAt,
+      source: resolved.source.kind,
+      counts: counts(plan),
+      result: { ...result, errors: errors.slice(0, 20) },
+    },
     updated_at: new Date().toISOString(),
   });
 
@@ -307,4 +370,12 @@ export async function applyNotionSync(): Promise<Result<NotionSyncResult>> {
   revalidatePath("/plan");
   revalidatePath("/import");
   return result;
+}
+
+export async function applyNotionSync(): Promise<Result<NotionSyncResult>> {
+  return apply({ kind: "api" });
+}
+
+export async function applyNotionExport(records: SourceRecord[]): Promise<Result<NotionSyncResult>> {
+  return apply({ kind: "export", records });
 }

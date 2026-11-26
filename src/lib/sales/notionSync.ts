@@ -272,9 +272,45 @@ export function hash(s: string): string {
 // Seite → Lead
 // ---------------------------------------------------------------------------
 
+/**
+ * Quellneutrale Zeile: aus der Notion-API (Eigenschaften → Text) oder aus
+ * einem Notion-Export (CSV-Spalten + Markdown-Seite).
+ */
+export type SourceRecord = {
+  pageId: string;
+  /** ISO-Zeitpunkt der letzten Bearbeitung in Notion. */
+  lastEdited: string;
+  fields: Record<string, string | null>;
+  body?: string;
+};
+
+const MONTHS: Record<string, number> = {
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+  july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+};
+
+/** „2026-12-02“, „2026-12-02T…“ oder „December 2, 2026“ → `YYYY-MM-DD`. */
+export function parseNotionDate(s: string | null): string | null {
+  if (!s) return null;
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const m = s.trim().match(/^([A-Za-z]+) (\d{1,2}), (\d{4})/);
+  const mon = m ? MONTHS[m[1].toLowerCase()] : undefined;
+  return m && mon ? `${m[3]}-${String(mon).padStart(2, "0")}-${m[2].padStart(2, "0")}` : null;
+}
+
 export function mapNotionPage(page: NotionPage, body = "", today = "2026-01-01"): NotionLead {
-  const p = page.properties;
-  const t = (k: string) => propText(p[k]);
+  const fields: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(page.properties)) fields[k] = propText(v);
+  return mapRecord({ pageId: page.id, lastEdited: page.last_edited_time, fields, body }, today);
+}
+
+export function mapRecord(rec: SourceRecord, today = "2026-01-01"): NotionLead {
+  const body = rec.body ?? "";
+  const t = (k: string) => {
+    const v = rec.fields[k]?.trim();
+    return v ? v : null;
+  };
   const notionStatus = t("Call-Status") ?? "";
   const ansprechpartner = t("Ansprechpartner");
   const person = parsePerson(ansprechpartner);
@@ -304,10 +340,9 @@ export function mapNotionPage(page: NotionPage, body = "", today = "2026-01-01")
     .join("\n")
     .slice(0, 6000);
 
-  const wvRaw = t("Nächster Anruf");
   return {
-    pageId: page.id,
-    lastEdited: page.last_edited_time,
+    pageId: rec.pageId,
+    lastEdited: rec.lastEdited,
     firma: cleanFirma(t("Firma")),
     stadt: t("Stadt"),
     telefon: t("Telefon (enrich)"),
@@ -319,9 +354,9 @@ export function mapNotionPage(page: NotionPage, body = "", today = "2026-01-01")
     enrichStatus: t("enrich_status"),
     notionStatus,
     status: mapStatus(notionStatus),
-    wv: wvRaw ? wvRaw.slice(0, 10) : null,
+    wv: parseNotionDate(t("Nächster Anruf")),
     crm: mapCrm(t("CRM")),
-    inserate: inserateRaw ? Math.round(Number(inserateRaw)) : null,
+    inserate: inserateRaw && Number.isFinite(Number(inserateRaw)) ? Math.round(Number(inserateRaw)) : null,
     meta: metaRaw === "ja" ? true : metaRaw === "nein" ? false : null,
     notiz,
   };

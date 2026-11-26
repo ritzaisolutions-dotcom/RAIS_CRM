@@ -92,6 +92,10 @@ securityHeaders.push({
 });
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Notion-Export-Upload (Import → Notion): gefilterte Zeilen + Seiteninhalte.
+    serverActions: { bodySizeLimit: "4mb" },
+  },
   async headers() {
     return [
       {

@@ -1,21 +1,27 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
-import { CircleAlert, CircleCheck, RefreshCw, TriangleAlert } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { unzipSync } from "fflate";
+import { CircleAlert, CircleCheck, FileArchive, RefreshCw, TriangleAlert, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { BUSINESS_TZ } from "@/lib/sales/dates";
 import { statusLabel } from "@/lib/sales/leads";
+import { parseNotionExport, type ExportFile } from "@/lib/sales/notionExport";
+import type { SourceRecord } from "@/lib/sales/notionSync";
 import {
+  applyNotionExport,
   applyNotionSync,
+  previewNotionExport,
   previewNotionSync,
   type NotionSyncPreview,
   type NotionSyncResult,
   type NotionSyncState,
 } from "@/lib/sales/notionSyncActions";
 import type { PipelineStatus } from "@/lib/sales/types";
+import { cn } from "@/lib/utils";
 
 const stamp = new Intl.DateTimeFormat("de-DE", {
   timeZone: BUSINESS_TZ,
@@ -25,6 +31,25 @@ const stamp = new Intl.DateTimeFormat("de-DE", {
   hour: "2-digit",
   minute: "2-digit",
 });
+
+const MAX_ZIP_BYTES = 50 * 1024 * 1024;
+
+/** ZIP (auch verschachtelt, wie Notion große Exporte packt) → Textdateien. */
+function unzipExport(data: Uint8Array, depth = 0): ExportFile[] {
+  const entries = unzipSync(data, {
+    filter: (f) => /\.(csv|md|zip)$/i.test(f.name) && f.originalSize < 30 * 1024 * 1024,
+  });
+  const decoder = new TextDecoder("utf-8");
+  const files: ExportFile[] = [];
+  for (const [name, bytes] of Object.entries(entries)) {
+    if (/\.zip$/i.test(name)) {
+      if (depth < 2) files.push(...unzipExport(bytes, depth + 1));
+    } else {
+      files.push({ name, text: decoder.decode(bytes) });
+    }
+  }
+  return files;
+}
 
 function Stat({ label, value, tone }: { label: string; value: number; tone?: string }) {
   return (
@@ -37,21 +62,27 @@ function Stat({ label, value, tone }: { label: string; value: number; tone?: str
   );
 }
 
+type Source = { kind: "api" } | { kind: "export"; records: SourceRecord[]; fileName: string; totalRows: number };
+
 export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
   const router = useRouter();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [source, setSource] = useState<Source | null>(null);
   const [preview, setPreview] = useState<NotionSyncPreview | null>(null);
   const [result, setResult] = useState<NotionSyncResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [loading, startLoad] = useTransition();
   const [applying, startApply] = useTransition();
 
-  function load() {
+  function runPreview(next: Source) {
     setError(null);
     setResult(null);
+    setPreview(null);
+    setSource(next);
     startLoad(async () => {
-      const res = await previewNotionSync();
+      const res = next.kind === "api" ? await previewNotionSync() : await previewNotionExport(next.records);
       if ("error" in res) {
-        setPreview(null);
         setError(res.error);
         return;
       }
@@ -59,67 +90,119 @@ export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
     });
   }
 
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setResult(null);
+    setPreview(null);
+    if (!/\.zip$/i.test(file.name)) {
+      setError("Bitte die ZIP-Datei aus dem Notion-Export wählen.");
+      return;
+    }
+    if (file.size > MAX_ZIP_BYTES) {
+      setError("Die Datei ist größer als 50 MB. Bitte nur die Datenbank exportieren.");
+      return;
+    }
+    try {
+      const files = unzipExport(new Uint8Array(await file.arrayBuffer()));
+      const parsed = parseNotionExport(files);
+      if (parsed.records.length === 0) {
+        setError(`Im Export sind ${parsed.totalRows} Zeilen, aber keine mit ICP = JA.`);
+        return;
+      }
+      runPreview({ kind: "export", records: parsed.records, fileName: file.name, totalRows: parsed.totalRows });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Die Datei konnte nicht gelesen werden.");
+    }
+  }
+
   function apply() {
+    if (!source) return;
     setError(null);
     startApply(async () => {
-      const res = await applyNotionSync();
+      const res = source.kind === "api" ? await applyNotionSync() : await applyNotionExport(source.records);
       if ("error" in res) {
         setError(res.error);
         return;
       }
       setResult(res);
       setPreview(null);
+      setSource(null);
       router.refresh();
     });
   }
 
-  if (!state.configured) {
-    return (
-      <div className="mx-auto max-w-3xl p-5">
-        <Panel>
-          <PanelHeader title="Notion verbinden" />
-          <div className="space-y-3 p-4 text-[13px] leading-relaxed">
-            <p>Damit der Sync die Datenbank „ImmoScout Makler Leads“ lesen kann, einmalig:</p>
-            <ol className="list-decimal space-y-1.5 pl-5">
-              <li>
-                In Notion unter <span className="font-medium">Einstellungen → Verbindungen → Integrationen entwickeln</span>{" "}
-                eine interne Integration „RAIS CRM“ anlegen (nur Lesen reicht).
-              </li>
-              <li>
-                Die Datenbank öffnen → <span className="font-medium">⋯ → Verbindungen</span> → „RAIS CRM“ hinzufügen.
-              </li>
-              <li>
-                Das Secret der Integration in Vercel als <code className="rounded bg-surface-2 px-1">NOTION_TOKEN</code>{" "}
-                eintragen (Production) und neu deployen. Lokal in <code className="rounded bg-surface-2 px-1">.env.local</code>.
-              </li>
-            </ol>
-            <p className="text-fg-muted">Das Token bleibt auf dem Server und wird nie an den Browser geschickt.</p>
-          </div>
-        </Panel>
-      </div>
-    );
-  }
+  const busy = loading || applying;
 
   return (
     <div className="mx-auto grid max-w-5xl gap-4 p-5">
       <Panel>
-        <div className="flex flex-wrap items-center justify-between gap-3 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div className="min-w-0 text-[13px]">
             <div className="font-medium">ImmoScout Makler Leads · nur ICP = JA</div>
             <div className="text-xs text-fg-muted">
               {state.lastSync
-                ? `Letzter Sync: ${stamp.format(new Date(state.lastSync))}`
-                : "Noch kein Sync. Der manuelle Import vom 26.11. gilt als Ausgangsstand."}
+                ? `Letzter Abgleich: Stand ${stamp.format(new Date(state.lastSync))}`
+                : "Noch kein Abgleich. Der Import vom 26.11. gilt als Ausgangsstand."}
             </div>
           </div>
-          <Button variant="secondary" onClick={load} disabled={loading || applying}>
-            <RefreshCw className={loading ? "animate-spin" : undefined} />
-            {loading ? "Lade aus Notion …" : "Änderungen prüfen"}
-          </Button>
+          {state.apiConfigured ? (
+            <Button variant="secondary" onClick={() => runPreview({ kind: "api" })} disabled={busy}>
+              <RefreshCw className={loading && source?.kind === "api" ? "animate-spin" : undefined} />
+              Direkt aus Notion prüfen
+            </Button>
+          ) : null}
         </div>
+
+        <div className="p-4">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              void onFile(e.dataTransfer.files[0]);
+            }}
+            disabled={busy}
+            className={cn(
+              "flex w-full flex-col items-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors",
+              dragging ? "border-accent bg-accent/5" : "border-line-strong hover:border-fg-subtle",
+              busy && "opacity-60",
+            )}
+          >
+            {loading && source?.kind === "export" ? (
+              <RefreshCw className="size-6 animate-spin text-fg-muted" />
+            ) : (
+              <Upload className="size-6 text-fg-muted" />
+            )}
+            <span className="text-[13px] font-medium">
+              {loading && source?.kind === "export" ? "Wird abgeglichen …" : "Notion-Export (.zip) hier ablegen oder auswählen"}
+            </span>
+            <span className="text-xs text-fg-muted">
+              In Notion: Datenbank öffnen → ⋯ → Exportieren → „Markdown &amp; CSV“, Unterseiten einschließen
+            </span>
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".zip,application/zip"
+            className="hidden"
+            onChange={(e) => {
+              void onFile(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </div>
+
         <div className="border-t border-line px-4 py-2.5 text-xs leading-relaxed text-fg-muted">
-          Neue Leads werden angelegt. Bei bestehenden Leads füllt der Sync nur leere Felder; der Status wird nur
-          übernommen, solange der Lead im CRM noch „Neu“ ist. Was du im CRM bearbeitet hast, wird nie überschrieben.
+          Neue Leads werden angelegt. Bei bestehenden Leads werden nur leere Felder gefüllt; der Status wird nur übernommen,
+          solange der Lead im CRM noch „Neu“ ist. Was du im CRM bearbeitet hast, wird nie überschrieben. Die Datei wird im
+          Browser gelesen; übertragen werden nur die Zeilen mit ICP = JA.
         </div>
       </Panel>
 
@@ -135,7 +218,7 @@ export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
           <div className="flex items-start gap-2 p-4 text-[13px]">
             <CircleCheck className="mt-0.5 size-4 shrink-0 text-[var(--tone-green-fg,currentColor)]" />
             <div>
-              <div className="font-medium">Sync abgeschlossen</div>
+              <div className="font-medium">Abgleich übernommen</div>
               <div className="text-fg-muted">
                 {result.created} neu angelegt · {result.updated} ergänzt · {result.statuses} Status gesetzt ·{" "}
                 {result.notes} Notizen
@@ -153,12 +236,23 @@ export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
         </Panel>
       ) : null}
 
-      {preview ? (
+      {preview && source ? (
         <>
+          {source.kind === "export" ? (
+            <div className="flex items-center gap-2 text-xs text-fg-muted">
+              <FileArchive className="size-3.5" />
+              {source.fileName} · {source.totalRows} Zeilen im Export, {source.records.length} mit ICP = JA
+            </div>
+          ) : null}
+
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Stat label="neu anlegen" value={preview.counts.create} tone="text-accent-fg" />
             <Stat label="ergänzen" value={preview.counts.update} />
-            <Stat label="Konflikte (nur Info)" value={preview.counts.conflicts} tone={preview.counts.conflicts ? "text-[var(--tone-amber-fg,currentColor)]" : undefined} />
+            <Stat
+              label="Konflikte (nur Info)"
+              value={preview.counts.conflicts}
+              tone={preview.counts.conflicts ? "text-[var(--tone-amber-fg,currentColor)]" : undefined}
+            />
             <Stat label="übersprungen" value={preview.counts.skipped} tone="text-fg-subtle" />
           </div>
 
@@ -166,8 +260,8 @@ export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
             <Panel className="overflow-hidden">
               <PanelHeader title={`Neue Leads · ${preview.create.length}`} />
               <ul className="max-h-80 divide-y divide-line overflow-y-auto">
-                {preview.create.map((c) => (
-                  <li key={`${c.firma}-${c.stadt}`} className="flex items-center justify-between gap-3 px-4 py-1.5 text-[13px]">
+                {preview.create.map((c, i) => (
+                  <li key={`${c.firma}-${i}`} className="flex items-center justify-between gap-3 px-4 py-1.5 text-[13px]">
                     <span className="min-w-0 truncate">
                       {c.firma}
                       <span className="ml-1.5 text-xs text-fg-subtle">{c.stadt ?? ""}</span>
@@ -183,8 +277,8 @@ export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
             <Panel className="overflow-hidden">
               <PanelHeader title={`Bestehende Leads ergänzen · ${preview.update.length}`} />
               <ul className="max-h-80 divide-y divide-line overflow-y-auto">
-                {preview.update.map((u) => (
-                  <li key={u.firma} className="flex flex-wrap items-center justify-between gap-2 px-4 py-1.5 text-[13px]">
+                {preview.update.map((u, i) => (
+                  <li key={`${u.firma}-${i}`} className="flex flex-wrap items-center justify-between gap-2 px-4 py-1.5 text-[13px]">
                     <span className="min-w-0 truncate">{u.firma}</span>
                     <span className="text-xs text-fg-muted">
                       {[
@@ -212,8 +306,8 @@ export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
                 }
               />
               <p className="px-4 pt-2 text-xs text-fg-muted">
-                Diese Leads wurden in Notion nach dem letzten Sync geändert, haben im CRM aber schon einen Status. Der Sync
-                ändert sie nicht. Prüfe sie bei Bedarf selbst.
+                In Notion nach dem letzten Abgleich geändert, im CRM aber schon bearbeitet. Der Abgleich ändert diese Leads
+                nicht. Prüfe sie bei Bedarf selbst.
               </p>
               <ul className="divide-y divide-line">
                 {preview.conflicts.map((c) => (
@@ -237,8 +331,13 @@ export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
           ) : null}
 
           <div className="flex items-center justify-end gap-3">
-            <span className="text-xs text-fg-muted">{preview.pages} Seiten mit ICP = JA in Notion gelesen</span>
-            <Button onClick={apply} disabled={applying || (preview.counts.create === 0 && preview.counts.update === 0)}>
+            {preview.counts.create === 0 && preview.counts.update === 0 ? (
+              <span className="text-xs text-fg-muted">Alles auf dem neuesten Stand.</span>
+            ) : null}
+            <Button
+              onClick={apply}
+              disabled={applying || (preview.counts.create === 0 && preview.counts.update === 0)}
+            >
               {applying ? "Wird übernommen …" : "Übernehmen"}
             </Button>
           </div>
