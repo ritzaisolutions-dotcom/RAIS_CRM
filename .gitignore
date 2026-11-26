@@ -53,3 +53,5 @@ supabase/.schema-dump/
 
 # Persönliche Daten-Exporte (nie committen)
 Basic_LinkedInDataExport_*
+noton_leads.zip
+*notion*export*.zip
