@@ -78,15 +78,17 @@ export function LeadSummary({
 }) {
   const router = useRouter();
   const [bumpPending, startBump] = useTransition();
-  const [count, setCount] = useState(contactCount);
+  const misses = nichtErreichtCount(status);
+  // Anrufe aus der Notion-Zeit stehen nur im Status („Nicht erreicht 2“), nicht als Touchpoint.
+  const baseCount = Math.max(contactCount, misses);
+  const [count, setCount] = useState(baseCount);
   const [bumpError, setBumpError] = useState<string | null>(null);
 
-  useEffect(() => setCount(contactCount), [contactCount]);
+  useEffect(() => setCount(baseCount), [baseCount]);
 
   const notes = touchpoints.filter(isContextNote);
   const [showAll, setShowAll] = useState(false);
   const visibleNotes = showAll ? notes : notes.slice(0, 4);
-  const misses = nichtErreichtCount(status);
   const contactTouches = touchpoints.filter(
     (t) => !t.voided_at && ["call", "email", "dm", "sms", "meeting"].includes(t.kanal),
   );

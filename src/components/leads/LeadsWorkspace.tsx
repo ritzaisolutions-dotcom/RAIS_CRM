@@ -47,6 +47,7 @@ import {
   displayKategorie,
   kategorieTone,
   kontaktwegLabel,
+  nichtErreichtCount,
   STATUS_MENU,
   relativePast,
   statusTone,
@@ -408,10 +409,12 @@ export function LeadsWorkspace({
                     <td className="whitespace-nowrap px-3 py-1 text-fg-muted">
                       {(() => {
                         const way = kontaktwegLabel(r.letzter_kontakt_kanal, r.vorheriger_kontakt_kanal);
-                        if (r.kontaktversuche === 0 && !way) return <span className="text-fg-subtle">—</span>;
+                        // Anrufe aus der Notion-Zeit stehen nur im Status („Nicht erreicht 2“).
+                        const kontakte = Math.max(r.kontaktversuche, nichtErreichtCount(r.status));
+                        if (kontakte === 0 && !way) return <span className="text-fg-subtle">—</span>;
                         return (
                           <span className="flex items-center gap-1.5">
-                            <span className="tabular-nums">{r.kontaktversuche}×</span>
+                            <span className="tabular-nums">{kontakte}×</span>
                             {way ? (
                               <span className={cn("text-xs", way.changed ? "font-medium text-accent-fg" : "text-fg-subtle")} title={way.changed ? "Kontaktweg hat gewechselt" : "Letzter Kontaktweg"}>
                                 {way.label}

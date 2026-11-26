@@ -150,10 +150,6 @@ export function EfferdShell({
   return (
     <TooltipProvider>
       <div className="flex h-dvh min-h-0 bg-bg text-fg">
-        <a href="#main-content" className="skip-link">
-          Zum Inhalt springen
-        </a>
-
         <aside
           className={cn(
             "hidden shrink-0 flex-col border-r border-line bg-surface transition-[width] duration-150 md:flex",

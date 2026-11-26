@@ -1,9 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { THEME_STORAGE_KEY } from "@/lib/theme";
+
+/**
+ * Quelle der Wahrheit ist die `dark`-Klasse am <html>. Statt sie einmal beim
+ * Mounten zu lesen (das konnte bei Client-Navigation den falschen Stand
+ * erwischen), wird die Klasse beobachtet – Label und Icon passen immer.
+ */
+function subscribe(onChange: () => void) {
+  const observer = new MutationObserver(onChange);
+  observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+  return () => observer.disconnect();
+}
+
+const isDark = () => document.documentElement.classList.contains("dark");
 
 export function ThemeToggle({
   collapsed = false,
@@ -12,15 +25,10 @@ export function ThemeToggle({
   collapsed?: boolean;
   className?: string;
 }) {
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    setDark(document.documentElement.classList.contains("dark"));
-  }, []);
+  const dark = useSyncExternalStore(subscribe, isDark, () => false);
 
   function toggle() {
-    const next = !dark;
-    setDark(next);
+    const next = !isDark();
     document.documentElement.classList.toggle("dark", next);
     try {
       localStorage.setItem(THEME_STORAGE_KEY, next ? "dark" : "light");
@@ -42,7 +50,7 @@ export function ThemeToggle({
       )}
     >
       <Icon className="size-4 shrink-0" aria-hidden="true" />
-      {collapsed ? null : <span>{dark ? "Hell" : "Dunkel"}</span>}
+      {collapsed ? null : <span suppressHydrationWarning>{dark ? "Hell" : "Dunkel"}</span>}
     </button>
   );
 }

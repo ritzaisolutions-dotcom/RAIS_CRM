@@ -1,11 +1,9 @@
+import Link from "next/link";
 import { EfferdShell } from "@/components/EfferdShell";
 import { ConnectionsPanel } from "@/components/ConnectionsPanel";
 import { CustomFieldsPanel } from "@/components/CustomFieldsPanel";
-import {
-  EmailTemplatesPanel,
-  SequencesPanel,
-  WorkflowsPanel,
-} from "@/components/SettingsPanels";
+import { SequencesPanel, WorkflowsPanel } from "@/components/SettingsPanels";
+import { PageHeader } from "@/components/ui/panel";
 import { getConnectionStatus } from "@/lib/sales/actions";
 import {
   countOpenTasksDueToday,
@@ -15,15 +13,14 @@ import {
   fetchSequenceSteps,
   fetchSequences,
   fetchWorkflowRules,
-  fetchWorkspaceStats,
 } from "@/lib/sales/queries";
 import { InboundQuarantinePanel } from "@/components/InboundQuarantinePanel";
 
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Einstellungen" };
 
 export default async function EinstellungenPage() {
   const [
-    stats,
     templates,
     sequences,
     rules,
@@ -32,7 +29,6 @@ export default async function EinstellungenPage() {
     connectionStatus,
     quarantine,
   ] = await Promise.all([
-    fetchWorkspaceStats(),
     fetchEmailTemplates(),
     fetchSequences(),
     fetchWorkflowRules(),
@@ -53,29 +49,30 @@ export default async function EinstellungenPage() {
   );
 
   return (
-    <EfferdShell
-      kpis={stats.kpis}
-      activity={stats.activity}
-      degraded={stats.degraded}
-      todoBadge={todoBadge}
-    >
-      <h1 className="m-0 font-[family-name:var(--font-source-serif)] text-2xl font-semibold">
-        Einstellungen
-      </h1>
-      <p className="muted">
-        Verbindungen (SMTP/IMAP/Cron), Vorlagen, freie Felder, Sequenzen und
-        Workflows. Secrets nur in der Server-Umgebung.
-      </p>
-      <div className="stack" style={{ marginTop: "1rem" }}>
-        <ConnectionsPanel status={connectionStatus} />
-        <InboundQuarantinePanel items={quarantine} />
-        <CustomFieldsPanel defs={fieldDefs} />
-        <EmailTemplatesPanel templates={templates} />
-        <SequencesPanel
-          sequences={sequences}
-          stepsBySequence={stepsBySequence}
+    <EfferdShell bare todoBadge={todoBadge}>
+      <div className="flex h-full min-h-0 flex-col">
+        <PageHeader
+          title="Einstellungen"
+          description="Verbindungen, freie Felder, Sequenzen und Workflows. Secrets liegen nur in der Server-Umgebung."
         />
-        <WorkflowsPanel rules={rules} />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="stack mx-auto max-w-5xl p-5">
+            <ConnectionsPanel status={connectionStatus} />
+            <InboundQuarantinePanel items={quarantine} />
+            <CustomFieldsPanel defs={fieldDefs} />
+            <div className="flex items-center justify-between rounded-lg border border-line bg-surface px-4 py-3 text-[13px]">
+              <span>
+                E-Mail-Vorlagen
+                <span className="ml-1.5 text-xs text-fg-muted">{templates.length} gespeichert</span>
+              </span>
+              <Link href="/vorlagen" className="font-medium text-accent-fg hover:underline">
+                Zu den Vorlagen →
+              </Link>
+            </div>
+            <SequencesPanel sequences={sequences} stepsBySequence={stepsBySequence} />
+            <WorkflowsPanel rules={rules} />
+          </div>
+        </div>
       </div>
     </EfferdShell>
   );
