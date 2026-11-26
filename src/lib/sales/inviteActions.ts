@@ -7,6 +7,8 @@ import { asanaConfigured, createAsanaTask } from "@/lib/integrations/asana";
 import { publicBaseUrl } from "@/lib/publicUrl";
 import { sendCompanyEmail } from "@/lib/sales/actions";
 import { validationError } from "@/lib/sales/validation";
+import { businessDayStart } from "@/lib/sales/dates";
+import type { CalendarEvent } from "@/lib/sales/plan";
 
 /**
  * „Termin einladen“: du wählst Datum/Uhrzeit, das CRM legt den Termin im
@@ -65,6 +67,73 @@ export async function fetchBusyForDay(
   } catch {
     return { error: "Kalender nicht abrufbar." };
   }
+}
+
+export type PlanEvent = CalendarEvent & {
+  /** Lead, dessen Kontaktperson als Teilnehmer eingetragen ist. */
+  lead: { companyId: string; firma: string; person: string } | null;
+};
+
+/**
+ * Termine aus dem Google-Kalender für /plan, inkl. Zuordnung zum Lead über
+ * die Teilnehmer-E-Mail. Liefert `error` statt zu werfen, damit die Seite den
+ * Rest (Wiedervorlagen, Aufgaben) trotzdem zeigt.
+ */
+export async function fetchPlanEvents(
+  fromYmd: string,
+  toYmdExclusive: string,
+): Promise<{ events: PlanEvent[] } | { error: string }> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fromYmd) || !/^\d{4}-\d{2}-\d{2}$/.test(toYmdExclusive)) {
+    return { error: "Ungültiger Zeitraum." };
+  }
+  let events: CalendarEvent[];
+  try {
+    const { status, json } = await callCalendar({
+      action: "events",
+      from: businessDayStart(fromYmd).toISOString(),
+      to: businessDayStart(toYmdExclusive).toISOString(),
+    });
+    if (status === 503) return { error: "Google Kalender ist nicht verbunden." };
+    if (status === 400 && json.error === "unknown_action") {
+      return { error: "Die Kalender-Funktion ist noch nicht aktualisiert (Aktion „events“ fehlt)." };
+    }
+    if (status !== 200) return { error: "Kalender nicht abrufbar." };
+    events = (json.events as CalendarEvent[]) ?? [];
+  } catch {
+    return { error: "Kalender nicht abrufbar." };
+  }
+
+  const emails = [...new Set(events.flatMap((e) => e.attendees.map((a) => a.email)))];
+  const byEmail = new Map<string, { companyId: string; firma: string; person: string }>();
+  if (emails.length > 0) {
+    const supabase = await createClient();
+    const { data: people } = await supabase
+      .from("people")
+      .select("email,name,company_id")
+      .in("email", emails.slice(0, 300));
+    const companyIds = [...new Set((people ?? []).map((p) => p.company_id as string))];
+    const { data: companies } = companyIds.length
+      ? await supabase.from("companies").select("id,name").in("id", companyIds)
+      : { data: [] as { id: string; name: string }[] };
+    const firmaById = new Map((companies ?? []).map((c) => [c.id as string, c.name as string]));
+    for (const p of people ?? []) {
+      const firma = firmaById.get(p.company_id as string);
+      if (p.email && firma) {
+        byEmail.set(String(p.email).toLowerCase(), {
+          companyId: p.company_id as string,
+          firma,
+          person: p.name as string,
+        });
+      }
+    }
+  }
+
+  return {
+    events: events.map((e) => ({
+      ...e,
+      lead: e.attendees.map((a) => byEmail.get(a.email)).find(Boolean) ?? null,
+    })),
+  };
 }
 
 const inviteSchema = z.object({

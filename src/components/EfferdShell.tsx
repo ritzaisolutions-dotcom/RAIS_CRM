@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BellRing,
+  CalendarDays,
   FileUp,
   LogOut,
   Mail,
@@ -94,6 +95,7 @@ export function EfferdShell({
       badge: todoBadge,
       match: ["/todos"],
     },
+    { href: "/plan", label: "Plan", icon: CalendarDays },
     { href: "/import", label: "Import", icon: FileUp },
     { href: "/vorlagen", label: "E-Mail-Vorlagen", icon: Mail },
   ];

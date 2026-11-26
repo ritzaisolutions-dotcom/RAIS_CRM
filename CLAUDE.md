@@ -20,6 +20,7 @@ In der Navigation (Close-Stil, `EfferdShell` = `AppShell`):
 
 - `/leads` — eine Lead-Liste mit Ansichten (`v_leads`; Logik in `src/lib/sales/leads.ts`, Queries in `leadQueries.ts`)
 - `/wiedervorlagen` — fällige Wiedervorlagen + offene Aufgaben
+- `/plan` — Wochenansicht: Google-Termine (Edge Function `calendar-invite`, action `events`, Meet-Button, Zuordnung zum Lead über Teilnehmer-E-Mail) + Wiedervorlagen + Aufgaben je Tag
 - `/import` — CSV-Assistent (Mapping, Bereinigung, `sales.import_leads`)
 - `/vorlagen` — E-Mail-Vorlagen mit Variablen (`src/lib/sales/templateVars.ts`)
 - `/firma/[id]` — Lead-Detail, drei Spalten (Steckbrief · Composer + Aktivität · Aufgaben/Recherche/Opportunity)

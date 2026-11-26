@@ -53,6 +53,12 @@ function businessMidnightUtc(y: number, m: number, d: number): Date {
   return new Date(Date.UTC(y, m - 1, d) - offset);
 }
 
+/** Mitternacht (Berlin) eines `YYYY-MM-DD` als UTC-Zeitpunkt. */
+export function businessDayStart(ymd: string): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return businessMidnightUtc(y, m, d);
+}
+
 /**
  * Halboffenes Intervall [from, to) für den gewählten Analytics-Zeitraum,
  * als UTC-ISO-Instants — Grenzen liegen auf Mitternacht Berliner Zeit.
