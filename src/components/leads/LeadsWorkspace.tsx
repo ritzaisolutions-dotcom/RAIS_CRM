@@ -1,5 +1,6 @@
 "use client";
 
+import { InviteFromList } from "@/components/lead/InviteDialog";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -455,7 +456,7 @@ export function LeadsWorkspace({
                         }}
                       />
                     </td>
-                    <td className="w-20 px-3 py-1" onClick={(e) => e.stopPropagation()}>
+                    <td className="w-28 px-3 py-1" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                         {phone ? (
                           <Tooltip content={phone}>
@@ -479,6 +480,7 @@ export function LeadsWorkspace({
                             </Link>
                           </Tooltip>
                         ) : null}
+                        <InviteFromList companyId={r.company_id} firma={r.firma} />
                       </div>
                     </td>
                   </tr>

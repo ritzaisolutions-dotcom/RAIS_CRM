@@ -241,13 +241,20 @@ export function LeadDetail({
       <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[320px_minmax(0,1fr)] lg:overflow-hidden xl:grid-cols-[320px_minmax(0,1fr)_300px]">
         {/* Links: Steckbrief */}
         <aside className="space-y-5 border-line bg-surface px-4 py-4 lg:overflow-y-auto lg:border-r">
+          {/* Ansprechpartner zuerst: Telefon, E-Mail und Kontext sind das, was man im Gespräch braucht. */}
+          <ContactsSection
+            companyId={company.id}
+            people={people}
+            onEmail={(id) => {
+              setEmailPersonId(id);
+              setTab("email");
+            }}
+          />
+
           <section className="space-y-0.5">
             <SectionLabel className="mb-1">Akquise</SectionLabel>
             <FieldRow label="Kategorie">
               <KategorieMenu companyId={company.id} kategorie={company.kategorie} relationship={company.relationship} />
-            </FieldRow>
-            <FieldRow label="Quelle">
-              <QuelleMenu companyId={company.id} quelle={company.quelle} />
             </FieldRow>
             <FieldRow label="CRM">
               <CrmMenu companyId={company.id} crm={company.crm_system} />
@@ -269,15 +276,6 @@ export function LeadDetail({
               }}
             />
           </section>
-
-          <ContactsSection
-            companyId={company.id}
-            people={people}
-            onEmail={(id) => {
-              setEmailPersonId(id);
-              setTab("email");
-            }}
-          />
 
           <section>
             <SectionLabel className="mb-1">Details</SectionLabel>
@@ -313,6 +311,9 @@ export function LeadDetail({
               ]}
               onSave={(v) => saveList({ meta_ads: v === "ja" ? true : v === "nein" ? false : null })}
             />
+            <FieldRow label="Quelle">
+              <QuelleMenu companyId={company.id} quelle={company.quelle} />
+            </FieldRow>
           </section>
 
           {customDefs.length > 0 ? (
