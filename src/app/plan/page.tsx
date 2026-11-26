@@ -29,6 +29,10 @@ const timeFmt = new Intl.DateTimeFormat("de-DE", { timeZone: BUSINESS_TZ, hour: 
 const dayFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", weekday: "short", day: "2-digit", month: "2-digit" });
 const rangeFmt = new Intl.DateTimeFormat("de-DE", { timeZone: "UTC", day: "numeric", month: "short", year: "numeric" });
 
+/** Titel, die auf ein echtes Gespräch hindeuten (auch ohne Google-Teilnehmer). */
+const MEETING_TITLE =
+  /\b(call|calls|meeting|termin|gespräch|erstgespräch|zoom|teams|meet|demo|sprechstunde|walkthrough|follow-?up|interview|onboarding|kickoff|kick-off)\b/i;
+
 function ymdDate(ymd: string) {
   return new Date(`${ymd}T12:00:00Z`);
 }
@@ -137,9 +141,10 @@ function SectionTitle({ icon, children }: { icon: React.ReactNode; children: Rea
 export default async function PlanPage({
   searchParams,
 }: {
-  searchParams: Promise<{ w?: string }>;
+  searchParams: Promise<{ w?: string; alle?: string }>;
 }) {
-  const { w } = await searchParams;
+  const { w, alle } = await searchParams;
+  const showAll = alle === "1";
   const today = businessToday();
   const monday = resolveWeek(w);
   const days = weekDays(monday);
@@ -152,9 +157,16 @@ export default async function PlanPage({
     fetchOpenTasksDue("all", { limit: 500 }),
   ]);
 
-  const events = "events" in calendar ? calendar.events : [];
+  const allEvents = "events" in calendar ? calendar.events : [];
+  // Standard: nur echte Termine (Teilnehmer, Meet oder Lead) – Zeitblöcke ausblenden.
+  const isMeeting = (e: PlanEvent) =>
+    Boolean(e.lead || e.meetLink || e.attendees.length > 0) || MEETING_TITLE.test(e.title);
+  const events = showAll ? allEvents : allEvents.filter(isMeeting);
   const eventsByDay = groupEventsByDay(events, days);
+  const hiddenByDay = showAll ? new Map<string, PlanEvent[]>() : groupEventsByDay(allEvents.filter((e) => !isMeeting(e)), days);
   const leadMeetings = events.filter((e) => e.lead).length;
+  const weekQuery = (monday2: string, all = showAll) =>
+    `/plan?w=${monday2}${all ? "&alle=1" : ""}`;
 
   const followUpsByDay = new Map(days.map((d) => [d, followUps.filter((r) => r.naechster_touch === d)]));
   const tasksByDay = new Map(days.map((d) => [d, tasks.filter((t) => t.due_on === d)]));
@@ -177,20 +189,36 @@ export default async function PlanPage({
               <span className="text-xs font-normal text-fg-subtle">KW {isoWeek(monday)}</span>
             </span>
           }
-          description={`${rangeFmt.format(ymdDate(monday))} – ${rangeFmt.format(ymdDate(sunday))} · ${events.length} Termine${leadMeetings ? ` (${leadMeetings} mit Leads)` : ""} · ${weekFollowUps} Wiedervorlagen`}
+          description={`${rangeFmt.format(ymdDate(monday))} – ${rangeFmt.format(ymdDate(sunday))} · ${events.length} ${showAll ? "Einträge" : "Termine"}${leadMeetings ? ` (${leadMeetings} mit Leads)` : ""} · ${weekFollowUps} Wiedervorlagen`}
           actions={
             <>
-              <Link href={`/plan?w=${addDays(monday, -7)}`} className={navBtn} aria-label="Vorherige Woche">
+              <div className="mr-2 flex rounded-md border border-line-strong p-0.5 text-xs" role="group" aria-label="Kalenderfilter">
+                <Link
+                  href={weekQuery(monday, false)}
+                  aria-current={!showAll}
+                  className={cn("rounded px-2 py-1", !showAll ? "bg-surface-2 font-medium text-fg" : "text-fg-muted hover:text-fg")}
+                >
+                  Nur Termine
+                </Link>
+                <Link
+                  href={weekQuery(monday, true)}
+                  aria-current={showAll}
+                  className={cn("rounded px-2 py-1", showAll ? "bg-surface-2 font-medium text-fg" : "text-fg-muted hover:text-fg")}
+                >
+                  Ganzer Kalender
+                </Link>
+              </div>
+              <Link href={weekQuery(addDays(monday, -7))} className={navBtn} aria-label="Vorherige Woche">
                 <ChevronLeft />
               </Link>
               <Link
-                href="/plan"
+                href={showAll ? "/plan?alle=1" : "/plan"}
                 className={cn(navBtn, isCurrentWeek && "pointer-events-none opacity-50")}
                 aria-disabled={isCurrentWeek}
               >
                 Heute
               </Link>
-              <Link href={`/plan?w=${addDays(monday, 7)}`} className={navBtn} aria-label="Nächste Woche">
+              <Link href={weekQuery(addDays(monday, 7))} className={navBtn} aria-label="Nächste Woche">
                 <ChevronRight />
               </Link>
             </>
@@ -283,7 +311,15 @@ export default async function PlanPage({
                     </>
                   ) : null}
 
-                  {empty ? <p className="py-2 text-xs text-fg-subtle">Frei</p> : null}
+                  {empty ? <p className="py-2 text-xs text-fg-subtle">Keine Termine</p> : null}
+                  {(hiddenByDay.get(day)?.length ?? 0) > 0 ? (
+                    <Link
+                      href={weekQuery(monday, true)}
+                      className="mt-2 block text-[11px] text-fg-subtle hover:text-fg"
+                    >
+                      + {hiddenByDay.get(day)!.length} Kalenderblöcke
+                    </Link>
+                  ) : null}
                 </section>
               );
             })}
