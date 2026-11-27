@@ -92,6 +92,11 @@ securityHeaders.push({
 });
 
 const nextConfig: NextConfig = {
+  // Kennzeichnet jedes Deployment. Next hängt die ID an Assets (`?dpl=`) und
+  // schickt sie bei Navigationen mit; passt sie nicht mehr, lädt der Client hart
+  // neu statt mit veraltetem JS weiterzulaufen. Mit Vercel Skew Protection
+  // landen Requests alter Tabs zusätzlich beim alten Deployment.
+  deploymentId: process.env.VERCEL_DEPLOYMENT_ID,
   experimental: {
     // Notion-Export-Upload (Import → Notion): gefilterte Zeilen + Seiteninhalte.
     serverActions: { bodySizeLimit: "4mb" },

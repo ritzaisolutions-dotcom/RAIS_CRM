@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { UpdateWatcher } from "@/components/UpdateWatcher";
 import { Kbd } from "@/components/ui/badge";
 import { TooltipProvider, Tooltip } from "@/components/ui/menu";
 import { signOut } from "@/lib/sales/actions";
@@ -149,7 +150,11 @@ export function EfferdShell({
 
   return (
     <TooltipProvider>
-      <div className="flex h-dvh min-h-0 bg-bg text-fg">
+      {/* Titelleiste der installierten App (nur im Modus „Fenstersteuerung überlagern“). */}
+      <div className="app-titlebar" aria-hidden="true">
+        RAIS CRM
+      </div>
+      <div className="app-frame flex h-dvh min-h-0 bg-bg text-fg">
         <aside
           className={cn(
             "hidden shrink-0 flex-col border-r border-line bg-surface transition-[width] duration-150 md:flex",
@@ -253,6 +258,7 @@ export function EfferdShell({
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
+          <UpdateWatcher />
           {/* Mobile: kompakte Leiste statt Seitenleiste */}
           <header className="flex h-12 shrink-0 items-center gap-1 overflow-x-auto border-b border-line bg-surface px-2 md:hidden">
             <Image src="/rais-icon.svg" alt="" width={20} height={20} className="mr-1" />

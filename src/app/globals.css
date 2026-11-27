@@ -753,3 +753,38 @@ table.data td.empty {
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }
+
+/*
+ * Installierte App mit „Fenstersteuerung überlagern“ (display_override
+ * window-controls-overlay): der Inhalt reicht bis in die Titelleiste. Eine
+ * eigene, ziehbare Leiste hält Platz für Minimieren/Schließen frei.
+ */
+.app-titlebar {
+  display: none;
+}
+
+@media (display-mode: window-controls-overlay) {
+  .app-titlebar {
+    position: fixed;
+    top: env(titlebar-area-y, 0);
+    left: env(titlebar-area-x, 0);
+    width: env(titlebar-area-width, 100%);
+    height: env(titlebar-area-height, 0px);
+    display: flex;
+    align-items: center;
+    padding-left: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--fg-muted);
+    background: var(--surface);
+    app-region: drag;
+    -webkit-app-region: drag;
+    user-select: none;
+    z-index: 50;
+  }
+
+  .app-frame {
+    margin-top: env(titlebar-area-height, 0px);
+    height: calc(100dvh - env(titlebar-area-height, 0px));
+  }
+}
