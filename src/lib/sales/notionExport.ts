@@ -51,14 +51,22 @@ export function parseCsv(text: string): Record<string, string>[] {
 }
 
 /** Seiteninhalt einer exportierten Seite: alles nach dem Eigenschaften-Block. */
-export function pageFromMarkdown(name: string, text: string): { id: string | null; title: string; body: string } {
+export function pageFromMarkdown(
+  name: string,
+  text: string,
+): { id: string | null; title: string; body: string; stadt: string | null } {
   const id = name.match(/([0-9a-f]{32})\.md$/i)?.[1] ?? null;
   const lines = text.replace(/^﻿/, "").split(/\r?\n/);
   const titleIdx = lines.findIndex((l) => l.startsWith("# "));
   const title = titleIdx >= 0 ? lines[titleIdx].slice(2).trim() : "";
   let i = titleIdx + 1;
-  while (i < lines.length && (lines[i].trim() === "" || /^[^#\n]{1,40}: /.test(lines[i]))) i++;
-  return { id, title, body: lines.slice(i).join("\n").trim() };
+  let stadt: string | null = null;
+  while (i < lines.length && (lines[i].trim() === "" || /^[^#\n]{1,40}: /.test(lines[i]))) {
+    const m = lines[i].match(/^Stadt: (.+)$/);
+    if (m) stadt = m[1].trim();
+    i++;
+  }
+  return { id, title, body: lines.slice(i).join("\n").trim(), stadt };
 }
 
 function toIso(s: string | undefined): string {
@@ -73,11 +81,23 @@ export function parseNotionExport(files: ExportFile[]): ParsedExport {
   const csv = csvs.find((f) => /_all\.csv$/i.test(f.name)) ?? csvs[0];
   if (!csv) throw new Error("Keine CSV im Export gefunden. Bitte in Notion als „Markdown & CSV“ exportieren.");
 
-  const pages = new Map<string, { id: string | null; body: string }>();
+  // Mehrere Seiten können denselben Titel haben (z. B. zwei „Schmitt Immobilien GmbH“).
+  type Page = { id: string | null; body: string; stadt: string | null };
+  const pages = new Map<string, Page[]>();
   for (const f of files) {
     if (!f.name.toLowerCase().endsWith(".md")) continue;
     const p = pageFromMarkdown(f.name, f.text);
-    if (p.title && !pages.has(p.title)) pages.set(p.title, { id: p.id, body: p.body });
+    if (p.title) pages.set(p.title, [...(pages.get(p.title) ?? []), { id: p.id, body: p.body, stadt: p.stadt }]);
+  }
+  const used = new Set<Page>();
+  const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+  /** Seite zur Zeile: gleicher Titel, Stadt darf nicht widersprechen, jede Seite nur einmal. */
+  function pageFor(r: Record<string, string>): Page | undefined {
+    const candidates = (pages.get(r["Firma"] ?? "") ?? []).filter((p) => !used.has(p));
+    const fits = candidates.filter((p) => !p.stadt || !r["Stadt"] || norm(p.stadt) === norm(r["Stadt"]));
+    const pick = fits.find((p) => p.stadt && norm(p.stadt) === norm(r["Stadt"])) ?? fits[0];
+    if (pick) used.add(pick);
+    return pick;
   }
 
   const rows = parseCsv(csv.text);
@@ -88,7 +108,7 @@ export function parseNotionExport(files: ExportFile[]): ParsedExport {
   const records: SourceRecord[] = [];
   for (const r of rows) {
     // Alle Zeilen: auch Grenzfall/RAUS/„Kein Interesse“, damit sie nie erneut gezogen werden.
-    const page = pages.get(r["Firma"] ?? "");
+    const page = pageFor(r);
     records.push({
       pageId: page?.id ?? `export-${hash(`${r["Firma"]}|${r["IS24 URL"] ?? ""}|${r["Stadt"] ?? ""}`)}`,
       lastEdited: toIso(r["Last edited time"]),

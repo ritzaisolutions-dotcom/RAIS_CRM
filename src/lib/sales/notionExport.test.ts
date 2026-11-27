@@ -25,7 +25,23 @@ describe("pageFromMarkdown", () => {
       "Muster GmbH 0123456789abcdef0123456789abcdef.md",
       "# Muster GmbH\n\nStadt: Köln\nICP: JA\n\n## E-Mail\n\nHallo",
     );
-    expect(p).toEqual({ id: "0123456789abcdef0123456789abcdef", title: "Muster GmbH", body: "## E-Mail\n\nHallo" });
+    expect(p).toEqual({ id: "0123456789abcdef0123456789abcdef", title: "Muster GmbH", body: "## E-Mail\n\nHallo", stadt: "Köln" });
+  });
+});
+
+describe("page linking with duplicate titles", () => {
+  it("links a page only to the row with the matching city and only once", () => {
+    const twin = [
+      "Firma,Stadt,ICP,Call-Status,Nächster Anruf,Last edited time,IS24 URL,Ansprechpartner",
+      "Schmitt Immobilien GmbH,Heilbronn,,,,,https://www.immobilienscout24.de/anbieter/profil/h/x,",
+      "Schmitt Immobilien GmbH,Frankfurt am Main,JA,,,,https://www.immobilienscout24.de/anbieter/profil/f/x,",
+    ].join("\n");
+    const res = parseNotionExport([
+      { name: "L_all.csv", text: twin },
+      { name: "Schmitt Immobilien GmbH 49a66e6bc8408245bdf801bfcd3849a6.md", text: "# Schmitt Immobilien GmbH\n\nStadt: Frankfurt am Main\nICP: JA" },
+    ]);
+    expect(res.records[0].pageId).toMatch(/^export-/);
+    expect(res.records[1].pageId).toBe("49a66e6bc8408245bdf801bfcd3849a6");
   });
 });
 
