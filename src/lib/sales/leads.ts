@@ -57,6 +57,39 @@ export function parseLeadSort(raw: string | undefined | null): LeadSortKey {
 }
 
 /* ------------------------------------------------------------------ */
+/* Seiten                                                              */
+/* ------------------------------------------------------------------ */
+
+export const LEADS_PAGE_SIZE = 50;
+export const LEADS_PAGE_SIZES = [50, 100, 200] as const;
+
+/** `?size=` → 50 / 100 / 200; alles andere → 50. */
+export function parseLeadPageSize(raw: string | number | undefined | null): number {
+  const n = Number(raw);
+  return (LEADS_PAGE_SIZES as readonly number[]).includes(n) ? n : LEADS_PAGE_SIZE;
+}
+
+/**
+ * Seitenzahlen mit Lücken: 1 … 4 5 6 … 32. Immer erste und letzte Seite,
+ * dazu `siblings` Nachbarn um die aktuelle. Eine Lücke aus genau einer Seite
+ * wird als Zahl gezeigt statt als „…“.
+ */
+export function pageItems(page: number, pages: number, siblings = 1): (number | "gap")[] {
+  if (pages <= 1) return [1];
+  const p = Math.min(Math.max(1, page), pages);
+  const lo = Math.max(2, p - siblings);
+  const hi = Math.min(pages - 1, p + siblings);
+  const out: (number | "gap")[] = [1];
+  if (lo === 3) out.push(2);
+  else if (lo > 3) out.push("gap");
+  for (let i = lo; i <= hi; i++) out.push(i);
+  if (hi === pages - 2) out.push(pages - 1);
+  else if (hi < pages - 2) out.push("gap");
+  out.push(pages);
+  return out;
+}
+
+/* ------------------------------------------------------------------ */
 /* Status                                                              */
 /* ------------------------------------------------------------------ */
 

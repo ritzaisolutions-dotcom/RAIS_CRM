@@ -33,6 +33,7 @@ import {
 import { Checkbox } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/ui/panel";
 import { CreateLeadDialog } from "@/components/leads/CreateLeadDialog";
+import { useLeadsNav } from "@/components/leads/LeadsNav";
 import {
   FollowUpPicker,
   QuelleText,
@@ -49,7 +50,9 @@ import {
   FOLLOW_UP_QUICK,
   KATEGORIEN,
   LEAD_SORTS,
+  LEADS_PAGE_SIZES,
   displayKategorie,
+  pageItems,
   kategorieTone,
   kontaktwegLabel,
   nichtErreichtCount,
@@ -100,8 +103,9 @@ export function LeadsWorkspace({
   const [bulkPending, startBulk] = useTransition();
   const [bulkMsg, setBulkMsg] = useState<string | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const { pending: navPending, navigate } = useLeadsNav();
 
-  const setParam = useCallback(
+  const hrefWith = useCallback(
     (patch: Record<string, string | null>) => {
       const next = new URLSearchParams(params.toString());
       for (const [k, v] of Object.entries(patch)) {
@@ -109,10 +113,35 @@ export function LeadsWorkspace({
         else next.delete(k);
       }
       if (!("page" in patch)) next.delete("page");
-      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+      if (next.get("page") === "1") next.delete("page");
+      const qs = next.toString();
+      return qs ? `${pathname}?${qs}` : pathname;
     },
-    [params, pathname, router],
+    [params, pathname],
   );
+
+  // Ansicht/Filter/Seite im Übergang wechseln: Tabelle dimmt statt einzufrieren.
+  const setParam = useCallback(
+    (patch: Record<string, string | null>) => navigate(hrefWith(patch), "replace"),
+    [hrefWith, navigate],
+  );
+
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+  const goToPage = useCallback(
+    (p: number) => {
+      const target = Math.min(Math.max(1, p), pages);
+      if (target !== page) setParam({ page: String(target) });
+    },
+    [page, pages, setParam],
+  );
+
+  // Nächste Seite vorladen, damit „Weiter“ sofort da ist.
+  const nextHref = page < pages ? hrefWith({ page: String(page + 1) }) : null;
+  useEffect(() => {
+    if (!nextHref) return;
+    // "full" lädt auch die Daten der dynamischen Seite, nicht nur die Hülle.
+    router.prefetch(nextHref, { kind: "full" } as unknown as Parameters<typeof router.prefetch>[1]);
+  }, [nextHref, router]);
 
   // Suche mit kurzer Verzögerung in die URL schreiben.
   useEffect(() => {
@@ -133,7 +162,8 @@ export function LeadsWorkspace({
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null;
       if (t && (t.closest("input,textarea,select,[contenteditable],[role=menu],[role=dialog]"))) return;
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // AltGr (Strg+Alt unter Windows) braucht man auf deutscher Tastatur für [ und ].
+      if ((e.metaKey || e.ctrlKey || e.altKey) && !e.getModifierState("AltGraph")) return;
       if (e.key === "j" || e.key === "ArrowDown") {
         e.preventDefault();
         setCursor((c) => Math.min(rows.length - 1, c + 1));
@@ -147,6 +177,12 @@ export function LeadsWorkspace({
         searchRef.current?.focus();
       } else if (e.key === "x" && cursor >= 0 && rows[cursor]) {
         toggle(rows[cursor].company_id);
+      } else if (e.key === "[") {
+        e.preventDefault();
+        goToPage(page - 1);
+      } else if (e.key === "]") {
+        e.preventDefault();
+        goToPage(page + 1);
       }
     }
     window.addEventListener("keydown", onKey);
@@ -171,7 +207,6 @@ export function LeadsWorkspace({
 
   const allChecked = rows.length > 0 && selected.size === rows.length;
   const someChecked = selected.size > 0 && !allChecked;
-  const pages = Math.max(1, Math.ceil(total / pageSize));
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
   const filtersActive = Boolean(q || quelle || kategorie);
@@ -309,7 +344,13 @@ export function LeadsWorkspace({
       </div>
 
       {/* Tabelle */}
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div
+        className={cn(
+          "min-h-0 flex-1 overflow-auto transition-opacity duration-150",
+          navPending && "pointer-events-none opacity-55 delay-75",
+        )}
+        aria-busy={navPending || undefined}
+      >
         {rows.length === 0 ? (
           <EmptyState
             icon={<Users />}
@@ -507,34 +548,76 @@ export function LeadsWorkspace({
         <span>
           {total === 0 ? "0 Leads" : `${from}–${to} von ${total} Leads`}
           <span className="ml-3 hidden text-fg-subtle lg:inline">
-            <Kbd>J</Kbd> <Kbd>K</Kbd> bewegen · <Kbd>↵</Kbd> öffnen · <Kbd>X</Kbd> auswählen
+            <Kbd>J</Kbd> <Kbd>K</Kbd> bewegen · <Kbd>↵</Kbd> öffnen · <Kbd>X</Kbd> auswählen · <Kbd>[</Kbd> <Kbd>]</Kbd> blättern
           </span>
         </span>
-        {pages > 1 ? (
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon-sm"
-              disabled={page <= 1}
-              onClick={() => setParam({ page: String(page - 1) })}
-              aria-label="Vorherige Seite"
-            >
-              <ChevronLeft />
-            </Button>
-            <span className="px-2 tabular-nums">
-              {page} / {pages}
-            </span>
-            <Button
-              variant="outline"
-              size="icon-sm"
-              disabled={page >= pages}
-              onClick={() => setParam({ page: String(page + 1) })}
-              aria-label="Nächste Seite"
-            >
-              <ChevronRight />
-            </Button>
-          </div>
-        ) : null}
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-fg-muted" aria-label="Leads pro Seite">
+                {pageSize} pro Seite
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="top" align="end">
+              <DropdownMenuLabel>Leads pro Seite</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={String(pageSize)}
+                onValueChange={(v) => setParam({ size: v === String(LEADS_PAGE_SIZES[0]) ? null : v })}
+              >
+                {LEADS_PAGE_SIZES.map((n) => (
+                  <DropdownMenuRadioItem key={n} value={String(n)}>
+                    {n}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {pages > 1 ? (
+            <nav aria-label="Seiten" className="flex items-center gap-1">
+              <Tooltip content="Vorherige Seite ( [ )">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={page <= 1}
+                  onClick={() => goToPage(page - 1)}
+                  aria-label="Vorherige Seite"
+                >
+                  <ChevronLeft />
+                </Button>
+              </Tooltip>
+              {pageItems(page, pages).map((it, i) =>
+                it === "gap" ? (
+                  <span key={`gap-${i}`} className="w-5 text-center text-fg-subtle" aria-hidden="true">
+                    …
+                  </span>
+                ) : (
+                  <Button
+                    key={it}
+                    variant={it === page ? "secondary" : "ghost"}
+                    size="sm"
+                    className={cn("h-7 min-w-7 px-1.5 tabular-nums", it === page && "font-semibold text-fg")}
+                    aria-current={it === page ? "page" : undefined}
+                    aria-label={`Seite ${it}`}
+                    onClick={() => goToPage(it)}
+                  >
+                    {it}
+                  </Button>
+                ),
+              )}
+              <Tooltip content="Nächste Seite ( ] )">
+                <Button
+                  variant="outline"
+                  size="icon-sm"
+                  disabled={page >= pages}
+                  onClick={() => goToPage(page + 1)}
+                  aria-label="Nächste Seite"
+                >
+                  <ChevronRight />
+                </Button>
+              </Tooltip>
+            </nav>
+          ) : null}
+        </div>
       </div>
 
       {/* Schwebende Aktionsleiste bei Auswahl */}

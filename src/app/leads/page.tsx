@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { EfferdShell } from "@/components/EfferdShell";
 import { LeadsWorkspace } from "@/components/leads/LeadsWorkspace";
+import { LeadsNavLink, LeadsNavProvider } from "@/components/leads/LeadsNav";
 import { PageHeader } from "@/components/ui/panel";
 import { countDueLeads, fetchLeadViewCounts, fetchLeads } from "@/lib/sales/leadQueries";
 import {
   LEAD_VIEWS,
+  parseLeadPageSize,
   parseLeadSort,
   parseLeadView,
   type LeadViewKey,
@@ -30,10 +31,12 @@ const VIEW_DOT: Partial<Record<LeadViewKey, string>> = {
   icp_raus: "bg-[var(--tone-red-fg)] opacity-50",
 };
 
-function hrefFor(view: LeadViewKey, listId?: string) {
+function hrefFor(view: LeadViewKey, listId?: string, size?: number) {
   const p = new URLSearchParams();
   if (view !== "alle") p.set("view", view);
   if (listId) p.set("list", listId);
+  // Gewählte Seitengröße beim Ansichtswechsel behalten.
+  if (size && size !== parseLeadPageSize(undefined)) p.set("size", String(size));
   const s = p.toString();
   return s ? `/leads?${s}` : "/leads";
 }
@@ -48,6 +51,7 @@ export default async function LeadsPage({
     kat?: string;
     sort?: string;
     page?: string;
+    size?: string;
     list?: string;
   }>;
 }) {
@@ -58,6 +62,7 @@ export default async function LeadsPage({
     ? (params.quelle as LeadQuelle)
     : "";
   const page = Math.max(1, Math.floor(Number(params.page) || 1));
+  const pageSize = parseLeadPageSize(params.size);
   const q = params.q?.trim() ?? "";
 
   const [lists, counts, dueCount] = await Promise.all([
@@ -71,13 +76,14 @@ export default async function LeadsPage({
     | "kontakt"
     | "kunde"
     | "";
-  const result = await fetchLeads({ view, q, quelle, kategorie, sort, page, listId });
+  const result = await fetchLeads({ view, q, quelle, kategorie, sort, page, pageSize, listId });
 
   const viewLabel = LEAD_VIEWS.find((v) => v.key === view)?.label ?? "Leads";
   const activeList = lists.find((l) => l.id === listId);
 
   return (
     <EfferdShell bare todoBadge={dueCount}>
+      <LeadsNavProvider>
       <div className="flex h-full min-h-0 flex-col">
         <PageHeader
           title={activeList ? `${viewLabel} · ${activeList.name}` : viewLabel}
@@ -97,8 +103,8 @@ export default async function LeadsPage({
                   const active = v.key === view;
                   return (
                     <li key={v.key}>
-                      <Link
-                        href={hrefFor(v.key, listId)}
+                      <LeadsNavLink
+                        href={hrefFor(v.key, listId, pageSize)}
                         className={cn(
                           "flex h-7 items-center gap-2 rounded-md px-2 text-[13px] transition-colors",
                           active
@@ -123,7 +129,7 @@ export default async function LeadsPage({
                         >
                           {counts[v.key]}
                         </span>
-                      </Link>
+                      </LeadsNavLink>
                     </li>
                   );
                 })}
@@ -140,8 +146,8 @@ export default async function LeadsPage({
                     const active = l.id === listId;
                     return (
                       <li key={l.id}>
-                        <Link
-                          href={hrefFor(view, active ? undefined : l.id)}
+                        <LeadsNavLink
+                          href={hrefFor(view, active ? undefined : l.id, pageSize)}
                           className={cn(
                             "flex h-7 items-center gap-2 rounded-md px-2 text-[13px] transition-colors",
                             active
@@ -154,7 +160,7 @@ export default async function LeadsPage({
                           <span className="text-xs tabular-nums text-fg-subtle">
                             {l.member_count ?? ""}
                           </span>
-                        </Link>
+                        </LeadsNavLink>
                       </li>
                     );
                   })}
@@ -167,16 +173,16 @@ export default async function LeadsPage({
             {/* Ansichten auf kleinen Bildschirmen als Leiste */}
             <div className="flex gap-1 overflow-x-auto border-b border-line bg-surface px-3 py-1.5 lg:hidden">
               {LEAD_VIEWS.map((v) => (
-                <Link
+                <LeadsNavLink
                   key={v.key}
-                  href={hrefFor(v.key, listId)}
+                  href={hrefFor(v.key, listId, pageSize)}
                   className={cn(
                     "shrink-0 rounded-md px-2 py-1 text-xs",
                     v.key === view ? "bg-surface-2 font-medium text-fg" : "text-fg-muted",
                   )}
                 >
                   {v.label} <span className="text-fg-subtle">{counts[v.key]}</span>
-                </Link>
+                </LeadsNavLink>
               ))}
             </div>
             <LeadsWorkspace
@@ -194,6 +200,7 @@ export default async function LeadsPage({
           </div>
         </div>
       </div>
+      </LeadsNavProvider>
     </EfferdShell>
   );
 }
