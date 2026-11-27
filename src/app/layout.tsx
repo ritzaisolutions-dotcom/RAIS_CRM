@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
@@ -21,6 +21,14 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "default",
   },
+};
+
+// Farbe der Titelleiste der installierten App — folgt Hell/Dunkel des Systems.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#1b1b1b" },
+  ],
 };
 
 export default function RootLayout({
