@@ -289,6 +289,7 @@ export const emailTemplateSchema = z.object({
   name: z.string().trim().min(1).max(120),
   subject: z.string().trim().min(1).max(300),
   body: z.string().trim().min(1).max(20000),
+  attachment_ids: z.array(uuidSchema).max(5).optional(),
 });
 
 export const sendEmailSchema = z.object({
@@ -298,6 +299,7 @@ export const sendEmailSchema = z.object({
   subject: z.string().trim().min(1).max(300),
   body: z.string().trim().min(1).max(20000),
   template_id: uuidSchema.nullable().optional(),
+  attachment_ids: z.array(uuidSchema).max(5, "Höchstens 5 Anhänge").optional(),
 });
 
 export const sendSmsSchema = z.object({

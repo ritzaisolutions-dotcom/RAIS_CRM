@@ -27,6 +27,7 @@ import {
   renderTemplate,
 } from "@/lib/sales/templateVars";
 import type {
+  EmailAttachment,
   EmailTemplate,
   Person,
   PipelineStatus,
@@ -34,6 +35,7 @@ import type {
 } from "@/lib/sales/types";
 import { cn } from "@/lib/utils";
 import { SlotPicker } from "@/components/lead/SlotPicker";
+import { AttachmentPicker } from "@/components/attachments/AttachmentPicker";
 import { AiDraftButton } from "@/components/lead/AiDraftButton";
 import { createAsanaTaskForLead } from "@/lib/sales/assistActions";
 
@@ -446,12 +448,14 @@ function EmailForm({
   templates,
   senderName,
   personId: initialPersonId,
+  attachments,
 }: {
   lead: LeadCtx;
   people: Person[];
   templates: EmailTemplate[];
   senderName: string | null;
   personId?: string | null;
+  attachments: EmailAttachment[];
 }) {
   const router = useRouter();
   const withEmail = people.filter((p) => p.email);
@@ -464,6 +468,7 @@ function EmailForm({
   const [body, setBody] = useState("");
   const [preview, setPreview] = useState(false);
   const [slotBlock, setSlotBlock] = useState<string | null>(null);
+  const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -516,6 +521,7 @@ function EmailForm({
             subject: rs.text,
             body: rb.text,
             template_id: templateId || null,
+            attachment_ids: attachmentIds.filter((id) => attachments.some((a) => a.id === id)),
           });
           if (res.error) {
             setError(res.error);
@@ -533,6 +539,7 @@ function EmailForm({
           setSubject("");
           setBody("");
           setTemplateId("");
+          setAttachmentIds([]);
           setPreview(false);
           setSlotBlock(null);
           router.refresh();
@@ -579,6 +586,7 @@ function EmailForm({
               if (t) {
                 setSubject(t.subject);
                 setBody(t.body);
+                setAttachmentIds(t.attachment_ids ?? []);
               }
             }}
           >
@@ -625,6 +633,7 @@ function EmailForm({
           </button>
         ))}
       </div>
+      <AttachmentPicker attachments={attachments} selected={attachmentIds} onChange={setAttachmentIds} />
       {missing.length > 0 ? (
         <p className="rounded-md bg-[var(--tone-yellow-bg)] px-2.5 py-1.5 text-xs text-[var(--tone-yellow-fg)]">
           Für {missing.map((m) => `{{${m}}}`).join(", ")} fehlt ein Wert. Ergänze ihn beim Lead
@@ -681,7 +690,7 @@ function EmailForm({
               const name = prompt("Name der neuen Vorlage", subject.slice(0, 60));
               if (!name?.trim()) return;
               start(async () => {
-                const res = await upsertEmailTemplate({ name: name.trim(), subject, body });
+                const res = await upsertEmailTemplate({ name: name.trim(), subject, body, attachment_ids: attachmentIds });
                 if (res.error) setError(res.error);
                 else {
                   setMsg(`Vorlage „${name.trim()}" gespeichert.`);
@@ -718,6 +727,7 @@ export function Composer({
   onTabChange,
   emailPersonId,
   asanaConfigured = false,
+  attachments = [],
 }: {
   lead: LeadCtx;
   people: Person[];
@@ -727,6 +737,7 @@ export function Composer({
   onTabChange: (t: ComposerTab) => void;
   emailPersonId?: string | null;
   asanaConfigured?: boolean;
+  attachments?: EmailAttachment[];
 }) {
   return (
     <Tabs
@@ -762,6 +773,7 @@ export function Composer({
           templates={templates}
           senderName={senderName}
           personId={emailPersonId}
+          attachments={attachments}
         />
       </TabsContent>
       <TabsContent value="call">

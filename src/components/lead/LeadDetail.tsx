@@ -50,6 +50,7 @@ import {
   type Company,
   type CustomFieldDef,
   type CustomFieldValue,
+  type EmailAttachment,
   type EmailTemplate,
   type MitarbeiterKlasse,
   type Opportunity,
@@ -74,6 +75,7 @@ export function LeadDetail({
   contactCount,
   asanaConfigured = false,
   initialTab = "note",
+  attachments = [],
 }: {
   company: Company;
   people: Person[];
@@ -89,6 +91,7 @@ export function LeadDetail({
   contactCount: number;
   asanaConfigured?: boolean;
   initialTab?: ComposerTab;
+  attachments?: EmailAttachment[];
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<ComposerTab>(initialTab);
@@ -191,6 +194,7 @@ export function LeadDetail({
             people={people}
             senderName={senderName}
             asanaConfigured={asanaConfigured}
+            attachments={attachments}
           />
           <AsanaTaskButton
             companyId={company.id}
@@ -355,6 +359,7 @@ export function LeadDetail({
             onTabChange={setTab}
             emailPersonId={emailPersonId}
             asanaConfigured={asanaConfigured}
+            attachments={attachments}
           />
           <section>
             <SectionLabel className="mb-3">Aktivität</SectionLabel>

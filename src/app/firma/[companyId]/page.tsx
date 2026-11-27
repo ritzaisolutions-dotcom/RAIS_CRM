@@ -17,6 +17,7 @@ import {
 } from "@/lib/sales/queries";
 import { senderDisplayName } from "@/lib/sales/mail";
 import { asanaConfigured } from "@/lib/integrations/asana";
+import { listEmailAttachments } from "@/lib/sales/attachmentActions";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export default async function FirmaPage({
     customValues,
     dueCount,
     contactCount,
+    attachments,
   ] = await Promise.all([
     fetchCompany(companyId),
     fetchPeople(companyId),
@@ -63,6 +65,7 @@ export default async function FirmaPage({
     fetchCompanyCustomValues(companyId),
     countDueLeads(),
     countContactAttempts(companyId),
+    listEmailAttachments().catch(() => []),
   ]);
   if (!company) notFound();
 
@@ -86,6 +89,7 @@ export default async function FirmaPage({
         nextTouch={nextTouch}
         contactCount={contactCount}
         asanaConfigured={asanaConfigured()}
+        attachments={attachments}
         initialTab={TABS.includes(tab as ComposerTab) ? (tab as ComposerTab) : "note"}
       />
     </EfferdShell>

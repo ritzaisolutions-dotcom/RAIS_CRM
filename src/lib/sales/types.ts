@@ -176,7 +176,24 @@ export type EmailTemplate = {
   subject: string;
   body: string;
   created_at: string;
+  /** Standard-Anhänge (IDs aus email_attachments). */
+  attachment_ids: string[];
 };
+
+export type EmailAttachment = {
+  id: string;
+  name: string;
+  storage_path: string;
+  size_bytes: number;
+  mime_type: string;
+  active: boolean;
+  created_at: string;
+};
+
+/** Max. Anhänge pro Mail und Größe je Datei. */
+export const MAX_ATTACHMENTS_PER_EMAIL = 5;
+export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+export const ATTACHMENT_BUCKET = "sales-documents";
 
 export type SequenceKanal = "email" | "call" | "sms" | "task";
 

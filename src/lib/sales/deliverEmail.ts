@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/sales/database";
 import { sendSmtpMail, smtpConfigured } from "@/lib/sales/mail";
+import { ATTACHMENT_BUCKET } from "@/lib/sales/types";
 
 type SalesClient = SupabaseClient<Database, "sales">;
 
@@ -10,7 +11,7 @@ export async function deliverQueuedEmail(
 ): Promise<{ ok: true; status: "sent" | "failed" | "queued" } | { ok: false; error: string }> {
   const { data: msg, error } = await supabase
     .from("email_messages")
-    .select("id,company_id,person_id,to_email,subject,body,status,direction")
+    .select("id,company_id,person_id,to_email,subject,body,status,direction,attachment_ids")
     .eq("id", messageId)
     .maybeSingle();
   if (error) return { ok: false, error: error.message };
@@ -24,10 +25,20 @@ export async function deliverQueuedEmail(
     return { ok: true, status: "queued" };
   }
 
+  const files = await loadAttachments(supabase, msg.attachment_ids ?? []);
+  if (!files.ok) {
+    await supabase
+      .from("email_messages")
+      .update({ status: "failed", error: files.error })
+      .eq("id", messageId);
+    return { ok: true, status: "failed" };
+  }
+
   const result = await sendSmtpMail({
     to: msg.to_email,
     subject: msg.subject,
     text: msg.body,
+    attachments: files.files,
   });
 
   if (!result.ok) {
@@ -48,6 +59,41 @@ export async function deliverQueuedEmail(
     .eq("id", messageId);
 
   return { ok: true, status: "sent" };
+}
+
+/** Lädt die PDF-Anhänge aus dem privaten Bucket für den SMTP-Versand. */
+async function loadAttachments(
+  supabase: SalesClient,
+  ids: string[],
+): Promise<
+  | { ok: true; files: { filename: string; content: Buffer; contentType: string }[] }
+  | { ok: false; error: string }
+> {
+  if (!ids.length) return { ok: true, files: [] };
+  const { data, error } = await supabase
+    .from("email_attachments")
+    .select("id,name,storage_path,mime_type")
+    .in("id", ids);
+  if (error) return { ok: false, error: `Anhänge: ${error.message}` };
+  const byId = new Map((data ?? []).map((a) => [a.id, a]));
+  const files: { filename: string; content: Buffer; contentType: string }[] = [];
+  for (const id of ids) {
+    const att = byId.get(id);
+    if (!att) return { ok: false, error: "Anhang nicht gefunden." };
+    const { data: blob, error: dlError } = await supabase.storage
+      .from(ATTACHMENT_BUCKET)
+      .download(att.storage_path);
+    if (dlError || !blob) {
+      return { ok: false, error: `Anhang „${att.name}“ konnte nicht geladen werden.` };
+    }
+    const filename = att.name.toLowerCase().endsWith(".pdf") ? att.name : `${att.name}.pdf`;
+    files.push({
+      filename,
+      content: Buffer.from(await blob.arrayBuffer()),
+      contentType: att.mime_type,
+    });
+  }
+  return { ok: true, files };
 }
 
 export async function drainQueuedEmails(
