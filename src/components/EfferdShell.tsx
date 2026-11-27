@@ -17,6 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { SetupGuide } from "@/components/SetupGuide";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { UpdateWatcher } from "@/components/UpdateWatcher";
 import { Kbd } from "@/components/ui/badge";
@@ -222,6 +223,7 @@ export function EfferdShell({
             <NavLink
               item={{ href: "/einstellungen", label: "Einstellungen", icon: Settings }}
             />
+            <SetupGuide collapsed={collapsed} />
             <ThemeToggle collapsed={collapsed} />
             <form action={signOut}>
               <button
