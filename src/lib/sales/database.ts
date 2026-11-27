@@ -596,6 +596,11 @@ export type Database = {
         Args: Record<string, never>;
         Returns: string;
       };
+      /** Anzahl Leads je Ansicht (Schlüssel = LEAD_VIEWS). */
+      lead_view_counts: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
       create_company: {
         Args: {
           p_name: string;

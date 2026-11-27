@@ -21,6 +21,15 @@ const PASSWORD_RESET_PATH = "/passwort-neu";
 const PUBLIC_BOOKING_PREFIX = "/termin/";
 
 /**
+ * Ohne Anmeldung erreichbar:
+ * - `/api/version` liefert nur die Deployment-ID (steht ohnehin an jedem
+ *   Asset) und wird von alten Tabs auch auf /login abgefragt.
+ * - `/manifest.webmanifest` lädt der Browser ohne Cookies; ein Redirect auf
+ *   /login würde die App-Installation brechen.
+ */
+const PUBLIC_PATHS = new Set(["/api/version", "/manifest.webmanifest"]);
+
+/**
  * Überträgt die von Supabase rotierten Auth-Cookies auf eine andere Antwort.
  *
  * `supabaseResponse` ist das einzige Objekt, das die frisch erneuerten Tokens
@@ -36,7 +45,10 @@ function withAuthCookies(target: NextResponse, source: NextResponse) {
 }
 
 export async function updateSession(request: NextRequest) {
-  if (request.nextUrl.pathname.startsWith(PUBLIC_BOOKING_PREFIX)) {
+  if (
+    request.nextUrl.pathname.startsWith(PUBLIC_BOOKING_PREFIX) ||
+    PUBLIC_PATHS.has(request.nextUrl.pathname)
+  ) {
     return NextResponse.next({ request });
   }
   let supabaseResponse = NextResponse.next({ request });

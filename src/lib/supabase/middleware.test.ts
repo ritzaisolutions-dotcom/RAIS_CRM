@@ -77,6 +77,25 @@ describe("updateSession — abgemeldet", () => {
   });
 });
 
+describe("updateSession — öffentliche Pfade", () => {
+  it.each(["/api/version", "/manifest.webmanifest"])(
+    "lässt %s ohne Anmeldung und ohne Auth-Abfrage durch",
+    async (path) => {
+      asSignedOut();
+      const res = await updateSession(req(path));
+      expect(res.status).toBe(200);
+      expect(res.headers.get("location")).toBeNull();
+      expect(getUser).not.toHaveBeenCalled();
+    },
+  );
+
+  it("schützt andere API-Routen weiterhin", async () => {
+    asSignedOut();
+    const res = await updateSession(req("/api/export"));
+    expect(res.status).toBe(307);
+  });
+});
+
 describe("updateSession — angemeldet, nicht freigeschaltet", () => {
   it("leitet auf /kein-zugriff statt einen JSON-Body auszuliefern", async () => {
     asNonAllowlistedUser();
