@@ -17,6 +17,7 @@ import {
 import { Panel, PanelHeader, SectionLabel } from "@/components/ui/panel";
 import {
   CrmMenu,
+  IcpMenu,
   KategorieMenu,
   QuelleMenu,
   SocialButtons,
@@ -255,6 +256,9 @@ export function LeadDetail({
             <SectionLabel className="mb-1">Akquise</SectionLabel>
             <FieldRow label="Kategorie">
               <KategorieMenu companyId={company.id} kategorie={company.kategorie} relationship={company.relationship} />
+            </FieldRow>
+            <FieldRow label="ICP">
+              <IcpMenu companyId={company.id} icp={company.icp ?? "offen"} status={company.pipeline_status} />
             </FieldRow>
             <FieldRow label="CRM">
               <CrmMenu companyId={company.id} crm={company.crm_system} />

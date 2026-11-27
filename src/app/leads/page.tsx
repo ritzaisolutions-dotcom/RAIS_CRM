@@ -19,12 +19,15 @@ export const metadata = { title: "Leads" };
 const VIEW_DOT: Partial<Record<LeadViewKey, string>> = {
   faellig: "bg-accent",
   neu: "bg-[var(--tone-blue-fg)]",
+  kontaktiert: "bg-[var(--tone-yellow-fg)]",
   nicht_erreicht: "bg-[var(--tone-gray-fg)]",
   rueckruf: "bg-[var(--tone-orange-fg)]",
   termin: "bg-[var(--tone-violet-fg)]",
   closing: "bg-[var(--tone-yellow-fg)]",
   kunden: "bg-[var(--tone-green-fg)]",
+  icp_pruefen: "bg-[var(--tone-violet-fg)] opacity-50",
   kein_interesse: "bg-[var(--tone-red-fg)]",
+  icp_raus: "bg-[var(--tone-red-fg)] opacity-50",
 };
 
 function hrefFor(view: LeadViewKey, listId?: string) {

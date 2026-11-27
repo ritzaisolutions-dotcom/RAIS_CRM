@@ -10,7 +10,7 @@ export type ExportFile = { name: string; text: string };
 export type ParsedExport = {
   csvName: string;
   totalRows: number;
-  /** Nur Zeilen mit ICP = JA (Rest wird gar nicht erst übertragen). */
+  /** Alle Zeilen des Exports (ICP wird im Abgleich ausgewertet). */
   records: SourceRecord[];
 };
 
@@ -87,7 +87,7 @@ export function parseNotionExport(files: ExportFile[]): ParsedExport {
 
   const records: SourceRecord[] = [];
   for (const r of rows) {
-    if ((r["ICP"] ?? "").trim() !== "JA") continue;
+    // Alle Zeilen: auch Grenzfall/RAUS/„Kein Interesse“, damit sie nie erneut gezogen werden.
     const page = pages.get(r["Firma"] ?? "");
     records.push({
       pageId: page?.id ?? `export-${hash(`${r["Firma"]}|${r["IS24 URL"] ?? ""}|${r["Stadt"] ?? ""}`)}`,

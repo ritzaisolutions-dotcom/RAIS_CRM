@@ -5,7 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import {
   NotionError,
-  fetchIcpLeadPages,
+  fetchLeadPages,
   fetchPageBlocks,
   notionConfigured,
 } from "@/lib/integrations/notion";
@@ -102,12 +102,22 @@ export async function getNotionSyncState(): Promise<NotionSyncState> {
 }
 
 async function loadCompanies(supabase: Supabase): Promise<ExistingCompany[]> {
-  const { data, error } = await supabase
-    .from("companies")
-    .select("id,name,stadt,quell_url,pipeline_status,telefon,website,instagram_url,crm_system,inserate_aktiv,meta_ads")
-    .range(0, 9999);
+  const [{ data, error }, { data: people, error: pErr }] = await Promise.all([
+    supabase
+      .from("companies")
+      .select(
+        "id,name,stadt,quell_url,pipeline_status,telefon,website,instagram_url,crm_system,inserate_aktiv,meta_ads,notion_id,icp",
+      )
+      .range(0, 9999),
+    supabase.from("people").select("company_id,name,email,telefon").range(0, 19999),
+  ]);
   if (error) throw error;
-  return (data ?? []) as ExistingCompany[];
+  if (pErr) throw pErr;
+  const byCompany = new Map<string, NonNullable<ExistingCompany["people"]>>();
+  for (const p of (people ?? []) as { company_id: string; name: string; email: string | null; telefon: string | null }[]) {
+    byCompany.set(p.company_id, [...(byCompany.get(p.company_id) ?? []), p]);
+  }
+  return ((data ?? []) as ExistingCompany[]).map((c) => ({ ...c, people: byCompany.get(c.id) ?? [] }));
 }
 
 function errorMessage(e: unknown): string {
@@ -142,7 +152,7 @@ async function buildPlan(supabase: Supabase, source: Source) {
   let leads: NotionLead[];
   let pages: NotionPage[] = [];
   if (source.kind === "api") {
-    pages = await fetchIcpLeadPages();
+    pages = await fetchLeadPages();
     leads = pages.map((p) => mapNotionPage(p, "", today));
   } else {
     leads = source.records.map((r) => mapRecord(r, today));
@@ -169,6 +179,8 @@ const FIELD_LABELS: Record<string, string> = {
   crm_system: "CRM",
   inserate_aktiv: "Inserate",
   meta_ads: "Meta Ads",
+  notion_id: "Notion-Verknüpfung",
+  icp: "ICP",
 };
 
 async function preview(source: Source): Promise<Result<NotionSyncPreview>> {
@@ -301,11 +313,11 @@ async function apply(source: Source): Promise<Result<NotionSyncResult>> {
       }
       result.created++;
       const { lead, wv } = item;
-      const qual: CompanyPatch = {};
+      const qual: CompanyPatch = { notion_id: lead.pageId, icp: lead.icp };
       if (lead.crm) qual.crm_system = lead.crm;
       if (lead.inserate !== null && Number.isFinite(lead.inserate)) qual.inserate_aktiv = lead.inserate;
       if (lead.meta !== null) qual.meta_ads = lead.meta;
-      if (Object.keys(qual).length) await supabase.from("companies").update(qual).eq("id", r.company_id);
+      await supabase.from("companies").update(qual).eq("id", r.company_id);
       if (lead.status !== "neu") {
         const { error: e } = await supabase.rpc("set_pipeline_status", {
           p_company_id: r.company_id,

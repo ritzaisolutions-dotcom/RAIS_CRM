@@ -7,6 +7,7 @@ import type {
   CustomFieldValue,
   EmailTemplate,
   ImportLeadResult,
+  Icp,
   LeadQuelle,
   LeadRow,
   MitarbeiterKlasse,
@@ -118,6 +119,8 @@ export type Database = {
           quell_url?: string | null;
           inserate_aktiv?: number | null;
           meta_ads?: boolean | null;
+          icp?: Icp;
+          notion_id?: string | null;
         }
       >;
       people: TableDef<

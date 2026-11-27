@@ -18,13 +18,16 @@ export const LEAD_VIEWS = [
   { key: "alle", label: "Alle aktiven" },
   { key: "faellig", label: "Heute fällig" },
   { key: "neu", label: "Neu" },
+  { key: "kontaktiert", label: "Kontaktiert" },
   { key: "nicht_erreicht", label: "Nicht erreicht" },
   { key: "rueckruf", label: "Rückruf" },
   { key: "spaeter", label: "Später" },
   { key: "termin", label: "Termin gebucht" },
   { key: "closing", label: "Closing" },
   { key: "kunden", label: "Kunden" },
+  { key: "icp_pruefen", label: "ICP prüfen" },
   { key: "kein_interesse", label: "Kein Interesse" },
+  { key: "icp_raus", label: "ICP raus" },
 ] as const;
 
 export type LeadViewKey = (typeof LEAD_VIEWS)[number]["key"];
@@ -60,6 +63,7 @@ export function parseLeadSort(raw: string | undefined | null): LeadSortKey {
 /** Einträge im Status-Dropdown — „Nicht erreicht" gebündelt. */
 export const STATUS_MENU: { value: PipelineStatus; label: string }[] = [
   { value: "neu", label: "Neu" },
+  { value: "kontaktiert", label: "Kontaktiert" },
   { value: "kein_anschluss_1", label: "Nicht erreicht" },
   { value: "callback", label: "Rückruf" },
   { value: "later", label: "Später" },
@@ -99,6 +103,8 @@ export function statusTone(status: PipelineStatus | null | undefined): Tone {
   switch (status) {
     case "neu":
       return "blue";
+    case "kontaktiert":
+      return "yellow";
     case "callback":
       return "orange";
     case "later":

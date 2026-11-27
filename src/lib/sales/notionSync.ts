@@ -5,11 +5,16 @@
  * Notion-Seiten und die bestehenden Firmen und lässt hier den Plan rechnen.
  *
  * Regeln:
- * - Nur ICP = JA, ohne enrich_status duplikat/vorfilter, nur mit Firmenname.
- * - Abgleich über IS24-Profil-URL, sonst Name + Stadt, sonst Name (wenn die
- *   Firma im CRM keine Stadt hat, z. B. LinkedIn-Leads).
+ * - Alle Zeilen werden übernommen; `icp` (JA/Grenzfall/RAUS/offen) wird mitgeführt.
+ * - Ausgeschlossen (nie wieder ziehen): ICP RAUS, enrich_status „vorfilter“,
+ *   Call-Status „Kein Interesse“/„kein bedarf“/„Falsche Nummer“.
+ * - enrich_status „duplikat“ wird übersprungen (Dublette innerhalb von Notion).
+ * - Abgleich: Notion-ID → IS24-Profil → Website-Domain → Telefon →
+ *   Ansprechpartner → Name + Stadt → Name (wenn die CRM-Firma keine Stadt hat).
  * - Das CRM gewinnt: bestehende Leads bekommen nur leere Felder gefüllt; der
  *   Status wird nur übernommen, solange der Lead im CRM noch „Neu“ ist.
+ *   Ausnahme: Ausschluss in Notion schließt auch bestehende Leads aus, außer sie
+ *   sind schon weiter (Termin, Closing, Kunde) → Konflikt.
  * - Notizen sind idempotent (source_key = Seite + Inhalts-Hash).
  */
 
@@ -59,10 +64,12 @@ export type NotionLead = {
   instagram: string | null;
   is24: string | null;
   person: { name: string | null; rolle: string | null; email: string | null };
-  icp: string | null;
+  icp: Icp;
   enrichStatus: string | null;
   notionStatus: string;
   status: SyncStatus;
+  /** Grund, warum der Lead nie wieder kontaktiert werden soll (sonst null). */
+  excluded: string | null;
   wv: string | null;
   crm: CrmSystem | null;
   inserate: number | null;
@@ -71,6 +78,7 @@ export type NotionLead = {
 };
 
 export type CrmSystem = "onOffice" | "Propstack" | "FlowFact" | "FIO Webmakler" | "kein CRM";
+export type Icp = "JA" | "Grenzfall" | "RAUS" | "offen";
 
 /** Bestehende Firma, wie die Server-Aktion sie aus `sales.companies` lädt. */
 export type ExistingCompany = {
@@ -85,6 +93,10 @@ export type ExistingCompany = {
   crm_system: string | null;
   inserate_aktiv: number | null;
   meta_ads: boolean | null;
+  notion_id?: string | null;
+  icp?: string | null;
+  /** Ansprechpartner der Firma (für den Abgleich über Person/Telefon/E-Mail-Domain). */
+  people?: { name: string; email: string | null; telefon: string | null }[];
 };
 
 export type CompanyPatch = Partial<{
@@ -96,7 +108,11 @@ export type CompanyPatch = Partial<{
   crm_system: CrmSystem;
   inserate_aktiv: number;
   meta_ads: boolean;
+  notion_id: string;
+  icp: Icp;
 }>;
+
+export type MatchedBy = "notion" | "is24" | "domain" | "telefon" | "person" | "name_stadt" | "name";
 
 export type SyncPlan = {
   create: { lead: NotionLead; wv: string | null; sourceKey: string }[];
@@ -104,7 +120,7 @@ export type SyncPlan = {
     lead: NotionLead;
     companyId: string;
     companyName: string;
-    matchedBy: "is24" | "name_stadt" | "name";
+    matchedBy: MatchedBy;
     patch: CompanyPatch;
     /** Notiz nur, wenn die Seite seit dem letzten Sync bearbeitet wurde. */
     note: { text: string; sourceKey: string } | null;
@@ -115,11 +131,10 @@ export type SyncPlan = {
   skipped: { firma: string | null; reason: SkipReason }[];
 };
 
-export type SkipReason = "icp" | "enrich" | "ohne_name" | "doppelt_in_notion";
+export type SkipReason = "enrich" | "ohne_name" | "doppelt_in_notion";
 
 export const SKIP_LABELS: Record<SkipReason, string> = {
-  icp: "ICP nicht JA",
-  enrich: "Duplikat/Vorfilter in Notion",
+  enrich: "als Duplikat markiert in Notion",
   ohne_name: "ohne Firmenname",
   doppelt_in_notion: "doppelt in Notion",
 };
@@ -251,6 +266,76 @@ export function is24Key(u: string | null): string | null {
   return m ? m[1].replace(/\/+$/, "") : null;
 }
 
+export function mapIcp(v: string | null): Icp {
+  const t = (v ?? "").trim().toLowerCase();
+  if (t === "ja") return "JA";
+  if (t === "grenzfall") return "Grenzfall";
+  if (t === "raus") return "RAUS";
+  return "offen";
+}
+
+const EXCLUDING_STATUS = new Set(["kein interesse", "kein bedarf", "falsche nummer"]);
+
+/** Grund für einen dauerhaften Ausschluss (oder null). */
+export function exclusionReason(icp: Icp, enrichStatus: string | null, notionStatus: string): string | null {
+  const s = notionStatus.trim().toLowerCase();
+  if (EXCLUDING_STATUS.has(s)) return `${notionStatus} laut Notion`;
+  if (icp === "RAUS") return "ICP raus laut Notion";
+  if ((enrichStatus ?? "").toLowerCase() === "vorfilter") return "Vorfilter in Notion (passt nicht)";
+  return null;
+}
+
+const UMLAUT: [RegExp, string][] = [
+  [/ae/g, "ä"],
+  [/oe/g, "ö"],
+  [/ue/g, "ü"],
+];
+
+/**
+ * Firmenname aus dem IS24-Profil, wenn Notion keinen hat:
+ * `/anbieter/profil/haehnlein-und-kroenert/thomas-kroenert` → „Hähnlein und Krönert“.
+ */
+export function firmaFromIs24(u: string | null): string | null {
+  const k = is24Key(u);
+  const slug = k?.split("/")[3];
+  if (!slug) return null;
+  const words = slug
+    .replace(/-\d{4,5}(-.*)?$/, "")
+    .split("-")
+    .filter(Boolean)
+    .map((w) => {
+      let x = w;
+      for (const [re, r] of UMLAUT) x = x.replace(re, r);
+      return w === "und" || w === "gmbh" ? (w === "gmbh" ? "GmbH" : w) : x.charAt(0).toUpperCase() + x.slice(1);
+    });
+  return words.length ? words.join(" ") : null;
+}
+
+/** Vergleichsdomain einer Website/E-Mail (ohne www, ohne Portale). */
+const GENERIC_DOMAINS = new Set([
+  "immobilienscout24.de", "immowelt.de", "facebook.com", "instagram.com", "linkedin.com",
+  "google.com", "gmail.com", "web.de", "gmx.de", "gmx.net", "t-online.de", "outlook.com",
+  "hotmail.com", "yahoo.de", "icloud.com", "jacasa.de", "xing.com",
+]);
+export function domainKey(u: string | null): string | null {
+  if (!u) return null;
+  const t = u.trim().toLowerCase();
+  const host = t.includes("@") ? t.split("@")[1] : t.replace(/^https?:\/\//, "").split(/[/?#]/)[0];
+  const d = host?.replace(/^www\./, "").replace(/\.$/, "");
+  if (!d || !d.includes(".") || GENERIC_DOMAINS.has(d)) return null;
+  return d;
+}
+
+/** Telefonnummer vergleichbar machen: +49 / 0049 → 0, nur Ziffern, mind. 8 Stellen. */
+export function phoneKey(p: string | null): string | null {
+  if (!p) return null;
+  let d = p.replace(/\(0\)/g, "").replace(/[^\d+]/g, "");
+  if (d.startsWith("+49")) d = `0${d.slice(3)}`;
+  else if (d.startsWith("0049")) d = `0${d.slice(4)}`;
+  d = d.replace(/\D/g, "");
+  return d.length >= 8 ? d : null;
+}
+
 export function nameKey(name: string | null): string {
   return (name ?? "")
     .toLowerCase()
@@ -330,9 +415,20 @@ export function mapRecord(rec: SourceRecord, today = "2026-01-01"): NotionLead {
     .filter(Boolean)
     .join("\n");
 
+  const icp = mapIcp(t("ICP"));
+  const enrichStatus = t("enrich_status");
+  const excluded = exclusionReason(icp, enrichStatus, notionStatus);
+  const is24 = normalizeUrl(t("IS24 URL"));
+  const stadt = t("Stadt");
+  const firma =
+    cleanFirma(t("Firma")) ??
+    firmaFromIs24(is24) ??
+    (person.name ? `${person.name}${stadt ? ` (${stadt})` : ""}` : null);
+
   const notiz = [
     `Notion-Sync (ImmoScout Makler Leads) ${today.split("-").reverse().join(".")}`,
-    `Call-Status in Notion: ${notionStatus || "—"}${fu ? ` · FU: ${fu}` : ""}`,
+    `Call-Status in Notion: ${notionStatus || "—"}${fu ? ` · FU: ${fu}` : ""} · ICP: ${icp}`,
+    excluded && `Nicht erneut kontaktieren: ${excluded}`,
     ansprechpartner && ansprechpartner !== person.name && `Ansprechpartner (Notion): ${ansprechpartner}`,
     recherche && `\n${recherche}`,
     body.trim() && `\n${body.trim()}`,
@@ -344,17 +440,18 @@ export function mapRecord(rec: SourceRecord, today = "2026-01-01"): NotionLead {
   return {
     pageId: rec.pageId,
     lastEdited: rec.lastEdited,
-    firma: cleanFirma(t("Firma")),
-    stadt: t("Stadt"),
+    firma,
+    stadt,
     telefon: t("Telefon (enrich)"),
     website: normalizeUrl(t("Website")),
     instagram: normalizeUrl(t("Instagram URL")),
-    is24: normalizeUrl(t("IS24 URL")),
+    is24,
     person,
-    icp: t("ICP"),
-    enrichStatus: t("enrich_status"),
+    icp,
+    enrichStatus,
     notionStatus,
-    status: mapStatus(notionStatus),
+    status: excluded ? "disqualified" : mapStatus(notionStatus),
+    excluded,
     wv: parseNotionDate(t("Nächster Anruf")),
     crm: mapCrm(t("CRM")),
     inserate: inserateRaw && Number.isFinite(Number(inserateRaw)) ? Math.round(Number(inserateRaw)) : null,
@@ -368,6 +465,10 @@ export function mapRecord(rec: SourceRecord, today = "2026-01-01"): NotionLead {
 // ---------------------------------------------------------------------------
 
 const NEEDS_WV: SyncStatus[] = ["kein_anschluss_1", "kein_anschluss_2", "kein_anschluss_3", "callback", "set_appointment"];
+/** Weiter fortgeschritten: ein Ausschluss aus Notion überschreibt das nicht automatisch. */
+const ADVANCED = new Set(["set_appointment", "closed", "kunde"]);
+/** Noch kein Gespräch: hier darf eine ICP-raus-Einschätzung den Lead ausschließen. */
+const UNTOUCHED = new Set(["neu", "kontaktiert"]);
 
 /**
  * Plan berechnen. `lastSync` (ISO) steuert, ob bestehende Leads eine neue
@@ -378,14 +479,45 @@ export function planSync(
   companies: ExistingCompany[],
   opts: { lastSync: string; today: string },
 ): SyncPlan {
+  const byNotion = new Map<string, ExistingCompany>();
   const byIs24 = new Map<string, ExistingCompany>();
+  const byDomain = new Map<string, ExistingCompany>();
+  const byPhone = new Map<string, ExistingCompany>();
+  const byPerson = new Map<string, ExistingCompany[]>();
   const byNameStadt = new Map<string, ExistingCompany>();
   const byNameOnly = new Map<string, ExistingCompany>();
+  const ambiguousDomain = new Set<string>();
   for (const c of companies) {
+    if (c.notion_id) byNotion.set(c.notion_id.replace(/-/g, ""), c);
     const k = is24Key(c.quell_url);
     if (k) byIs24.set(k, c);
+    const domains = new Set(
+      [domainKey(c.website), ...(c.people ?? []).map((p) => domainKey(p.email))].filter((d): d is string => !!d),
+    );
+    for (const d of domains) {
+      if (byDomain.has(d) && byDomain.get(d) !== c) ambiguousDomain.add(d);
+      byDomain.set(d, c);
+    }
+    for (const ph of [c.telefon, ...(c.people ?? []).map((p) => p.telefon)]) {
+      const pk = phoneKey(ph);
+      if (pk) byPhone.set(pk, c);
+    }
+    for (const p of c.people ?? []) {
+      const nk = nameKey(p.name);
+      if (nk.includes(" ")) byPerson.set(nk, [...(byPerson.get(nk) ?? []), c]);
+    }
     byNameStadt.set(`${nameKey(c.name)}|${nameKey(c.stadt)}`, c);
     if (!c.stadt) byNameOnly.set(nameKey(c.name), c);
+  }
+
+  /** Ansprechpartner-Treffer nur, wenn eindeutig und die Stadt nicht widerspricht. */
+  function personMatch(lead: NotionLead): ExistingCompany | undefined {
+    const nk = nameKey(lead.person.name);
+    if (!nk.includes(" ")) return undefined;
+    const hits = (byPerson.get(nk) ?? []).filter(
+      (c) => !c.stadt || !lead.stadt || nameKey(c.stadt) === nameKey(lead.stadt),
+    );
+    return hits.length === 1 ? hits[0] : undefined;
   }
 
   const plan: SyncPlan = { create: [], update: [], conflicts: [], skipped: [] };
@@ -393,11 +525,7 @@ export function planSync(
   let spread = 0;
 
   for (const lead of leads) {
-    if (lead.icp !== "JA") {
-      plan.skipped.push({ firma: lead.firma, reason: "icp" });
-      continue;
-    }
-    if (lead.enrichStatus === "duplikat" || lead.enrichStatus === "vorfilter") {
+    if (lead.enrichStatus === "duplikat") {
       plan.skipped.push({ firma: lead.firma, reason: "enrich" });
       continue;
     }
@@ -413,28 +541,32 @@ export function planSync(
     seen.add(dedupeKey);
 
     const k = is24Key(lead.is24);
-    let match: ExistingCompany | undefined;
-    let matchedBy: "is24" | "name_stadt" | "name" = "is24";
-    if (k && byIs24.has(k)) match = byIs24.get(k);
-    if (!match) {
-      match = byNameStadt.get(`${nameKey(lead.firma)}|${nameKey(lead.stadt)}`);
-      matchedBy = "name_stadt";
-    }
-    if (!match) {
-      match = byNameOnly.get(nameKey(lead.firma));
-      matchedBy = "name";
-    }
+    const dom = domainKey(lead.website) ?? domainKey(lead.person.email);
+    const ph = phoneKey(lead.telefon);
+    const candidates: [MatchedBy, ExistingCompany | undefined][] = [
+      ["notion", byNotion.get(lead.pageId.replace(/-/g, ""))],
+      ["is24", k ? byIs24.get(k) : undefined],
+      ["domain", dom && !ambiguousDomain.has(dom) ? byDomain.get(dom) : undefined],
+      ["telefon", ph ? byPhone.get(ph) : undefined],
+      ["person", personMatch(lead)],
+      ["name_stadt", byNameStadt.get(`${nameKey(lead.firma)}|${nameKey(lead.stadt)}`)],
+      ["name", byNameOnly.get(nameKey(lead.firma))],
+    ];
+    const found = candidates.find(([, c]) => c);
+    const match = found?.[1];
+    const matchedBy: MatchedBy = found?.[0] ?? "name";
 
     const sourceKey = `notion:${lead.pageId}:${hash(lead.notiz.replace(/^.*\n/, ""))}`;
 
     if (!match) {
-      const wv =
-        lead.wv ??
-        (lead.status === "later"
-          ? addCalendarWeeksSkipWeekend(opts.today, 13)
-          : NEEDS_WV.includes(lead.status)
-            ? addBusinessDays(opts.today, 2 + (spread++ % 5))
-            : null);
+      const wv = lead.excluded
+        ? null
+        : (lead.wv ??
+          (lead.status === "later"
+            ? addCalendarWeeksSkipWeekend(opts.today, 13)
+            : NEEDS_WV.includes(lead.status)
+              ? addBusinessDays(opts.today, 2 + (spread++ % 5))
+              : null));
       plan.create.push({ lead, wv, sourceKey });
       continue;
     }
@@ -448,10 +580,33 @@ export function planSync(
     if (!match.crm_system && lead.crm) patch.crm_system = lead.crm;
     if (match.inserate_aktiv === null && lead.inserate !== null) patch.inserate_aktiv = lead.inserate;
     if (match.meta_ads === null && lead.meta !== null) patch.meta_ads = lead.meta;
+    // Notion-ID nur setzen, wenn die Firma noch keine hat (eindeutiger Index).
+    const linkNotion = !match.notion_id;
+    if (linkNotion) patch.notion_id = lead.pageId;
+    if ((match.icp ?? "offen") === "offen" && lead.icp !== "offen") patch.icp = lead.icp;
 
     const editedSince = lead.lastEdited > opts.lastSync;
     let setStatus: SyncPlan["update"][number]["setStatus"] = null;
-    if (match.pipeline_status === "neu" && lead.status !== "neu") {
+    if (lead.excluded) {
+      // „Kein Interesse“ ist ein Nein der Firma → schließt alles bis auf Termin/Closing/Kunde aus.
+      // ICP raus / Vorfilter ist nur eine alte Einschätzung → nur, solange niemand mit ihr im Gespräch ist.
+      const saidNo = EXCLUDING_STATUS.has(lead.notionStatus.trim().toLowerCase());
+      const protectedStatus = saidNo
+        ? ADVANCED.has(match.pipeline_status)
+        : !UNTOUCHED.has(match.pipeline_status);
+      if (match.pipeline_status !== "disqualified") {
+        if (protectedStatus) {
+          plan.conflicts.push({
+            firma: match.name,
+            companyId: match.id,
+            crm: match.pipeline_status,
+            notion: `${lead.notionStatus || "—"} (${lead.excluded})`,
+          });
+        } else {
+          setStatus = { status: "disqualified", wv: null };
+        }
+      }
+    } else if (match.pipeline_status === "neu" && lead.status !== "neu") {
       setStatus = { status: lead.status, wv: lead.wv };
     } else if (editedSince && lead.status !== "neu" && match.pipeline_status !== lead.status) {
       plan.conflicts.push({
@@ -462,7 +617,8 @@ export function planSync(
       });
     }
 
-    const note = editedSince ? { text: lead.notiz, sourceKey } : null;
+    // Erstes Verknüpfen bringt die Recherche als Notiz mit; danach nur bei Änderungen in Notion.
+    const note = editedSince || linkNotion || setStatus ? { text: lead.notiz, sourceKey } : null;
     if (Object.keys(patch).length || note || setStatus) {
       plan.update.push({ lead, companyId: match.id, companyName: match.name, matchedBy, patch, note, setStatus });
     }
