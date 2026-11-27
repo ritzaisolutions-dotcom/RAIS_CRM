@@ -2,10 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { CalendarClock, ChevronDown, Globe, Pencil, Plus } from "lucide-react";
+import { CalendarClock, ChevronDown, Globe, Mail, Pencil, Phone, Plus, StickyNote } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Input, Textarea } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,8 +26,15 @@ import {
   XingIcon,
   YoutubeIcon,
 } from "@/components/leads/BrandIcons";
-import { setListPipelineStatus, updateListFields } from "@/lib/sales/actions";
-import { setLeadKategorie, setLeadQuelle, setWiedervorlage } from "@/lib/sales/leadActions";
+import { insertTouchpoint, setListPipelineStatus, updateListFields } from "@/lib/sales/actions";
+import {
+  fetchLeadNotes,
+  setLeadContactField,
+  setLeadKategorie,
+  setLeadQuelle,
+  setWiedervorlage,
+  type LeadNote,
+} from "@/lib/sales/leadActions";
 import { businessToday, skipWeekend } from "@/lib/sales/dates";
 import {
   FOLLOW_UP_QUICK,
@@ -365,6 +372,251 @@ export function QuelleMenu({
         </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Schnelle Notiz aus der Liste                                        */
+/* ------------------------------------------------------------------ */
+
+const noteStamp = new Intl.DateTimeFormat("de-DE", {
+  timeZone: "Europe/Berlin",
+  day: "2-digit",
+  month: "2-digit",
+  year: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+/** Notiz-Icon am Zeilenende: Popover mit den letzten Notizen und Eingabefeld (mit Zeitstempel gespeichert). */
+export function NotePopover({
+  companyId,
+  personId,
+  firma,
+}: {
+  companyId: string;
+  personId: string | null;
+  firma: string;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [notes, setNotes] = useState<LeadNote[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [pending, start] = useTransition();
+
+  useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    setNotes(null);
+    fetchLeadNotes(companyId).then((res) => {
+      if (!alive) return;
+      if ("error" in res) setError(res.error);
+      else setNotes(res);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open, companyId]);
+
+  function save() {
+    const v = text.trim();
+    if (!v) return;
+    start(async () => {
+      const res = await insertTouchpoint({
+        company_id: companyId,
+        person_id: personId,
+        kanal: "note",
+        ergebnis: "kein_ergebnis",
+        notiz: v,
+        naechster_touch: null,
+        abbruchgrund: null,
+      });
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      setError(null);
+      setText("");
+      setSaved(true);
+      setNotes((n) => [{ id: Date.now(), notiz: v, occurred_at: new Date().toISOString(), kanal: "note" }, ...(n ?? [])]);
+      router.refresh();
+    });
+  }
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (o) {
+          setSaved(false);
+          setError(null);
+        }
+      }}
+    >
+      <Tooltip content="Notiz">
+        <PopoverTrigger
+          aria-label={`${firma}: Notiz`}
+          onClick={(e) => e.stopPropagation()}
+          className="flex size-7 items-center justify-center rounded-md text-fg-muted hover:bg-surface-3 hover:text-fg"
+        >
+          <StickyNote className="size-3.5" />
+        </PopoverTrigger>
+      </Tooltip>
+      <PopoverContent align="end" className="w-80" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-2 truncate text-[13px] font-medium">{firma}</div>
+        <Textarea
+          autoFocus
+          rows={4}
+          maxLength={4000}
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            setSaved(false);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) save();
+          }}
+          placeholder="Kontext oder Notiz hier einfügen …"
+        />
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <span className="text-[11px] text-fg-subtle">
+            {saved ? "Gespeichert ✓" : "Strg + Enter speichert"}
+          </span>
+          <Button size="sm" disabled={pending || !text.trim()} onClick={save}>
+            {pending ? "Speichert…" : "Speichern"}
+          </Button>
+        </div>
+        {error ? <p className="mt-1 text-xs text-[var(--tone-red-fg)]">{error}</p> : null}
+        <div className="mt-3 border-t border-line pt-2">
+          {notes === null ? (
+            <p className="text-xs text-fg-subtle">Lade Notizen…</p>
+          ) : notes.length === 0 ? (
+            <p className="text-xs text-fg-subtle">Noch keine Notizen.</p>
+          ) : (
+            <ol className="max-h-48 space-y-2 overflow-y-auto">
+              {notes.map((n) => (
+                <li key={n.id} className="border-l-2 border-line-strong pl-2">
+                  <div className="text-[11px] tabular-nums text-fg-subtle">
+                    {noteStamp.format(new Date(n.occurred_at))}
+                    {n.kanal !== "note" ? ` · ${n.kanal === "call" ? "Anruf" : n.kanal === "dm" ? "DM" : "Meeting"}` : ""}
+                  </div>
+                  <p className="line-clamp-4 whitespace-pre-wrap break-words text-xs leading-relaxed">{n.notiz}</p>
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Fehlende Telefonnummer / E-Mail direkt aus der Liste ergänzen        */
+/* ------------------------------------------------------------------ */
+
+export function AddContactField({
+  companyId,
+  personId,
+  personName,
+  firma,
+  field,
+}: {
+  companyId: string;
+  personId: string | null;
+  personName: string | null;
+  firma: string;
+  field: "telefon" | "email";
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const isPhone = field === "telefon";
+  const Icon = isPhone ? Phone : Mail;
+  const label = isPhone ? "Telefon" : "E-Mail";
+
+  function save() {
+    start(async () => {
+      const res = await setLeadContactField({
+        companyId,
+        personId,
+        field,
+        value,
+        name: personId ? undefined : name,
+      });
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      setError(null);
+      setValue("");
+      setOpen(false);
+      router.refresh();
+    });
+  }
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (o) setError(null);
+      }}
+    >
+      <Tooltip content={`${label} ergänzen`}>
+        <PopoverTrigger
+          aria-label={`${firma}: ${label} ergänzen`}
+          onClick={(e) => e.stopPropagation()}
+          className="relative flex size-7 items-center justify-center rounded-md text-fg-subtle/70 hover:bg-surface-3 hover:text-fg"
+        >
+          <Icon className="size-3.5" />
+          <Plus className="absolute right-0.5 top-0.5 size-2.5" strokeWidth={3} />
+        </PopoverTrigger>
+      </Tooltip>
+      <PopoverContent align="end" className="w-72" onClick={(e) => e.stopPropagation()}>
+        <form
+          className="grid gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save();
+          }}
+        >
+          <div className="text-[13px] font-medium">
+            {label} ergänzen
+            <div className="truncate text-xs font-normal text-fg-muted">
+              {personName ? `für ${personName} · ${firma}` : firma}
+            </div>
+          </div>
+          {!personId ? (
+            <Input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Name des Ansprechpartners"
+            />
+          ) : null}
+          <Input
+            autoFocus={!!personId}
+            type={isPhone ? "tel" : "email"}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={isPhone ? "+49 …" : "name@firma.de"}
+          />
+          {error ? <p className="text-xs text-[var(--tone-red-fg)]">{error}</p> : null}
+          <div className="flex justify-end">
+            <Button size="sm" type="submit" disabled={pending || !value.trim() || (!personId && !name.trim())}>
+              {pending ? "Speichert…" : "Speichern"}
+            </Button>
+          </div>
+        </form>
+      </PopoverContent>
+    </Popover>
   );
 }
 

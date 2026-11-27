@@ -37,6 +37,8 @@ import {
   FollowUpPicker,
   QuelleText,
   CrmMenu,
+  NotePopover,
+  AddContactField,
   SocialIcons,
   StatusMenu,
 } from "@/components/leads/LeadBits";
@@ -457,8 +459,9 @@ export function LeadsWorkspace({
                         }}
                       />
                     </td>
-                    <td className="w-28 px-3 py-1" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <td className="w-36 px-3 py-1" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-0.5">
+                      <div className="flex gap-0.5">
                         {phone ? (
                           <Tooltip content={phone}>
                             <a
@@ -469,7 +472,9 @@ export function LeadsWorkspace({
                               <Phone className="size-3.5" />
                             </a>
                           </Tooltip>
-                        ) : null}
+                        ) : (
+                          <AddContactField companyId={r.company_id} personId={r.person_id} personName={r.entscheider} firma={r.firma} field="telefon" />
+                        )}
                         {r.email ? (
                           <Tooltip content="E-Mail schreiben">
                             <Link
@@ -480,8 +485,13 @@ export function LeadsWorkspace({
                               <Mail className="size-3.5" />
                             </Link>
                           </Tooltip>
-                        ) : null}
+                        ) : (
+                          <AddContactField companyId={r.company_id} personId={r.person_id} personName={r.entscheider} firma={r.firma} field="email" />
+                        )}
                         <InviteFromList companyId={r.company_id} firma={r.firma} />
+                      </div>
+                      {/* Alle Aktionen immer sichtbar; Notiz: schnell Kontext reinkopieren, ohne den Lead zu öffnen. */}
+                      <NotePopover companyId={r.company_id} personId={r.person_id} firma={r.firma} />
                       </div>
                     </td>
                   </tr>
