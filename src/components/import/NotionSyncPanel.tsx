@@ -107,7 +107,7 @@ export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
       const files = unzipExport(new Uint8Array(await file.arrayBuffer()));
       const parsed = parseNotionExport(files);
       if (parsed.records.length === 0) {
-        setError(`Im Export sind ${parsed.totalRows} Zeilen, aber keine mit ICP = JA.`);
+        setError("Im Export wurden keine Leads gefunden.");
         return;
       }
       runPreview({ kind: "export", records: parsed.records, fileName: file.name, totalRows: parsed.totalRows });
@@ -139,7 +139,7 @@ export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
       <Panel>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
           <div className="min-w-0 text-[13px]">
-            <div className="font-medium">ImmoScout Makler Leads · nur ICP = JA</div>
+            <div className="font-medium">ImmoScout Makler Leads · alle Leads mit ICP-Bewertung</div>
             <div className="text-xs text-fg-muted">
               {state.lastSync
                 ? `Letzter Abgleich: Stand ${stamp.format(new Date(state.lastSync))}`
@@ -184,7 +184,7 @@ export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
               {loading && source?.kind === "export" ? "Wird abgeglichen …" : "Notion-Export (.zip) hier ablegen oder auswählen"}
             </span>
             <span className="text-xs text-fg-muted">
-              In Notion: Datenbank öffnen → ⋯ → Exportieren → „Markdown &amp; CSV“, Unterseiten einschließen
+              In Notion: Datenbank öffnen (Ansicht ohne Filter) → ⋯ → Exportieren → „Markdown &amp; CSV“, Unterseiten einschließen
             </span>
           </button>
           <input
@@ -200,9 +200,10 @@ export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
         </div>
 
         <div className="border-t border-line px-4 py-2.5 text-xs leading-relaxed text-fg-muted">
-          Neue Leads werden angelegt. Bei bestehenden Leads werden nur leere Felder gefüllt; der Status wird nur übernommen,
-          solange der Lead im CRM noch „Neu“ ist. Was du im CRM bearbeitet hast, wird nie überschrieben. Die Datei wird im
-          Browser gelesen; übertragen werden nur die Zeilen mit ICP = JA.
+          Neue Leads werden angelegt, mit ICP-Bewertung (Grenzfall und nicht bewertet landen in „ICP prüfen“). „Kein
+          Interesse“ und ICP raus werden ausgeschlossen, auch wenn es die Firma im CRM schon gibt, damit sie nie wieder
+          kontaktiert werden. Bei bestehenden Leads werden sonst nur leere Felder gefüllt; der Status wird nur übernommen,
+          solange der Lead im CRM noch „Neu“ ist. Abgleich über Notion-ID, IS24-Profil, Website, Telefon und Ansprechpartner.
         </div>
       </Panel>
 
@@ -241,7 +242,7 @@ export function NotionSyncPanel({ state }: { state: NotionSyncState }) {
           {source.kind === "export" ? (
             <div className="flex items-center gap-2 text-xs text-fg-muted">
               <FileArchive className="size-3.5" />
-              {source.fileName} · {source.totalRows} Zeilen im Export, {source.records.length} mit ICP = JA
+              {source.fileName} · {source.totalRows} Zeilen im Export
             </div>
           ) : null}
 

@@ -30,17 +30,17 @@ describe("pageFromMarkdown", () => {
 });
 
 describe("parseNotionExport", () => {
-  it("prefers the _all.csv, keeps only ICP JA and links page bodies", () => {
+  it("prefers the _all.csv, keeps every row and links page bodies", () => {
     const res = parseNotionExport([
       { name: "Leads abc.csv", text: header },
       { name: "Leads abc_all.csv", text: csv },
       { name: "Muster GmbH 0123456789abcdef0123456789abcdef.md", text: "# Muster GmbH\n\nICP: JA\n\nNotiz aus Notion" },
     ]);
     expect(res.totalRows).toBe(3);
-    expect(res.records.map((r) => r.fields["Firma"])).toEqual(["Muster GmbH", 'Mehrzeilig "GmbH"']);
+    expect(res.records.map((r) => r.fields["Firma"])).toEqual(["Muster GmbH", "Raus GmbH", 'Mehrzeilig "GmbH"']);
     expect(res.records[0].pageId).toBe("0123456789abcdef0123456789abcdef");
     expect(res.records[0].body).toBe("Notiz aus Notion");
-    expect(res.records[1].pageId).toMatch(/^export-[0-9a-f]{8}$/);
+    expect(res.records[2].pageId).toMatch(/^export-[0-9a-f]{8}$/);
   });
 
   it("rejects exports without CSV or of another database", () => {

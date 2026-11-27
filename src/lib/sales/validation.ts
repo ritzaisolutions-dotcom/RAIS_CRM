@@ -407,6 +407,7 @@ export const listFieldsSchema = z.object({
         .nullable()
         .optional(),
       meta_ads: z.boolean().nullable().optional(),
+      icp: z.enum(["JA", "Grenzfall", "RAUS", "offen"]).optional(),
     })
     .refine((patch) => Object.keys(patch).length > 0, "Keine Änderungen"),
 });

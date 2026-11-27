@@ -53,6 +53,9 @@ import {
 } from "@/lib/sales/leads";
 import {
   CRM_OPTIONS,
+  ICP_LABELS,
+  ICP_OPTIONS,
+  type Icp,
   LEAD_QUELLEN,
   LEAD_QUELLE_LABELS,
   type CrmSystem,
@@ -617,6 +620,86 @@ export function AddContactField({
         </form>
       </PopoverContent>
     </Popover>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* ICP-Bewertung                                                       */
+/* ------------------------------------------------------------------ */
+
+const ICP_TONE: Record<Icp, string> = {
+  JA: "text-[var(--tone-green-fg)]",
+  Grenzfall: "text-[var(--tone-yellow-fg)]",
+  RAUS: "text-[var(--tone-red-fg)]",
+  offen: "text-fg-muted",
+};
+
+export function IcpMenu({
+  companyId,
+  icp,
+  status,
+}: {
+  companyId: string;
+  icp: Icp;
+  status: PipelineStatus;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [optimistic, setOptimistic] = useState<Icp>(icp);
+  const [error, setError] = useState<string | null>(null);
+  const current = pending ? optimistic : icp;
+
+  function choose(v: string) {
+    const next = v as Icp;
+    if (next === current) return;
+    const exclude =
+      next === "RAUS" &&
+      status !== "disqualified" &&
+      confirm("ICP raus: Lead auch auf „Kein Interesse“ setzen, damit er nicht mehr kontaktiert wird?");
+    setOptimistic(next);
+    start(async () => {
+      const res = await updateListFields(companyId, { icp: next });
+      if (res.error) {
+        setError(res.error);
+        return;
+      }
+      if (exclude) {
+        const s = await setListPipelineStatus({ companyId, pipelineStatus: "disqualified", kanal: "status_change" });
+        if (s.error) {
+          setError(s.error);
+          return;
+        }
+      }
+      setError(null);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label="ICP-Bewertung wählen"
+          className={cn(
+            "flex h-8 w-full items-center justify-between rounded-md border border-line-strong bg-surface px-2.5 text-[13px] hover:bg-surface-2",
+            pending && "opacity-60",
+          )}
+        >
+          <span className={cn("font-medium", ICP_TONE[current])}>{ICP_LABELS[current]}</span>
+          <ChevronDown className="size-3.5 text-fg-muted" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuRadioGroup value={current} onValueChange={choose}>
+            {ICP_OPTIONS.map((o) => (
+              <DropdownMenuRadioItem key={o} value={o}>
+                <span className={ICP_TONE[o]}>{ICP_LABELS[o]}</span>
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {error ? <p className="mt-1 text-xs text-[var(--tone-red-fg)]">{error}</p> : null}
+    </div>
   );
 }
 

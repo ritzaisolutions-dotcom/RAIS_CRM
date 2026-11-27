@@ -215,7 +215,7 @@ export async function fetchCompany(id: string): Promise<Company | null> {
   const { data, error } = await supabase
     .from("companies")
     .select(
-      "id,name,stadt,bundesland,website,instagram_url,facebook_url,linkedin_url,telefon,mitarbeiterzahl,crm_system,anfragen_pro_woche,inserate_aktiv,meta_ads,relationship,recherche,pipeline_status,quelle,quell_url,persona,kategorie,xing_url,youtube_url,tiktok_url,created_at,updated_at",
+      "id,name,stadt,bundesland,website,instagram_url,facebook_url,linkedin_url,telefon,mitarbeiterzahl,crm_system,anfragen_pro_woche,inserate_aktiv,meta_ads,relationship,recherche,pipeline_status,quelle,quell_url,persona,kategorie,xing_url,youtube_url,tiktok_url,icp,notion_id,created_at,updated_at",
     )
     .eq("id", id)
     .maybeSingle();

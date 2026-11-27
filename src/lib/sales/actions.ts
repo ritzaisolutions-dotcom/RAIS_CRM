@@ -47,6 +47,7 @@ import {
 import type {
   Abbruchgrund,
   CrmSystem,
+  Icp,
   MitarbeiterKlasse,
   OppStage,
   OppVariante,
@@ -1421,6 +1422,7 @@ export async function updateListFields(
     mitarbeiterzahl?: MitarbeiterKlasse | null;
     inserate_aktiv?: number | null;
     meta_ads?: boolean | null;
+    icp?: Icp;
   },
 ): Promise<ActionResult> {
   const parsed = listFieldsSchema.safeParse({ companyId, patch });
@@ -1442,7 +1444,9 @@ export async function updateListFields(
     mitarbeiterzahl?: MitarbeiterKlasse | null;
     inserate_aktiv?: number | null;
     meta_ads?: boolean | null;
+    icp?: Icp;
   } = {};
+  if ("icp" in p && p.icp) update.icp = p.icp;
   if ("crm_system" in p) update.crm_system = p.crm_system ?? null;
   if ("anfragen_pro_woche" in p) {
     update.anfragen_pro_woche = p.anfragen_pro_woche ?? null;

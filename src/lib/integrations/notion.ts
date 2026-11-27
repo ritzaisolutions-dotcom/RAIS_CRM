@@ -46,8 +46,11 @@ async function call<T>(path: string, init?: RequestInit, attempt = 0): Promise<T
   return (await res.json()) as T;
 }
 
-/** Alle Seiten mit ICP = JA (Notion filtert serverseitig), paginiert. */
-export async function fetchIcpLeadPages(): Promise<NotionPage[]> {
+/**
+ * Alle Seiten der Lead-Datenbank, paginiert. Früher nur ICP = JA; jetzt alle,
+ * damit auch Grenzfall/RAUS/„Kein Interesse“ im CRM landen und nie neu gezogen werden.
+ */
+export async function fetchLeadPages(): Promise<NotionPage[]> {
   const db = process.env.NOTION_LEADS_DATABASE_ID?.trim() || DEFAULT_DB;
   const pages: NotionPage[] = [];
   let cursor: string | undefined;
@@ -57,7 +60,6 @@ export async function fetchIcpLeadPages(): Promise<NotionPage[]> {
       {
         method: "POST",
         body: JSON.stringify({
-          filter: { property: "ICP", select: { equals: "JA" } },
           page_size: 100,
           ...(cursor ? { start_cursor: cursor } : {}),
         }),

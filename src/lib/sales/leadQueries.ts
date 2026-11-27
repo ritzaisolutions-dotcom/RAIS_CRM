@@ -11,7 +11,7 @@ import type { LeadQuelle, LeadRow } from "@/lib/sales/types";
 export const LEADS_PAGE_SIZE = 50;
 
 const LEAD_COLUMNS =
-  "company_id,firma,person_id,entscheider,stadt,crm,\"anfragen/woche\",naechster_touch,status,relationship,tage_seit_touch,letzter_touch_am,letzter_kanal,tel,firma_telefon,email,person_linkedin_url,linkedin_company_url,linkedin_url,inserate_aktiv,mitarbeiterzahl,meta_ads,website,instagram_url,facebook_url,xing_url,youtube_url,tiktok_url,quelle,quell_url,created_at,kontaktversuche,kategorie,letzter_kontakt_kanal,letzter_kontakt_am,vorheriger_kontakt_kanal,opp_stage";
+  "company_id,firma,person_id,entscheider,stadt,crm,\"anfragen/woche\",naechster_touch,status,relationship,tage_seit_touch,letzter_touch_am,letzter_kanal,tel,firma_telefon,email,person_linkedin_url,linkedin_company_url,linkedin_url,inserate_aktiv,mitarbeiterzahl,meta_ads,website,instagram_url,facebook_url,xing_url,youtube_url,tiktok_url,quelle,quell_url,created_at,kontaktversuche,kategorie,letzter_kontakt_kanal,letzter_kontakt_am,vorheriger_kontakt_kanal,opp_stage,icp,notion_id";
 
 export type LeadFilters = {
   view: LeadViewKey;
@@ -35,8 +35,14 @@ export type LeadsResult = {
  * Wendet die Ansicht als Filter an. Generisch über den Query-Builder,
  * damit Liste und Zähler dieselbe Definition nutzen.
  */
+/**
+ * Noch nicht bewertete bzw. Grenzfall-Leads aus Notion gehören in „ICP prüfen“,
+ * nicht in die Arbeitslisten. Leads ohne Notion-Herkunft (LinkedIn, manuell) bleiben drin.
+ */
+const IN_WORK = "notion_id.is.null,icp.eq.JA";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyView<Q extends { eq: any; neq: any; in: any; lte: any; not: any }>(
+function applyView<Q extends { eq: any; neq: any; in: any; lte: any; not: any; or: any }>(
   query: Q,
   view: LeadViewKey,
   today: string,
@@ -48,7 +54,13 @@ function applyView<Q extends { eq: any; neq: any; in: any; lte: any; not: any }>
         .not("naechster_touch", "is", null)
         .lte("naechster_touch", today);
     case "neu":
-      return query.eq("relationship", "Prospect").eq("status", "neu");
+      return query.eq("relationship", "Prospect").eq("status", "neu").or(IN_WORK);
+    case "kontaktiert":
+      return query.eq("relationship", "Prospect").eq("status", "kontaktiert");
+    case "icp_pruefen":
+      return query.eq("relationship", "Prospect").not("notion_id", "is", null).in("icp", ["Grenzfall", "offen"]);
+    case "icp_raus":
+      return query.eq("relationship", "Ausgeschlossen").eq("icp", "RAUS");
     case "nicht_erreicht":
       return query.eq("relationship", "Prospect").in("status", NICHT_ERREICHT);
     case "rueckruf":
@@ -62,10 +74,10 @@ function applyView<Q extends { eq: any; neq: any; in: any; lte: any; not: any }>
     case "kunden":
       return query.eq("relationship", "Kunde");
     case "kein_interesse":
-      return query.eq("relationship", "Ausgeschlossen");
+      return query.eq("relationship", "Ausgeschlossen").neq("icp", "RAUS");
     case "alle":
     default:
-      return query.neq("relationship", "Ausgeschlossen");
+      return query.neq("relationship", "Ausgeschlossen").or(IN_WORK);
   }
 }
 

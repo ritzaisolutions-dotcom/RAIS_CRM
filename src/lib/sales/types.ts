@@ -32,6 +32,7 @@ export type TouchErgebnis =
 /** Legacy call pipeline on companies (list Status column) */
 export type PipelineStatus =
   | "neu"
+  | "kontaktiert"
   | "kein_anschluss_1"
   | "kein_anschluss_2"
   | "kein_anschluss_3"
@@ -303,6 +304,8 @@ export type LeadRow = Omit<CallListeRow, "bundesland"> & {
   letzter_kontakt_am: string | null;
   vorheriger_kontakt_kanal: TouchKanal | null;
   created_at: string;
+  icp: Icp;
+  notion_id: string | null;
 };
 
 export type ImportLeadResult = {
@@ -499,8 +502,20 @@ export type Company = {
   xing_url: string | null;
   youtube_url: string | null;
   tiktok_url: string | null;
+  /** ICP-Bewertung (aus Notion oder manuell). */
+  icp: Icp;
+  notion_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export const ICP_OPTIONS = ["JA", "Grenzfall", "RAUS", "offen"] as const;
+export type Icp = (typeof ICP_OPTIONS)[number];
+export const ICP_LABELS: Record<Icp, string> = {
+  JA: "ICP ja",
+  Grenzfall: "Grenzfall",
+  RAUS: "ICP raus",
+  offen: "Nicht bewertet",
 };
 
 export type PipelineStatusCount = {
@@ -634,6 +649,7 @@ export const KANAL_LABELS: Record<TouchKanal, string> = {
 
 export const PIPELINE_STATUS_OPTIONS: PipelineStatus[] = [
   "neu",
+  "kontaktiert",
   "kein_anschluss_1",
   "kein_anschluss_2",
   "kein_anschluss_3",
@@ -650,6 +666,7 @@ export const PIPELINE_STATUS_OPTIONS: PipelineStatus[] = [
 /** Common dispositions on the dial sheet; rest sit under „Mehr…“. */
 export const PIPELINE_STATUS_PRIMARY: PipelineStatus[] = [
   "neu",
+  "kontaktiert",
   "kein_anschluss_1",
   "callback",
   "set_appointment",
@@ -658,6 +675,7 @@ export const PIPELINE_STATUS_PRIMARY: PipelineStatus[] = [
 
 export const PIPELINE_STATUS_LABELS: Record<PipelineStatus, string> = {
   neu: "Neu",
+  kontaktiert: "Kontaktiert",
   kein_anschluss_1: "Nicht erreicht",
   kein_anschluss_2: "Nicht erreicht 2",
   kein_anschluss_3: "Nicht erreicht 3",
@@ -763,6 +781,8 @@ export function pipelineTone(
       return "grau";
     case "disqualified":
       return "rot";
+    case "kontaktiert":
+      return "orange";
     case "neu":
     case "kein_anschluss_1":
     case "kein_anschluss_2":
