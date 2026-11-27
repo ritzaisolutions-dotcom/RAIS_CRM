@@ -49,6 +49,112 @@ const optUrl = z
   })
   .refine((v) => v === null || /^https?:\/\//i.test(v), "Nur HTTP(S)-URLs sind erlaubt");
 
+const contactFieldSchema = z
+  .object({
+    companyId: uuid,
+    personId: uuid.nullable(),
+    field: z.enum(["telefon", "email"]),
+    value: z.string().trim().min(1, "Bitte einen Wert eintragen").max(254),
+    name: z.string().trim().max(200).optional(),
+  })
+  .superRefine((d, ctx) => {
+    if (d.field === "email" && !z.string().email().safeParse(d.value).success) {
+      ctx.addIssue({ code: "custom", message: "Ungültige E-Mail-Adresse", path: ["value"] });
+    }
+    if (d.field === "telefon" && !/^[+\d\s()./-]{3,50}$/.test(d.value)) {
+      ctx.addIssue({ code: "custom", message: "Ungültige Telefonnummer", path: ["value"] });
+    }
+    if (!d.personId && !d.name) {
+      ctx.addIssue({ code: "custom", message: "Name des Ansprechpartners fehlt", path: ["name"] });
+    }
+  });
+
+/**
+ * Telefon oder E-Mail direkt aus der Liste ergänzen. Mit Ansprechpartner wird nur
+ * dieses Feld geändert (alle anderen bleiben), ohne Ansprechpartner wird einer angelegt.
+ */
+export async function setLeadContactField(input: {
+  companyId: string;
+  personId: string | null;
+  field: "telefon" | "email";
+  value: string;
+  name?: string;
+}): Promise<ActionResult> {
+  const parsed = contactFieldSchema.safeParse(input);
+  if (!parsed.success) return { error: validationError(parsed.error) };
+  const d = parsed.data;
+  const supabase = await createClient();
+
+  let base = {
+    id: null as string | null,
+    name: d.name ?? "",
+    rolle: null as string | null,
+    email: null as string | null,
+    telefon: null as string | null,
+    linkedin_url: null as string | null,
+    ist_entscheider: true,
+    kontext: null as string | null,
+  };
+  if (d.personId) {
+    const { data: p, error } = await supabase
+      .from("people")
+      .select("id,name,rolle,email,telefon,linkedin_url,ist_entscheider,kontext")
+      .eq("id", d.personId)
+      .eq("company_id", d.companyId)
+      .maybeSingle();
+    if (error) return { error: safeDatabaseError(error, "contact-field-load") };
+    if (!p) return { error: "Ansprechpartner nicht gefunden." };
+    base = p as typeof base;
+  }
+  const next = { ...base, [d.field]: d.field === "email" ? d.value.toLowerCase() : d.value };
+
+  const { error } = await supabase.rpc("upsert_person_atomic", {
+    p_person_id: next.id,
+    p_company_id: d.companyId,
+    p_name: next.name,
+    p_rolle: next.rolle,
+    p_email: next.email,
+    p_telefon: next.telefon,
+    p_linkedin_url: next.linkedin_url,
+    p_ist_entscheider: next.ist_entscheider,
+    p_kontext: next.kontext,
+  });
+  if (error) return { error: safeDatabaseError(error, "contact-field") };
+  revalidateLead(d.companyId);
+  return { ok: true };
+}
+
+export type LeadNote = { id: number; notiz: string; occurred_at: string; kanal: string };
+
+/** Letzte echte Notizen eines Leads (ohne automatische Status-/Wiedervorlage-Einträge). */
+export async function fetchLeadNotes(companyId: string): Promise<LeadNote[] | { error: string }> {
+  if (!uuid.safeParse(companyId).success) return { error: "Ungültiger Lead." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("touchpoints")
+    .select("id,notiz,occurred_at,kanal")
+    .eq("company_id", companyId)
+    .is("voided_at", null)
+    .not("notiz", "is", null)
+    .in("kanal", ["note", "call", "dm", "meeting"])
+    .order("occurred_at", { ascending: false })
+    .limit(20);
+  if (error) return { error: safeDatabaseError(error, "lead-notes") };
+  return ((data ?? []) as LeadNote[])
+    .filter((t) => {
+      const n = t.notiz.trim();
+      return (
+        n &&
+        !n.startsWith("Pipeline → ") &&
+        !n.startsWith("Wiedervorlage → ") &&
+        !n.startsWith("Click-to-Call gestartet") &&
+        !n.startsWith("Import ") &&
+        !n.startsWith("LinkedIn-DM nachgetragen")
+      );
+    })
+    .slice(0, 5);
+}
+
 /** Wiedervorlage setzen: Notiz-Touch über `log_touch` (append-only). */
 export async function setWiedervorlage(input: {
   companyId: string;
