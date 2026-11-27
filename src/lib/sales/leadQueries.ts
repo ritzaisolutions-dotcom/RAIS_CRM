@@ -1,14 +1,17 @@
+import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { businessToday } from "@/lib/sales/dates";
 import {
   LEAD_VIEWS,
-  NICHT_ERREICHT,
+  LEADS_PAGE_SIZE,
+  parseLeadPageSize,
   type LeadSortKey,
   type LeadViewKey,
 } from "@/lib/sales/leads";
+import { applyLeadViewFilter as applyView } from "@/lib/sales/leadViewFilters";
 import type { LeadQuelle, LeadRow } from "@/lib/sales/types";
 
-export const LEADS_PAGE_SIZE = 50;
+export { LEADS_PAGE_SIZE };
 
 const LEAD_COLUMNS =
   "company_id,firma,person_id,entscheider,stadt,crm,\"anfragen/woche\",naechster_touch,status,relationship,tage_seit_touch,letzter_touch_am,letzter_kanal,tel,firma_telefon,email,person_linkedin_url,linkedin_company_url,linkedin_url,inserate_aktiv,mitarbeiterzahl,meta_ads,website,instagram_url,facebook_url,xing_url,youtube_url,tiktok_url,quelle,quell_url,created_at,kontaktversuche,kategorie,letzter_kontakt_kanal,letzter_kontakt_am,vorheriger_kontakt_kanal,opp_stage,icp,notion_id";
@@ -21,6 +24,8 @@ export type LeadFilters = {
   kategorie?: "lead" | "kontakt" | "kunde" | "";
   sort?: LeadSortKey;
   page?: number;
+  /** 50 / 100 / 200 — alles andere fällt auf LEADS_PAGE_SIZE zurück. */
+  pageSize?: number;
   listId?: string;
 };
 
@@ -31,63 +36,14 @@ export type LeadsResult = {
   pageSize: number;
 };
 
-/**
- * Wendet die Ansicht als Filter an. Generisch über den Query-Builder,
- * damit Liste und Zähler dieselbe Definition nutzen.
- */
-/**
- * Noch nicht bewertete bzw. Grenzfall-Leads aus Notion gehören in „ICP prüfen“,
- * nicht in die Arbeitslisten. Leads ohne Notion-Herkunft (LinkedIn, manuell) bleiben drin.
- */
-const IN_WORK = "notion_id.is.null,icp.eq.JA";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function applyView<Q extends { eq: any; neq: any; in: any; lte: any; not: any; or: any }>(
-  query: Q,
-  view: LeadViewKey,
-  today: string,
-): Q {
-  switch (view) {
-    case "faellig":
-      return query
-        .neq("relationship", "Ausgeschlossen")
-        .not("naechster_touch", "is", null)
-        .lte("naechster_touch", today);
-    case "neu":
-      return query.eq("relationship", "Prospect").eq("status", "neu").or(IN_WORK);
-    case "kontaktiert":
-      return query.eq("relationship", "Prospect").eq("status", "kontaktiert");
-    case "icp_pruefen":
-      return query.eq("relationship", "Prospect").not("notion_id", "is", null).in("icp", ["Grenzfall", "offen"]);
-    case "icp_raus":
-      return query.eq("relationship", "Ausgeschlossen").eq("icp", "RAUS");
-    case "nicht_erreicht":
-      return query.eq("relationship", "Prospect").in("status", NICHT_ERREICHT);
-    case "rueckruf":
-      return query.eq("relationship", "Prospect").eq("status", "callback");
-    case "spaeter":
-      return query.eq("relationship", "Prospect").eq("status", "later");
-    case "termin":
-      return query.eq("relationship", "Prospect").eq("status", "set_appointment");
-    case "closing":
-      return query.eq("relationship", "Prospect").eq("status", "closed");
-    case "kunden":
-      return query.eq("relationship", "Kunde");
-    case "kein_interesse":
-      return query.eq("relationship", "Ausgeschlossen").neq("icp", "RAUS");
-    case "alle":
-    default:
-      return query.neq("relationship", "Ausgeschlossen").or(IN_WORK);
-  }
-}
-
 export async function fetchLeads(filters: LeadFilters): Promise<LeadsResult> {
   const supabase = await createClient();
   const page =
     Number.isFinite(filters.page) && (filters.page ?? 0) > 0
       ? Math.floor(filters.page as number)
       : 1;
-  const offset = (page - 1) * LEADS_PAGE_SIZE;
+  const pageSize = parseLeadPageSize(filters.pageSize);
+  const offset = (page - 1) * pageSize;
   const today = businessToday();
   const listId = filters.listId?.trim() || undefined;
 
@@ -131,46 +87,59 @@ export async function fetchLeads(filters: LeadFilters): Promise<LeadsResult> {
 
   const { data, error, count } = await query.range(
     offset,
-    offset + LEADS_PAGE_SIZE - 1,
+    offset + pageSize - 1,
   );
   if (error) throw error;
   return {
     rows: (data ?? []) as unknown as LeadRow[],
     total: count ?? 0,
     page,
-    pageSize: LEADS_PAGE_SIZE,
+    pageSize,
   };
 }
 
-/** Zähler je Ansicht — Kopf-Abfragen ohne Zeilen, parallel. */
-export async function fetchLeadViewCounts(): Promise<Record<LeadViewKey, number>> {
+/**
+ * Zähler je Ansicht in einer Abfrage (`sales.lead_view_counts()`), pro Request
+ * einmal (React `cache`) — Navigation-Badge und Ansichten teilen sich das Ergebnis.
+ * Fällt auf Einzel-Abfragen zurück, solange die Migration noch nicht eingespielt ist.
+ */
+const loadLeadViewCounts = cache(async (): Promise<Record<LeadViewKey, number>> => {
   const supabase = await createClient();
+  const { data, error } = await supabase.rpc("lead_view_counts");
+  if (!error && data && typeof data === "object") {
+    const raw = data as Partial<Record<LeadViewKey, number>>;
+    return Object.fromEntries(
+      LEAD_VIEWS.map((v) => [v.key, Number(raw[v.key] ?? 0)]),
+    ) as Record<LeadViewKey, number>;
+  }
+  // PGRST202 = Funktion unbekannt (Migration fehlt) → alter Weg.
+  if (error && error.code !== "PGRST202") throw error;
   const today = businessToday();
   const entries = await Promise.all(
     LEAD_VIEWS.map(async (v) => {
-      const q = applyView(
+      const { count, error: e } = await applyView(
         supabase.from("v_leads").select("company_id", { count: "exact", head: true }),
         v.key,
         today,
       );
-      const { count, error } = await q;
-      if (error) throw error;
+      if (e) throw e;
       return [v.key, count ?? 0] as const;
     }),
   );
   return Object.fromEntries(entries) as Record<LeadViewKey, number>;
+});
+
+export async function fetchLeadViewCounts(): Promise<Record<LeadViewKey, number>> {
+  return loadLeadViewCounts();
 }
 
 /** Fällige Wiedervorlagen (heute + überfällig) für das Badge in der Navigation. */
 export async function countDueLeads(): Promise<number> {
-  const supabase = await createClient();
-  const { count, error } = await applyView(
-    supabase.from("v_leads").select("company_id", { count: "exact", head: true }),
-    "faellig",
-    businessToday(),
-  );
-  if (error) return 0;
-  return count ?? 0;
+  try {
+    return (await loadLeadViewCounts()).faellig;
+  } catch {
+    return 0;
+  }
 }
 
 /**
