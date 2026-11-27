@@ -594,7 +594,7 @@ export async function fetchEmailTemplates(): Promise<EmailTemplate[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("email_templates")
-    .select("id,name,subject,body,created_at")
+    .select("id,name,subject,body,created_at,attachment_ids")
     .order("name");
   if (error) throw error;
   return (data ?? []) as EmailTemplate[];

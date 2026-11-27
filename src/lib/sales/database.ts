@@ -5,6 +5,7 @@ import type {
   CrmSystem,
   CustomFieldDef,
   CustomFieldValue,
+  EmailAttachment,
   EmailTemplate,
   ImportLeadResult,
   Icp,
@@ -61,6 +62,7 @@ type EmailMessage = {
   error: string | null;
   created_at: string;
   created_by: string | null;
+  attachment_ids: string[];
 };
 
 type SmsMessage = {
@@ -306,12 +308,28 @@ export type Database = {
           subject: string;
           body: string;
           created_by?: string | null;
+          attachment_ids?: string[];
         },
         {
           name?: string;
           subject?: string;
           body?: string;
           updated_at?: string;
+          attachment_ids?: string[];
+        }
+      >;
+      email_attachments: TableDef<
+        EmailAttachment,
+        {
+          name: string;
+          storage_path: string;
+          size_bytes: number;
+          mime_type?: string;
+          active?: boolean;
+        },
+        {
+          name?: string;
+          active?: boolean;
         }
       >;
       email_messages: TableDef<
@@ -328,6 +346,7 @@ export type Database = {
           provider_ref?: string | null;
           error?: string | null;
           created_by?: string | null;
+          attachment_ids?: string[];
         },
         {
           status?: EmailMessage["status"];

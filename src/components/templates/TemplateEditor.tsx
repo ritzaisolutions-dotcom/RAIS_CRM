@@ -14,27 +14,35 @@ import {
   renderTemplate,
   type TemplateContext,
 } from "@/lib/sales/templateVars";
-import type { EmailTemplate } from "@/lib/sales/types";
+import type { EmailAttachment, EmailTemplate } from "@/lib/sales/types";
+import { AttachmentList, AttachmentPicker } from "@/components/attachments/AttachmentPicker";
+import { DocumentLibrary } from "@/components/attachments/DocumentLibrary";
 import { cn } from "@/lib/utils";
 
 const SAMPLE: TemplateContext = Object.fromEntries(
   TEMPLATE_VARIABLES.map((v) => [v.key, v.example]),
 );
 
-type Draft = { id?: string; name: string; subject: string; body: string };
+type Draft = { id?: string; name: string; subject: string; body: string; attachment_ids: string[] };
+
+const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 export function TemplateEditor({
   templates,
   senderName,
+  attachments,
 }: {
   templates: EmailTemplate[];
   senderName: string | null;
+  attachments: EmailAttachment[];
 }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(templates[0]?.id ?? null);
   const selected = templates.find((t) => t.id === selectedId) ?? null;
   const [draft, setDraft] = useState<Draft | null>(
-    selected ? { id: selected.id, name: selected.name, subject: selected.subject, body: selected.body } : null,
+    selected
+      ? { id: selected.id, name: selected.name, subject: selected.subject, body: selected.body, attachment_ids: selected.attachment_ids ?? [] }
+      : null,
   );
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -48,7 +56,7 @@ export function TemplateEditor({
 
   function select(t: EmailTemplate) {
     setSelectedId(t.id);
-    setDraft({ id: t.id, name: t.name, subject: t.subject, body: t.body });
+    setDraft({ id: t.id, name: t.name, subject: t.subject, body: t.body, attachment_ids: t.attachment_ids ?? [] });
     setError(null);
     setSaved(false);
   }
@@ -57,8 +65,8 @@ export function TemplateEditor({
     setSelectedId(null);
     setDraft(
       copyFrom
-        ? { name: `${copyFrom.name} (Kopie)`, subject: copyFrom.subject, body: copyFrom.body }
-        : { name: "", subject: "", body: "Hallo {{vorname|zusammen}},\n\n\n\nViele Grüße\n{{absender}}" },
+        ? { name: `${copyFrom.name} (Kopie)`, subject: copyFrom.subject, body: copyFrom.body, attachment_ids: copyFrom.attachment_ids }
+        : { name: "", subject: "", body: "Hallo {{vorname|zusammen}},\n\n\n\nViele Grüße\n{{absender}}", attachment_ids: [] },
     );
     setError(null);
     setSaved(false);
@@ -87,7 +95,8 @@ export function TemplateEditor({
     (!selected ||
       draft.name !== selected.name ||
       draft.subject !== selected.subject ||
-      draft.body !== selected.body);
+      draft.body !== selected.body ||
+      !sameIds(draft.attachment_ids, selected.attachment_ids ?? []));
   const rs = draft ? renderTemplate(draft.subject, sample) : null;
   const rb = draft ? renderTemplate(draft.body, sample) : null;
   const unknown = [...new Set([...(rs?.unknown ?? []), ...(rb?.unknown ?? [])])];
@@ -137,6 +146,7 @@ export function TemplateEditor({
             );
           })}
         </ul>
+        <DocumentLibrary attachments={attachments} />
       </aside>
 
       {/* Editor + Vorschau */}
@@ -165,6 +175,7 @@ export function TemplateEditor({
                     name: draft.name,
                     subject: draft.subject,
                     body: draft.body,
+                    attachment_ids: draft.attachment_ids,
                   });
                   if (res.error) {
                     setError(res.error);
@@ -237,6 +248,19 @@ export function TemplateEditor({
                   ))}
                 </div>
               </div>
+              <div>
+                <p className="mb-1.5 text-xs text-fg-muted">
+                  Standard-Anhänge — werden beim Wählen der Vorlage vorausgewählt
+                </p>
+                <AttachmentPicker
+                  attachments={attachments}
+                  selected={draft.attachment_ids}
+                  onChange={(ids) => {
+                    setDraft({ ...draft, attachment_ids: ids });
+                    setSaved(false);
+                  }}
+                />
+              </div>
               {unknown.length > 0 ? (
                 <p className="text-xs text-[var(--tone-red-fg)]">
                   Unbekannte Platzhalter: {unknown.map((u) => `{{${u}}}`).join(", ")} — beim Senden gesperrt.
@@ -303,6 +327,11 @@ export function TemplateEditor({
                 <div className="min-h-64 whitespace-pre-wrap px-4 py-3 text-[13px] leading-relaxed">
                   {rb?.text || <span className="text-fg-subtle">Noch kein Text.</span>}
                 </div>
+                {draft.attachment_ids.length ? (
+                  <div className="border-t border-line px-4 py-2.5 text-[13px]">
+                    <AttachmentList attachments={attachments} ids={draft.attachment_ids} />
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>

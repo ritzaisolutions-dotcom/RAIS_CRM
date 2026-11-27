@@ -499,6 +499,8 @@ export async function upsertEmailTemplate(input: {
   name: string;
   subject: string;
   body: string;
+  /** Nur wenn übergeben, werden die Standard-Anhänge überschrieben. */
+  attachment_ids?: string[];
 }): Promise<ActionResult> {
   const parsed = emailTemplateSchema.safeParse(input);
   if (!parsed.success) return { error: validationError(parsed.error) };
@@ -511,6 +513,7 @@ export async function upsertEmailTemplate(input: {
         subject: parsed.data.subject,
         body: parsed.data.body,
         updated_at: new Date().toISOString(),
+        ...(parsed.data.attachment_ids ? { attachment_ids: parsed.data.attachment_ids } : {}),
       })
       .eq("id", parsed.data.id);
     if (error) return { error: safeDatabaseError(error, "update-email-template") };
@@ -519,10 +522,12 @@ export async function upsertEmailTemplate(input: {
       name: parsed.data.name,
       subject: parsed.data.subject,
       body: parsed.data.body,
+      attachment_ids: parsed.data.attachment_ids ?? [],
     });
     if (error) return { error: safeDatabaseError(error, "create-email-template") };
   }
   revalidatePath("/einstellungen");
+  revalidatePath("/vorlagen");
   return { ok: true as const };
 }
 
@@ -549,10 +554,27 @@ export async function sendCompanyEmail(input: {
   subject: string;
   body: string;
   template_id?: string | null;
+  attachment_ids?: string[];
 }): Promise<ActionResult<{ status: string }>> {
   const parsed = sendEmailSchema.safeParse(input);
   if (!parsed.success) return { error: validationError(parsed.error) };
   const supabase = await createClient();
+
+  const attachmentIds = [...new Set(parsed.data.attachment_ids ?? [])];
+  let attachmentNames: string[] = [];
+  if (attachmentIds.length) {
+    const { data: atts, error: attError } = await supabase
+      .from("email_attachments")
+      .select("id,name")
+      .in("id", attachmentIds)
+      .eq("active", true);
+    if (attError) return { error: safeDatabaseError(attError, "email-attachments") };
+    if ((atts ?? []).length !== attachmentIds.length) {
+      return { error: "Ein Anhang wurde entfernt. Bitte Auswahl prüfen." };
+    }
+    const byId = new Map((atts ?? []).map((a) => [a.id, a.name]));
+    attachmentNames = attachmentIds.map((id) => byId.get(id) ?? "");
+  }
 
   const { data: inserted, error: insertError } = await supabase
     .from("email_messages")
@@ -566,6 +588,7 @@ export async function sendCompanyEmail(input: {
       body: parsed.data.body,
       status: "queued",
       error: null,
+      attachment_ids: attachmentIds,
     })
     .select("id")
     .single();
@@ -588,7 +611,9 @@ export async function sendCompanyEmail(input: {
     p_kanal: "email",
     p_ergebnis: "kein_ergebnis",
     p_person_id: parsed.data.person_id ?? null,
-    p_notiz: `E-Mail (${statusNote}) an ${parsed.data.to_email}: ${parsed.data.subject}\n\n${parsed.data.body}`,
+    p_notiz: `E-Mail (${statusNote}) an ${parsed.data.to_email}: ${parsed.data.subject}\n\n${parsed.data.body}${
+      attachmentNames.length ? `\n\nAnhänge: ${attachmentNames.join(", ")}` : ""
+    }`,
     p_naechster: null,
     p_abbruch: null,
   });

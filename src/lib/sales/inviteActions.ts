@@ -10,7 +10,7 @@ import { validationError } from "@/lib/sales/validation";
 import { businessDayStart } from "@/lib/sales/dates";
 import type { CalendarEvent } from "@/lib/sales/plan";
 import { senderDisplayName } from "@/lib/sales/mail";
-import type { Person } from "@/lib/sales/types";
+import type { EmailAttachment, Person } from "@/lib/sales/types";
 
 /**
  * „Termin einladen“: du wählst Datum/Uhrzeit, das CRM legt den Termin im
@@ -79,6 +79,8 @@ export type InviteContext = {
   people: Person[];
   senderName: string | null;
   asanaConfigured: boolean;
+  /** Hinterlegte PDF-Dokumente zum Anhängen. */
+  attachments: EmailAttachment[];
 };
 
 /** Alles, was der Einladungs-Dialog braucht, wenn er aus der Leads-Liste geöffnet wird. */
@@ -87,7 +89,7 @@ export async function fetchInviteContext(
 ): Promise<InviteContext | { error: string }> {
   if (!z.string().uuid().safeParse(companyId).success) return { error: "Ungültiger Lead." };
   const supabase = await createClient();
-  const [{ data: company }, { data: people, error }] = await Promise.all([
+  const [{ data: company }, { data: people, error }, { data: attachments }] = await Promise.all([
     supabase.from("companies").select("id,name,stadt,website").eq("id", companyId).maybeSingle(),
     supabase
       .from("people")
@@ -95,6 +97,11 @@ export async function fetchInviteContext(
       .eq("company_id", companyId)
       .order("ist_entscheider", { ascending: false })
       .order("created_at"),
+    supabase
+      .from("email_attachments")
+      .select("id,name,storage_path,size_bytes,mime_type,active,created_at")
+      .eq("active", true)
+      .order("name"),
   ]);
   if (!company) return { error: "Lead nicht gefunden." };
   if (error) return { error: "Kontakte konnten nicht geladen werden." };
@@ -107,6 +114,7 @@ export async function fetchInviteContext(
     people: (people ?? []) as Person[],
     senderName: senderDisplayName(),
     asanaConfigured: asanaConfigured(),
+    attachments: (attachments ?? []) as EmailAttachment[],
   };
 }
 
@@ -189,6 +197,7 @@ const inviteSchema = z.object({
   body: z.string().trim().min(1).max(10000),
   sendGoogleInvite: z.boolean(),
   toAsana: z.boolean(),
+  attachmentIds: z.array(z.string().uuid()).max(5).optional(),
 });
 
 const labelFmt = new Intl.DateTimeFormat("de-DE", {
@@ -250,6 +259,7 @@ export async function sendCalendarInvite(
     to_email: d.toEmail,
     subject: fill(d.subject),
     body: fill(d.body),
+    attachment_ids: d.attachmentIds ?? [],
   });
   const emailStatus = mail.error ? "failed" : (mail.status ?? "queued");
 

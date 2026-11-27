@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogFooter } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 import { Tooltip } from "@/components/ui/menu";
 import { AiDraftButton } from "@/components/lead/AiDraftButton";
+import { AttachmentList, AttachmentPicker } from "@/components/attachments/AttachmentPicker";
 import { upsertPerson } from "@/lib/sales/actions";
 import {
   fetchBusyForDay,
@@ -169,6 +170,7 @@ function InviteWizard({ ctx, onClose }: { ctx: InviteContext; onClose: () => voi
   const [preview, setPreview] = useState(false);
   const [googleInvite, setGoogleInvite] = useState(true);
   const [toAsana, setToAsana] = useState(true);
+  const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
 
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ meetLink: string | null; htmlLink: string | null; warning?: string } | null>(null);
@@ -291,6 +293,7 @@ function InviteWizard({ ctx, onClose }: { ctx: InviteContext; onClose: () => voi
         body: rb.text,
         sendGoogleInvite: googleInvite,
         toAsana: ctx.asanaConfigured && toAsana,
+        attachmentIds,
       });
       if ("error" in res) {
         setError(res.error);
@@ -474,6 +477,11 @@ function InviteWizard({ ctx, onClose }: { ctx: InviteContext; onClose: () => voi
                 ) : (
                   <Textarea rows={10} value={body} onChange={(e) => setBody(e.target.value)} required />
                 )}
+                <AttachmentPicker
+                  attachments={ctx.attachments}
+                  selected={attachmentIds}
+                  onChange={setAttachmentIds}
+                />
                 {missing.length || unknown.length ? (
                   <p className="text-xs text-[var(--tone-red-fg)]">
                     {missing.length ? `Fehlende Werte: ${missing.map((m) => `{{${m}}}`).join(", ")}. ` : ""}
@@ -517,6 +525,10 @@ function InviteWizard({ ctx, onClose }: { ctx: InviteContext; onClose: () => voi
                       <dd>Aufgabe wird angelegt</dd>
                     </>
                   ) : null}
+                  <dt className="text-fg-muted">Anhänge</dt>
+                  <dd>
+                    <AttachmentList attachments={ctx.attachments} ids={attachmentIds} />
+                  </dd>
                   <dt className="text-fg-muted">Danach</dt>
                   <dd className="text-fg-muted">Status „Termin gebucht“, Wiedervorlage am Termintag, Eintrag im Verlauf</dd>
                 </dl>

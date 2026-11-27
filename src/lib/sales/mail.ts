@@ -66,6 +66,7 @@ export async function sendSmtpMail(input: {
   to: string;
   subject: string;
   text: string;
+  attachments?: { filename: string; content: Buffer; contentType: string }[];
 }): Promise<{ ok: true; messageId: string } | { ok: false; error: string }> {
   const cfg = getSmtpConfig();
   if (!cfg) {
@@ -83,6 +84,7 @@ export async function sendSmtpMail(input: {
       to: input.to,
       subject: input.subject,
       text: input.text,
+      attachments: input.attachments?.length ? input.attachments : undefined,
     });
     return { ok: true, messageId: String(info.messageId ?? "") };
   } catch (e) {
