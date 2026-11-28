@@ -9,6 +9,7 @@ import {
   type LeadViewKey,
 } from "@/lib/sales/leads";
 import { applyLeadViewFilter as applyView } from "@/lib/sales/leadViewFilters";
+import { applyLeadColumnFilters, type LeadColumnFilters } from "@/lib/sales/leadColumnFilters";
 import type { LeadQuelle, LeadRow } from "@/lib/sales/types";
 
 export { LEADS_PAGE_SIZE };
@@ -27,6 +28,8 @@ export type LeadFilters = {
   /** 50 / 100 / 200 — alles andere fällt auf LEADS_PAGE_SIZE zurück. */
   pageSize?: number;
   listId?: string;
+  /** Spaltenfilter (ICP, Status, Wiedervorlage …) zusätzlich zur Ansicht. */
+  columns?: LeadColumnFilters;
 };
 
 export type LeadsResult = {
@@ -55,6 +58,7 @@ export async function fetchLeads(filters: LeadFilters): Promise<LeadsResult> {
     : supabase.from("v_leads").select(LEAD_COLUMNS, { count: "exact" });
 
   query = applyView(query, filters.view, today);
+  if (filters.columns) query = applyLeadColumnFilters(query, filters.columns, today);
 
   if (filters.quelle) query = query.eq("quelle", filters.quelle);
   if (filters.kategorie === "kunde") query = query.eq("relationship", "Kunde");

@@ -10,6 +10,7 @@ import {
   parseLeadView,
   type LeadViewKey,
 } from "@/lib/sales/leads";
+import { parseLeadColumnFilters } from "@/lib/sales/leadColumnFilters";
 import { fetchLeadLists } from "@/lib/sales/queries";
 import { LEAD_QUELLEN, type LeadQuelle } from "@/lib/sales/types";
 import { cn } from "@/lib/utils";
@@ -31,10 +32,12 @@ const VIEW_DOT: Partial<Record<LeadViewKey, string>> = {
   icp_raus: "bg-[var(--tone-red-fg)] opacity-50",
 };
 
-function hrefFor(view: LeadViewKey, listId?: string, size?: number) {
+function hrefFor(view: LeadViewKey, listId?: string, size?: number, icp?: string) {
   const p = new URLSearchParams();
   if (view !== "alle") p.set("view", view);
   if (listId) p.set("list", listId);
+  // ICP-Filter gilt über Ansichten hinweg („Neu“ + ICP ja).
+  if (icp) p.set("icp", icp);
   // Gewählte Seitengröße beim Ansichtswechsel behalten.
   if (size && size !== parseLeadPageSize(undefined)) p.set("size", String(size));
   const s = p.toString();
@@ -53,6 +56,13 @@ export default async function LeadsPage({
     page?: string;
     size?: string;
     list?: string;
+    icp?: string;
+    st?: string;
+    wv?: string;
+    kv?: string;
+    ap?: string;
+    crm?: string;
+    lk?: string;
   }>;
 }) {
   const params = await searchParams;
@@ -64,6 +74,7 @@ export default async function LeadsPage({
   const page = Math.max(1, Math.floor(Number(params.page) || 1));
   const pageSize = parseLeadPageSize(params.size);
   const q = params.q?.trim() ?? "";
+  const columns = parseLeadColumnFilters(params);
 
   const [lists, counts, dueCount] = await Promise.all([
     fetchLeadLists(),
@@ -76,7 +87,7 @@ export default async function LeadsPage({
     | "kontakt"
     | "kunde"
     | "";
-  const result = await fetchLeads({ view, q, quelle, kategorie, sort, page, pageSize, listId });
+  const result = await fetchLeads({ view, q, quelle, kategorie, sort, page, pageSize, listId, columns });
 
   const viewLabel = LEAD_VIEWS.find((v) => v.key === view)?.label ?? "Leads";
   const activeList = lists.find((l) => l.id === listId);
@@ -104,7 +115,7 @@ export default async function LeadsPage({
                   return (
                     <li key={v.key}>
                       <LeadsNavLink
-                        href={hrefFor(v.key, listId, pageSize)}
+                        href={hrefFor(v.key, listId, pageSize, columns.icp)}
                         className={cn(
                           "flex h-7 items-center gap-2 rounded-md px-2 text-[13px] transition-colors",
                           active
@@ -147,7 +158,7 @@ export default async function LeadsPage({
                     return (
                       <li key={l.id}>
                         <LeadsNavLink
-                          href={hrefFor(view, active ? undefined : l.id, pageSize)}
+                          href={hrefFor(view, active ? undefined : l.id, pageSize, columns.icp)}
                           className={cn(
                             "flex h-7 items-center gap-2 rounded-md px-2 text-[13px] transition-colors",
                             active
@@ -175,7 +186,7 @@ export default async function LeadsPage({
               {LEAD_VIEWS.map((v) => (
                 <LeadsNavLink
                   key={v.key}
-                  href={hrefFor(v.key, listId, pageSize)}
+                  href={hrefFor(v.key, listId, pageSize, columns.icp)}
                   className={cn(
                     "shrink-0 rounded-md px-2 py-1 text-xs",
                     v.key === view ? "bg-surface-2 font-medium text-fg" : "text-fg-muted",
@@ -193,6 +204,7 @@ export default async function LeadsPage({
               q={q}
               quelle={quelle}
               kategorie={kategorie}
+              columns={columns}
               sort={sort}
               lists={lists}
               viewLabel={viewLabel}
