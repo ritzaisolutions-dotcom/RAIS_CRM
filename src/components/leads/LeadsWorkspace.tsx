@@ -6,6 +6,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   ArrowUpDown,
+  ChevronDown,
+  Filter,
   ChevronLeft,
   ChevronRight,
   FileUp,
@@ -46,6 +48,7 @@ import {
 import { addCompaniesToList, bulkSetPipelineStatus } from "@/lib/sales/actions";
 import { setWiedervorlage } from "@/lib/sales/leadActions";
 import { businessToday } from "@/lib/sales/dates";
+import { rememberLeadsUrl } from "@/lib/sales/leadsReturn";
 import {
   FOLLOW_UP_QUICK,
   KATEGORIEN,
@@ -69,6 +72,18 @@ import {
   type LeadRow,
   type PipelineStatus,
 } from "@/lib/sales/types";
+import {
+  AP_FILTER,
+  COLUMN_FILTER_PARAMS,
+  CRM_FILTER,
+  hasColumnFilters,
+  ICP_FILTER,
+  KONTAKTE_FILTER,
+  LK_FILTER,
+  STATUS_FILTER,
+  WV_FILTER,
+  type LeadColumnFilters,
+} from "@/lib/sales/leadColumnFilters";
 import { cn } from "@/lib/utils";
 
 export function LeadsWorkspace({
@@ -79,6 +94,7 @@ export function LeadsWorkspace({
   q,
   quelle,
   kategorie,
+  columns,
   sort,
   lists,
   viewLabel,
@@ -90,6 +106,7 @@ export function LeadsWorkspace({
   q: string;
   quelle: LeadQuelle | "";
   kategorie: "lead" | "kontakt" | "kunde" | "";
+  columns: LeadColumnFilters;
   sort: LeadSortKey;
   lists: LeadList[];
   viewLabel: string;
@@ -142,6 +159,12 @@ export function LeadsWorkspace({
     // "full" lädt auch die Daten der dynamischen Seite, nicht nur die Hülle.
     router.prefetch(nextHref, { kind: "full" } as unknown as Parameters<typeof router.prefetch>[1]);
   }, [nextHref, router]);
+
+  // Aktuelle Liste (Ansicht, Filter, Seite) merken — der Zurück-Pfeil im Lead führt hierher.
+  const paramsKey = params.toString();
+  useEffect(() => {
+    rememberLeadsUrl(paramsKey ? `${pathname}?${paramsKey}` : pathname);
+  }, [pathname, paramsKey]);
 
   // Suche mit kurzer Verzögerung in die URL schreiben.
   useEffect(() => {
@@ -209,11 +232,35 @@ export function LeadsWorkspace({
   const someChecked = selected.size > 0 && !allChecked;
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
-  const filtersActive = Boolean(q || quelle || kategorie);
+  const filtersActive = Boolean(q || quelle || kategorie || hasColumnFilters(columns));
   const sortLabel = useMemo(
     () => LEAD_SORTS.find((s) => s.key === sort)?.label ?? "Wiedervorlage",
     [sort],
   );
+
+  const P = COLUMN_FILTER_PARAMS;
+  const headers: {
+    label: string;
+    filter?: { param: string; value: string; options: readonly { key: string; label: string }[] };
+  }[] = [
+    { label: "Lead" },
+    { label: "Status", filter: { param: P.status, value: columns.status ?? "", options: STATUS_FILTER } },
+    { label: "Wiedervorlage", filter: { param: P.wv, value: columns.wv ?? "", options: WV_FILTER } },
+    { label: "Kontakte · Kontaktweg", filter: { param: P.kontakte, value: columns.kontakte ?? "", options: KONTAKTE_FILTER } },
+    { label: "Ansprechpartner", filter: { param: P.ap, value: columns.ap ?? "", options: AP_FILTER } },
+    {
+      label: "Quelle",
+      filter: {
+        param: "quelle",
+        value: quelle,
+        options: LEAD_QUELLEN.map((x) => ({ key: x, label: LEAD_QUELLE_LABELS[x] })),
+      },
+    },
+    { label: "CRM", filter: { param: P.crm, value: columns.crm ?? "", options: CRM_FILTER } },
+    { label: "Letzter Kontakt", filter: { param: P.lk, value: columns.lk ?? "", options: LK_FILTER } },
+    { label: "Links" },
+    { label: "" },
+  ];
 
   function runBulk(label: string, fn: (ids: string[]) => Promise<number>) {
     const ids = [...selected];
@@ -253,6 +300,29 @@ export function LeadsWorkspace({
             <Kbd className="absolute right-2 top-1/2 -translate-y-1/2">/</Kbd>
           )}
         </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant={columns.icp ? "secondary" : "outline"} size="sm">
+              <ListFilter />
+              {columns.icp ? ICP_FILTER.find((o) => o.key === columns.icp)?.label : "ICP"}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuLabel>ICP-Bewertung</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={columns.icp ?? ""}
+              onValueChange={(v) => setParam({ [COLUMN_FILTER_PARAMS.icp]: v || null })}
+            >
+              <DropdownMenuRadioItem value="">Alle</DropdownMenuRadioItem>
+              {ICP_FILTER.map((o) => (
+                <DropdownMenuRadioItem key={o.key} value={o.key}>
+                  {o.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -325,7 +395,12 @@ export function LeadsWorkspace({
             size="sm"
             onClick={() => {
               setSearch("");
-              setParam({ q: null, quelle: null, kat: null });
+              setParam({
+                q: null,
+                quelle: null,
+                kat: null,
+                ...Object.fromEntries(Object.values(COLUMN_FILTER_PARAMS).map((k) => [k, null])),
+              });
             }}
           >
             Filter zurücksetzen
@@ -357,7 +432,7 @@ export function LeadsWorkspace({
             title={filtersActive ? "Keine Treffer" : `Keine Leads in „${viewLabel}"`}
             description={
               filtersActive
-                ? "Passe Suche oder Quelle an."
+                ? "Passe Suche oder Filter an."
                 : "Lege einen Lead an oder importiere eine CSV-Liste."
             }
             action={
@@ -387,16 +462,23 @@ export function LeadsWorkspace({
                     }
                   />
                 </th>
-                {["Lead", "Status", "Wiedervorlage", "Kontakte · Kontaktweg", "Ansprechpartner", "Quelle", "CRM", "Letzter Kontakt", "Links", ""].map(
-                  (h, i) => (
-                    <th
-                      key={i}
-                      className="sticky top-0 z-10 h-9 border-b border-line bg-surface-2 px-3 text-[11.5px] font-medium text-fg-muted"
-                    >
-                      {h}
-                    </th>
-                  ),
-                )}
+                {headers.map((h, i) => (
+                  <th
+                    key={i}
+                    className="sticky top-0 z-10 h-9 border-b border-line bg-surface-2 px-3 text-[11.5px] font-medium text-fg-muted"
+                  >
+                    {h.filter ? (
+                      <ColumnFilter
+                        label={h.label}
+                        options={h.filter.options}
+                        value={h.filter.value}
+                        onChange={(v) => setParam({ [h.filter!.param]: v || null })}
+                      />
+                    ) : (
+                      h.label
+                    )}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -742,5 +824,48 @@ export function LeadsWorkspace({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** Spaltenkopf mit Filter-Dropdown; aktiver Filter wird hervorgehoben. */
+function ColumnFilter({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: readonly { key: string; label: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const active = options.find((o) => o.key === value);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "-mx-1.5 inline-flex h-6 items-center gap-1 rounded px-1.5 transition-colors hover:bg-surface-3 hover:text-fg",
+            active && "bg-accent-soft text-accent-fg hover:bg-accent-soft",
+          )}
+          aria-label={`${label} filtern`}
+        >
+          <span className="truncate">{active ? `${label}: ${active.label}` : label}</span>
+          {active ? <Filter className="size-3" /> : <ChevronDown className="size-3 opacity-60" />}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuLabel>{label} filtern</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
+          <DropdownMenuRadioItem value="">Alle</DropdownMenuRadioItem>
+          {options.map((o) => (
+            <DropdownMenuRadioItem key={o.key} value={o.key}>
+              {o.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
