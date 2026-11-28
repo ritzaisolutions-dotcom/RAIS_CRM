@@ -601,6 +601,11 @@ export type Database = {
         Args: Record<string, never>;
         Returns: Json;
       };
+      /** Statistik-Seite: Funnel, Kanäle, Quellen, ICP und Verlauf (Berliner Tage, [from, to)). */
+      lead_stats: {
+        Args: { p_from: string; p_to: string; p_grain?: string };
+        Returns: Json;
+      };
       create_company: {
         Args: {
           p_name: string;

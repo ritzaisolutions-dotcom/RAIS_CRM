@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  BarChart3,
   BellRing,
   CalendarDays,
   FileUp,
@@ -98,6 +99,7 @@ export function EfferdShell({
       match: ["/todos"],
     },
     { href: "/plan", label: "Plan", icon: CalendarDays },
+    { href: "/statistik", label: "Statistik", icon: BarChart3 },
     { href: "/import", label: "Import", icon: FileUp },
     { href: "/vorlagen", label: "E-Mail-Vorlagen", icon: Mail },
   ];
