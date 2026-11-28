@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { readLeadsUrl } from "@/lib/sales/leadsReturn";
 import { ChevronLeft, Ellipsis, Mail, MapPin, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -97,6 +98,12 @@ export function LeadDetail({
   const [tab, setTab] = useState<ComposerTab>(initialTab);
   const [emailPersonId, setEmailPersonId] = useState<string | null>(null);
   const [adminPending, startAdmin] = useTransition();
+  // Zurück zur Liste, von der man kam (Ansicht, Filter, Seite); sonst Standard-Ansicht.
+  const [backHref, setBackHref] = useState(company.relationship === "Kunde" ? "/leads?view=kunden" : "/leads");
+  useEffect(() => {
+    const last = readLeadsUrl();
+    if (last) setBackHref(last);
+  }, []);
 
   const main = people.find((p) => p.ist_entscheider) ?? people[0];
   const dialNumber = main?.telefon || company.telefon;
@@ -136,7 +143,7 @@ export function LeadDetail({
       {/* Kopfzeile */}
       <header className="flex min-h-14 flex-wrap items-center gap-3 border-b border-line bg-surface px-4 py-2">
         <Button variant="ghost" size="icon-sm" asChild>
-          <Link href={company.relationship === "Kunde" ? "/leads?view=kunden" : "/leads"} aria-label="Zurück zu den Leads">
+          <Link href={backHref} aria-label="Zurück zu den Leads">
             <ChevronLeft />
           </Link>
         </Button>

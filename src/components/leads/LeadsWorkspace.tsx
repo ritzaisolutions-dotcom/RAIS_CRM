@@ -48,6 +48,7 @@ import {
 import { addCompaniesToList, bulkSetPipelineStatus } from "@/lib/sales/actions";
 import { setWiedervorlage } from "@/lib/sales/leadActions";
 import { businessToday } from "@/lib/sales/dates";
+import { rememberLeadsUrl } from "@/lib/sales/leadsReturn";
 import {
   FOLLOW_UP_QUICK,
   KATEGORIEN,
@@ -158,6 +159,12 @@ export function LeadsWorkspace({
     // "full" lädt auch die Daten der dynamischen Seite, nicht nur die Hülle.
     router.prefetch(nextHref, { kind: "full" } as unknown as Parameters<typeof router.prefetch>[1]);
   }, [nextHref, router]);
+
+  // Aktuelle Liste (Ansicht, Filter, Seite) merken — der Zurück-Pfeil im Lead führt hierher.
+  const paramsKey = params.toString();
+  useEffect(() => {
+    rememberLeadsUrl(paramsKey ? `${pathname}?${paramsKey}` : pathname);
+  }, [pathname, paramsKey]);
 
   // Suche mit kurzer Verzögerung in die URL schreiben.
   useEffect(() => {
