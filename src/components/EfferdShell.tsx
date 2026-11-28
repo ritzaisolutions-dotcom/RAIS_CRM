@@ -14,6 +14,7 @@ import {
   PanelLeftOpen,
   Search,
   Settings,
+  Sparkles,
   Users,
 } from "lucide-react";
 import { GlobalSearch } from "@/components/GlobalSearch";
@@ -98,6 +99,7 @@ export function EfferdShell({
       match: ["/todos"],
     },
     { href: "/plan", label: "Plan", icon: CalendarDays },
+    { href: "/ki", label: "KI-Chat", icon: Sparkles },
     { href: "/import", label: "Import", icon: FileUp },
     { href: "/vorlagen", label: "E-Mail-Vorlagen", icon: Mail },
   ];
